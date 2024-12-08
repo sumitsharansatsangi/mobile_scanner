@@ -15,6 +15,7 @@ class StartOptions {
     required this.returnImage,
     required this.torchEnabled,
     required this.useNewCameraSelector,
+      required this.enableAutoZoom,
     required this.shouldConsiderInvertedImages,
   });
 
@@ -47,6 +48,11 @@ class StartOptions {
   /// This option is only supported on Android. Other platforms will ignore this option.
   final bool useNewCameraSelector;
 
+  /// Whether the Camera should auto zoom.
+  ///
+  /// This option is only supported on Android. Other platforms will ignore this option.
+  final bool enableAutoZoom;
+
   Map<String, Object?> toMap() {
     return <String, Object?>{
       if (cameraResolution != null)
@@ -62,6 +68,7 @@ class StartOptions {
       'timeout': detectionTimeoutMs,
       'torch': torchEnabled,
       'useNewCameraSelector': useNewCameraSelector,
+       'autoZoom' : enableAutoZoom,
       'shouldConsiderInvertedImages': shouldConsiderInvertedImages,
     };
   }

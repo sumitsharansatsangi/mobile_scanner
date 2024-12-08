@@ -543,6 +543,11 @@ class MobileScanner(
         }
     }
 
+      fun setZoomRatio(zoomRatio: Double) {
+        if (camera == null) throw ZoomWhenStopped()
+        camera?.cameraControl?.setZoomRatio(zoomRatio.toFloat())
+    }
+
     /**
      * Set the zoom rate of the camera.
      */
