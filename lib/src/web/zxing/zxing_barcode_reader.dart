@@ -52,7 +52,7 @@ final class ZXingBarcodeReader extends BarcodeReader {
   }
 
   @override
-  String get scriptUrl => 'https://unpkg.com/@zxing/library@0.19.1';
+  String get scriptUrl => 'https://unpkg.com/@zxing/library@0.21.3';
 
   JSMap? _createReaderHints(List<BarcodeFormat> formats) {
     if (formats.isEmpty || formats.contains(BarcodeFormat.all)) {
@@ -166,6 +166,18 @@ final class ZXingBarcodeReader extends BarcodeReader {
     );
 
     await _prepareVideoElement(videoElement, videoStream);
+  }
+
+  @override
+  bool? get paused => _reader?.videoElement?.paused;
+
+  @override
+  void pause() => _reader?.videoElement?.pause();
+
+  @override
+  Future<void> resume() async {
+    final result = _reader?.videoElement?.play();
+    await result?.toDart;
   }
 
   @override

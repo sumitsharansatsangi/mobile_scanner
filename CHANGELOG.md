@@ -1,5 +1,23 @@
-## 6.0.2
+## 6.0.6
+Bugs fixed:
+* [web] Fixed a bug that prevented color inverted barcodes from being scanned.
 
+Improvements:
+* [web] Bump ZXingJS from version 0.19.1 to 0.21.3.
+
+## 6.0.5
+Bugs fixed:
+* [Android] Fixed crash due to imageProxy being closed too early.
+
+## 6.0.4
+Bugs fixed:
+* [Android] Fixed UI stutter when `returnImage` is true.
+
+## 6.0.3
+New features:
+* Adds pause function to pause the camera but keep textures in place.
+
+## 6.0.2
 Bugs fixed:
 * Fixed a bug that prevented `analyzeImage` from actually accepting the configured formats.
 
@@ -7,7 +25,6 @@ Improvements:
 * [iOS] Excluded the `arm64` architecture for Simulators, which is unsupported by MLKit 7.0.0.
 
 ## 6.0.1
-
 Bugs fixed:
 * Fixed a bug that would cause onDetect to not handle errors.
 

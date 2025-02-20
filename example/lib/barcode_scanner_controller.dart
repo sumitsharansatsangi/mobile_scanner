@@ -100,12 +100,13 @@ class _BarcodeScannerWithControllerState
             child: Container(
               alignment: Alignment.bottomCenter,
               height: 100,
-              color: Colors.black.withOpacity(0.4),
+              color: const Color.fromRGBO(0, 0, 0, 0.4),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   ToggleFlashlightButton(controller: controller),
                   StartStopMobileScannerButton(controller: controller),
+                  PauseMobileScannerButton(controller: controller),
                   Expanded(child: Center(child: _buildBarcode(_barcode))),
                   SwitchCameraButton(controller: controller),
                   AnalyzeImageFromGalleryButton(controller: controller),
