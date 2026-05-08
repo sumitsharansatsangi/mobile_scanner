@@ -521,7 +521,18 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
       _setupListeners();
 
       final viewAttributes = await MobileScannerPlatform.instance.start(
+        hashCode,
         options,
+        startRequest: () async {
+          // Called on next frame to ensure no dispose will be scheduled
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (_isDisposed) {
+              return;
+            }
+            await start();
+          });
+        },
+        stopRequest: stop,
       );
 
       if (!_isDisposed) {
@@ -808,7 +819,7 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
     unawaited(_barcodesController.close());
     super.dispose();
 
-    await MobileScannerPlatform.instance.dispose();
+    await MobileScannerPlatform.instance.dispose(hashCode);
   }
 
   /// Signal to this [MobileScannerController] that it is attached

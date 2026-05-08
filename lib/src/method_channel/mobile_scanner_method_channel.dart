@@ -109,30 +109,72 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     'dev.steenbakker.mobile_scanner/scanner/event',
   );
 
-  Stream<DeviceOrientation>? _deviceOrientationStream;
-  Stream<Map<Object?, Object?>>? _eventsStream;
+
+  StreamController<DeviceOrientation>? _deviceOrientationStreamController;
+  StreamController<Map<Object?, Object?>>? _eventsStreamController;
+  StreamSubscription<Object?>? _deviceOrientationSubscription;
+  StreamSubscription<Object?>? _eventsSubscription;
 
   /// Get the event stream of device orientation change events
   /// that come from the [deviceOrientationEventChannel].
   Stream<DeviceOrientation> get deviceOrientationChangedStream {
-    _deviceOrientationStream ??= deviceOrientationEventChannel
-        .receiveBroadcastStream()
-        .cast<String>()
-        .map((orientation) => orientation.parseDeviceOrientation());
+    if (_deviceOrientationStreamController == null) {
+      _deviceOrientationStreamController =
+          StreamController<DeviceOrientation>.broadcast();
+      _deviceOrientationSubscription = deviceOrientationEventChannel
+          .receiveBroadcastStream()
+          .cast<String>()
+          .map((orientation) => orientation.parseDeviceOrientation())
+          .listen(
+            (orientation) {
+              if (!(_deviceOrientationStreamController?.isClosed ?? true)) {
+                _deviceOrientationStreamController!.add(orientation);
+              }
+            },
+            onError: (Object error) {
+              if (!(_deviceOrientationStreamController?.isClosed ?? true)) {
+                _deviceOrientationStreamController!.addError(error);
+              }
+            },
+            cancelOnError: false,
+          );
+    }
 
-    return _deviceOrientationStream!;
+    return _deviceOrientationStreamController!.stream;
   }
 
   /// Get the event stream of barcode events that come from the [eventChannel].
   Stream<Map<Object?, Object?>> get eventsStream {
-    _eventsStream ??=
-        eventChannel.receiveBroadcastStream().cast<Map<Object?, Object?>>();
+    if (_eventsStreamController == null) {
+      _eventsStreamController =
+          StreamController<Map<Object?, Object?>>.broadcast();
+      _eventsSubscription = eventChannel
+          .receiveBroadcastStream()
+          .cast<Map<Object?, Object?>>()
+          .listen(
+            (event) {
+              if (!(_eventsStreamController?.isClosed ?? true)) {
+                _eventsStreamController!.add(event);
+              }
+            },
+            onError: (Object error) {
+              if (!(_eventsStreamController?.isClosed ?? true)) {
+                _eventsStreamController!.addError(error);
+              }
+            },
+            cancelOnError: false,
+          );
+    }
 
-    return _eventsStream!;
+    return _eventsStreamController!.stream;
   }
 
   /// The delegate that handles texture rotation corrections on Android.
   AndroidSurfaceProducerDelegate? _surfaceProducerDelegate;
+
+  /// Buffer of active camera instances
+  final Map<int, (Future<void> Function() start, Future<void> Function() stop)>
+      _instances = {};
 
   /// The identifier of the current texture.
   int? _textureId;
@@ -348,7 +390,20 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
   }
 
   @override
-  Future<MobileScannerViewAttributes> start(StartOptions startOptions) async {
+  Future<MobileScannerViewAttributes> start(
+    int id,
+    StartOptions startOptions, {
+    required Future<void> Function() startRequest,
+    required Future<void> Function() stopRequest,
+  }) async {
+    for (final instance in _instances.entries) {
+      await instance.value.$2();
+    }
+    _instances[id] = (
+      startRequest,
+      stopRequest,
+    );
+
     if (!_pausing && _textureId != null) {
       throw MobileScannerException(
         errorCode: MobileScannerErrorCode.controllerAlreadyInitialized,
@@ -457,8 +512,20 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     _textureId = null;
     _pausing = false;
     _surfaceProducerDelegate = null;
-    _eventsStream = null;
-    _deviceOrientationStream = null;
+
+    await Future.wait(
+      [
+        _eventsSubscription?.cancel(),
+        _deviceOrientationSubscription?.cancel(),
+        _eventsStreamController?.close(),
+        _deviceOrientationStreamController?.close(),
+      ].nonNulls,
+    );
+
+    _eventsSubscription = null;
+    _deviceOrientationSubscription = null;
+    _eventsStreamController = null;
+    _deviceOrientationStreamController = null;
 
     await methodChannel.invokeMethod<void>(kStopCameraMethodName, {
       'force': force,
@@ -514,8 +581,22 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
   }
 
   @override
-  Future<void> dispose() async {
+  Future<void> dispose(int id) async {
+    _instances.remove(id);
+
     await updateScanWindow(null);
     await stop();
+
+    /// On native side, only one camera instance can be active, if we want
+    /// to dispose the current camera and an other one is already up, we should
+    /// not try to impact the native camera once again.
+    ///
+    /// If there is another camera instance available, let's trigger it
+    /// (stop & start) to resume the camera instance.
+    if (_instances.isNotEmpty) {
+      final last = _instances.entries.last;
+      await last.value.$1();
+      return;
+    }
   }
 }

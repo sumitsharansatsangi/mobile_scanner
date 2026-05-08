@@ -57,7 +57,7 @@ class FakeMobileScannerPlatform extends MobileScannerPlatform {
   }
 
   @override
-  Future<void> dispose() {
+  Future<void> dispose(int id) {
     // No-op.
     return Future.value();
   }

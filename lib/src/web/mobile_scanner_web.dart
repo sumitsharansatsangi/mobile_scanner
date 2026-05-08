@@ -285,7 +285,12 @@ class MobileScannerWeb extends MobileScannerPlatform {
   }
 
   @override
-  Future<MobileScannerViewAttributes> start(StartOptions startOptions) async {
+  Future<MobileScannerViewAttributes> start(
+    int id,
+    StartOptions startOptions, {
+    required Future<void> Function() startRequest,
+    required Future<void> Function() stopRequest,
+  }) async {
     if (_barcodeReader != null) {
       if (_barcodeReader!.paused ?? false) {
         await _barcodeReader?.resume();
@@ -435,7 +440,7 @@ class MobileScannerWeb extends MobileScannerPlatform {
   }
 
   @override
-  Future<void> dispose() async {
+  Future<void> dispose(int id) async {
     // The `_barcodesController` and `_settingsController`
     // are not closed, as these have the same lifetime as the plugin.
     await stop();

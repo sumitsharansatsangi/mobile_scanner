@@ -188,6 +188,23 @@ await controller.switchCamera(
 final supportedLenses = await controller.getSupportedLenses();
 ```
 
+#### Multi-Camera Instance Handling
+
+The scanner now supports multiple `MobileScannerController` instances running simultaneously without conflicts. Each controller is automatically managed to prevent resource conflicts and high CPU usage.
+
+```dart
+// Multiple controllers can run independently
+final controller1 = MobileScannerController();
+final controller2 = MobileScannerController();
+
+// Both can start scanning without interfering with each other
+await controller1.start();
+await controller2.start();
+
+// When one controller is disposed, the other continues running
+await controller1.dispose(); // controller2 remains active
+```
+
 #### Manual Focus Control
 ```dart
 // Set focus point (Android only)
