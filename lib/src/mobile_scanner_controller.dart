@@ -38,8 +38,12 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
     this.shouldConsiderInvertedImages = false,
     this.useNewCameraSelector = false,
     this.invertImage = false,
-    this.enableAutoZoom = false,
+    this.autoZoom = false,
     this.initialZoom,
+    this.enableAdvancedProcessing = true,
+    this.enableQualityAnalysis = false,
+    this.enableBatchProcessing = false,
+    this.enhanceImageQuality = true,
   }) : detectionTimeoutMs =
            detectionSpeed == DetectionSpeed.normal ? detectionTimeoutMs : 0,
        assert(
@@ -124,6 +128,11 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   /// Defaults to false.
   final bool shouldConsiderInvertedImages;
 
+  /// Whether to use the new camera selector.
+  ///
+  /// This option is only supported on Android.
+  final bool useNewCameraSelector;
+
   /// Invert image colors for analyzer to support white-on-black barcodes, which
   /// are not supported by MLKit. Usage of this parameter can incur a
   /// performance cost, as frames need to be altered during processing.
@@ -148,10 +157,31 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   /// Android.
   final double? initialZoom;
 
-  /// Whether the Camera should auto zoom.
+
+
+  /// Enable advanced barcode processing with multiple enhancement techniques.
   ///
-  /// Only supported on Android.
-  final bool enableAutoZoom;
+  /// When enabled, the scanner will try multiple image processing techniques
+  /// for better barcode detection. Defaults to true.
+  final bool enableAdvancedProcessing;
+
+  /// Enable image quality analysis for barcode detection optimization.
+  ///
+  /// When enabled, the scanner will analyze image quality and suggest enhancements.
+  /// Defaults to false.
+  final bool enableQualityAnalysis;
+
+  /// Enable batch processing for multiple images.
+  ///
+  /// When enabled, the scanner can process multiple images concurrently.
+  /// Defaults to false.
+  final bool enableBatchProcessing;
+
+  /// Enable automatic image quality enhancement.
+  ///
+  /// When enabled, the scanner will automatically enhance image quality for better detection.
+  /// Defaults to true.
+  final bool enhanceImageQuality;
 
   /// The internal barcode controller, that listens for detected barcodes.
   final StreamController<BarcodeCapture> _barcodesController =
@@ -481,6 +511,10 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
       invertImage: invertImage,
       autoZoom: autoZoom,
       initialZoom: initialZoom,
+      enableAdvancedProcessing: enableAdvancedProcessing,
+      enableQualityAnalysis: enableQualityAnalysis,
+      enableBatchProcessing: enableBatchProcessing,
+      enhanceImageQuality: enhanceImageQuality,
     );
 
     try {

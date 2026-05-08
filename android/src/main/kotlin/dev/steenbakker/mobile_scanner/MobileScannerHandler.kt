@@ -186,7 +186,13 @@ class MobileScannerHandler(
         val shouldConsiderInvertedImages: Boolean = call.argument<Boolean>("shouldConsiderInvertedImages") ?: false
         val initialZoom: Double? = call.argument<Double?>("initialZoom")
 
-        val barcodeScannerOptions: BarcodeScannerOptions? = buildBarcodeScannerOptions(formats, autoZoom)
+        // Advanced features for breaking change release
+        val enableAdvancedProcessing: Boolean = call.argument<Boolean>("enableAdvancedProcessing") ?: true
+        val enableQualityAnalysis: Boolean = call.argument<Boolean>("enableQualityAnalysis") ?: false
+        val enableBatchProcessing: Boolean = call.argument<Boolean>("enableBatchProcessing") ?: false
+        val enhanceImageQuality: Boolean = call.argument<Boolean>("enhanceImageQuality") ?: true
+
+        val barcodeScannerOptions: BarcodeScannerOptions? = buildBarcodeScannerOptions(formats, autoZoom, enableAdvancedProcessing)
 
         val position = MobileScannerCameraLensSelector.selectCamera(cameraManager, facing, lensType)
 
@@ -257,7 +263,11 @@ class MobileScannerHandler(
             useNewCameraSelector,
             invertImage,
             shouldConsiderInvertedImages,
-            initialZoom
+            initialZoom,
+            enableAdvancedProcessing,
+            enableQualityAnalysis,
+            enableBatchProcessing,
+            enhanceImageQuality
         )
     }
 
@@ -365,7 +375,7 @@ class MobileScannerHandler(
         result.success(null)
     }
 
-    private fun buildBarcodeScannerOptions(formats: List<Int>?, autoZoom: Boolean): BarcodeScannerOptions? {
+    private fun buildBarcodeScannerOptions(formats: List<Int>?, autoZoom: Boolean, enableAdvancedProcessing: Boolean = true): BarcodeScannerOptions? {
         val builder : BarcodeScannerOptions.Builder?
         if (formats == null) {
             builder = BarcodeScannerOptions.Builder()
@@ -392,8 +402,11 @@ class MobileScannerHandler(
                 }.setMaxSupportedZoomRatio(getMaxZoomRatio())
                     .build())
         }
-return builder.build()
-    }
+
+        // Enable advanced processing for better detection
+        if (enableAdvancedProcessing) {
+            builder.enableAllPotentialBarcodes()
+        }
 
         return builder.build()
     }

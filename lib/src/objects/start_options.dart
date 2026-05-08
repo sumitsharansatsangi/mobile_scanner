@@ -22,6 +22,10 @@ class StartOptions {
     required this.invertImage,
     required this.autoZoom,
     required this.initialZoom,
+    this.enableAdvancedProcessing = true,
+    this.enableQualityAnalysis = false,
+    this.enableBatchProcessing = false,
+    this.enhanceImageQuality = true,
   });
 
   /// The direction for the camera.
@@ -73,15 +77,36 @@ class StartOptions {
   /// This option is only supported on Android.
   final bool useNewCameraSelector;
 
-  /// Whether the Camera should auto zoom.
-  ///
-  /// This option is only supported on Android. Other platforms will ignore this option.
-  final bool enableAutoZoom;
+
 
   /// The initial zoom scale factor for the camera.
   ///
   /// Currently only supported on iOS, MacOS and Android.
   final double? initialZoom;
+
+  /// Enable advanced barcode processing with multiple enhancement techniques.
+  ///
+  /// When enabled, the scanner will try multiple image processing techniques
+  /// for better barcode detection. Defaults to true in breaking change release.
+  final bool enableAdvancedProcessing;
+
+  /// Enable image quality analysis for barcode detection optimization.
+  ///
+  /// When enabled, the scanner will analyze image quality and suggest enhancements.
+  /// Defaults to false.
+  final bool enableQualityAnalysis;
+
+  /// Enable batch processing for multiple images.
+  ///
+  /// When enabled, the scanner can process multiple images concurrently.
+  /// Defaults to false.
+  final bool enableBatchProcessing;
+
+  /// Enable automatic image quality enhancement.
+  ///
+  /// When enabled, the scanner will automatically enhance image quality for better detection.
+  /// Defaults to true.
+  final bool enhanceImageQuality;
 
   /// Converts this object to a map.
   Map<String, Object?> toMap() {
@@ -104,6 +129,10 @@ class StartOptions {
       'invertImage': invertImage,
       'autoZoom': autoZoom,
       'initialZoom': initialZoom,
+      'enableAdvancedProcessing': enableAdvancedProcessing,
+      'enableQualityAnalysis': enableQualityAnalysis,
+      'enableBatchProcessing': enableBatchProcessing,
+      'enhanceImageQuality': enhanceImageQuality,
     };
   }
 }

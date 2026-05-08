@@ -2,8 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:mobile_scanner_example/scanner_button_widgets.dart';
-import 'package:mobile_scanner_example/scanner_error_widget.dart';
+import 'package:mobile_scanner_example/widgets/buttons/analyze_image_button.dart';
+import 'package:mobile_scanner_example/widgets/buttons/pause_button.dart';
+import 'package:mobile_scanner_example/widgets/buttons/start_stop_button.dart';
+import 'package:mobile_scanner_example/widgets/buttons/switch_camera_button.dart';
+import 'package:mobile_scanner_example/widgets/buttons/toggle_flashlight_button.dart';
+import 'package:mobile_scanner_example/widgets/scanner_error_widget.dart';
 
 class BarcodeScannerWithController extends StatefulWidget {
   const BarcodeScannerWithController({super.key});
@@ -19,7 +23,7 @@ class _BarcodeScannerWithControllerState
     autoStart: false,
     torchEnabled: true,
     useNewCameraSelector: true,
-     enableAutoZoom: true
+    autoZoom: true,
   );
 
   Barcode? _barcode;
@@ -90,7 +94,7 @@ class _BarcodeScannerWithControllerState
         children: [
           MobileScanner(
             controller: controller,
-            errorBuilder: (context, error, child) {
+            errorBuilder: (context, error) {
               return ScannerErrorWidget(error: error);
             },
             fit: BoxFit.contain,
@@ -105,11 +109,11 @@ class _BarcodeScannerWithControllerState
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   ToggleFlashlightButton(controller: controller),
-                  StartStopMobileScannerButton(controller: controller),
-                  PauseMobileScannerButton(controller: controller),
+                  StartStopButton(controller: controller),
+                  PauseButton(controller: controller),
                   Expanded(child: Center(child: _buildBarcode(_barcode))),
                   SwitchCameraButton(controller: controller),
-                  AnalyzeImageFromGalleryButton(controller: controller),
+                  AnalyzeImageButton(controller: controller),
                 ],
               ),
             ),

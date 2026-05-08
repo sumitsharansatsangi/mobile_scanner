@@ -87,6 +87,12 @@ class MobileScanner(
     private var returnImage = false
     private var isPaused = false
 
+    // Advanced features for breaking change release
+    private var enableAdvancedProcessing: Boolean = true
+    private var enableQualityAnalysis: Boolean = false
+    private var enableBatchProcessing: Boolean = false
+    private var enhanceImageQuality: Boolean = true
+
     companion object {
         // Configure the `ProcessCameraProvider` to only log errors.
         // This prevents the informational log spam from CameraX.
@@ -387,12 +393,20 @@ class MobileScanner(
         invertImage: Boolean,
         shouldConsiderInvertedImages: Boolean,
         initialZoom: Double?,
+        enableAdvancedProcessing: Boolean = true,
+        enableQualityAnalysis: Boolean = false,
+        enableBatchProcessing: Boolean = false,
+        enhanceImageQuality: Boolean = true,
     ) {
         this.detectionSpeed = detectionSpeed
         this.detectionTimeout = detectionTimeout
         this.returnImage = returnImage
         this.shouldConsiderInvertedImages = shouldConsiderInvertedImages
         this.invertImage = invertImage
+        this.enableAdvancedProcessing = enableAdvancedProcessing
+        this.enableQualityAnalysis = enableQualityAnalysis
+        this.enableBatchProcessing = enableBatchProcessing
+        this.enhanceImageQuality = enhanceImageQuality
 
         isPaused = false
 

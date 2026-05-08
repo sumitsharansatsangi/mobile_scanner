@@ -13,18 +13,18 @@ screenshots:
   path: example/screenshots/homepage.png
 
 environment:
-  sdk: ">=3.7.0 <4.0.0"
-  flutter: ">=3.29.0"
+  sdk: ">=3.11.0 <4.0.0"
+  flutter: ">=3.41.0"
 
 dependencies:
-  collection: ">=1.15.0 <2.0.0"
+  collection: ">=1.19.0 <2.0.0"
   flutter:
     sdk: flutter
   flutter_web_plugins:
     sdk: flutter
   plugin_platform_interface:
     git: https://github.com/kumsumit/plugin_platform_interface.git
-  web: ">=1.0.0 <2.0.0"
+  web: ">=1.1.1 <2.0.0"
 
 dev_dependencies:
   flutter_test:

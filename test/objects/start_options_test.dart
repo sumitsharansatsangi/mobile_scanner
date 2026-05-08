@@ -18,6 +18,8 @@ void main() {
         formats: [],
         returnImage: false,
         torchEnabled: false,
+        useNewCameraSelector: false,
+        shouldConsiderInvertedImages: false,
         invertImage: false,
         autoZoom: false,
         initialZoom: null,
@@ -32,9 +34,15 @@ void main() {
         'timeout': 250,
         'returnImage': false,
         'torch': false,
+        'useNewCameraSelector': false,
+        'shouldConsiderInvertedImages': false,
         'invertImage': false,
         'autoZoom': false,
         'initialZoom': null,
+        'enableAdvancedProcessing': true,
+        'enableQualityAnalysis': false,
+        'enableBatchProcessing': false,
+        'enhanceImageQuality': true,
       });
     });
 
@@ -48,6 +56,8 @@ void main() {
         formats: [],
         returnImage: false,
         torchEnabled: false,
+        useNewCameraSelector: false,
+        shouldConsiderInvertedImages: false,
         invertImage: false,
         autoZoom: false,
         initialZoom: null,
@@ -68,6 +78,8 @@ void main() {
         formats: [],
         returnImage: false,
         torchEnabled: false,
+        useNewCameraSelector: false,
+        shouldConsiderInvertedImages: false,
         invertImage: false,
         autoZoom: false,
         initialZoom: null,
@@ -88,6 +100,8 @@ void main() {
         formats: [BarcodeFormat.qrCode, BarcodeFormat.code128],
         returnImage: false,
         torchEnabled: false,
+        useNewCameraSelector: false,
+        shouldConsiderInvertedImages: false,
         invertImage: false,
         autoZoom: false,
         initialZoom: null,
@@ -111,6 +125,8 @@ void main() {
         formats: [],
         returnImage: false,
         torchEnabled: false,
+        useNewCameraSelector: false,
+        shouldConsiderInvertedImages: false,
         invertImage: false,
         autoZoom: false,
         initialZoom: null,
@@ -132,6 +148,8 @@ void main() {
           formats: [],
           returnImage: false,
           torchEnabled: false,
+          useNewCameraSelector: false,
+          shouldConsiderInvertedImages: false,
           invertImage: false,
           autoZoom: false,
           initialZoom: null,
@@ -159,6 +177,8 @@ void main() {
         formats: [],
         returnImage: false,
         torchEnabled: false,
+        useNewCameraSelector: false,
+        shouldConsiderInvertedImages: false,
         invertImage: false,
         autoZoom: false,
         initialZoom: 2,
@@ -180,6 +200,8 @@ void main() {
           formats: [],
           returnImage: false,
           torchEnabled: false,
+          useNewCameraSelector: false,
+          shouldConsiderInvertedImages: false,
           invertImage: false,
           autoZoom: false,
           initialZoom: null,
@@ -215,6 +237,8 @@ void main() {
           formats: [],
           returnImage: testCase.returnImage,
           torchEnabled: testCase.torch,
+          useNewCameraSelector: false,
+          shouldConsiderInvertedImages: false,
           invertImage: testCase.invertImage,
           autoZoom: testCase.autoZoom,
           initialZoom: null,
@@ -226,7 +250,47 @@ void main() {
         expect(map['torch'], testCase.torch);
         expect(map['invertImage'], testCase.invertImage);
         expect(map['autoZoom'], testCase.autoZoom);
+        expect(map['useNewCameraSelector'], false);
+        expect(map['shouldConsiderInvertedImages'], false);
+        expect(map['enableAdvancedProcessing'], true);
+        expect(map['enableQualityAnalysis'], false);
+        expect(map['enableBatchProcessing'], false);
+        expect(map['enhanceImageQuality'], true);
       }
+    });
+
+    test('toMap includes advanced processing options', () {
+      const options = StartOptions(
+        cameraDirection: CameraFacing.back,
+        cameraLensType: CameraLensType.any,
+        cameraResolution: null,
+        detectionSpeed: DetectionSpeed.normal,
+        detectionTimeoutMs: 250,
+        formats: [],
+        returnImage: false,
+        torchEnabled: false,
+        useNewCameraSelector: true,
+        shouldConsiderInvertedImages: true,
+        invertImage: true,
+        autoZoom: true,
+        initialZoom: 1.5,
+        enableAdvancedProcessing: false,
+        enableQualityAnalysis: true,
+        enableBatchProcessing: true,
+        enhanceImageQuality: false,
+      );
+
+      final map = options.toMap();
+
+      expect(map['useNewCameraSelector'], true);
+      expect(map['shouldConsiderInvertedImages'], true);
+      expect(map['invertImage'], true);
+      expect(map['autoZoom'], true);
+      expect(map['initialZoom'], 1.5);
+      expect(map['enableAdvancedProcessing'], false);
+      expect(map['enableQualityAnalysis'], true);
+      expect(map['enableBatchProcessing'], true);
+      expect(map['enhanceImageQuality'], false);
     });
   });
 }
