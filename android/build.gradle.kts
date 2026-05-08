@@ -120,15 +120,15 @@ dependencies {
 
     implementation("androidx.camera:camera-mlkit-vision:1.6.1")
 
-    implementation("androidx.exifinterface:exifinterface:1.4.0-alpha01")
+    implementation("androidx.exifinterface:exifinterface:1.4.2")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
-    implementation("com.google.dagger:hilt-android:2.50")
-    kapt("com.google.dagger:hilt-compiler:2.50")
+    implementation("com.google.dagger:hilt-android:2.59.2")
+    kapt("com.google.dagger:hilt-compiler:2.59.2")
 
     testImplementation(kotlin("test"))
-    testImplementation("org.mockito:mockito-core:5.21.0")
+    testImplementation("org.mockito:mockito-core:5.23.0")
     testImplementation("androidx.test:core:1.6.1")
     testImplementation("androidx.test.ext:junit:1.2.1")
 }
