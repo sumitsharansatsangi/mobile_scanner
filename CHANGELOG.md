@@ -1,3 +1,274 @@
+## 7.2.0
+
+**Highlights**
+
+* Added support for switching between lens types (normal, wide, zoom) using the `switchCamera()` method with `ToggleLensType` or `SelectCamera` options.
+* Added `rawDecodedBytes` field to `Barcode` which replaces `Barcode.rawBytes`. On Apple platforms, this returns a `DecodedVisionBarcodeBytes` containing `bytes` (decoded payload, without header/padding) and `rawBytes` (full raw payload, available on iOS 17.0+ / macOS 14.0+). On Android and web, this returns a `DecodedBarcodeBytes` containing `bytes`.
+
+**Improvements**
+
+* [Android] Migrated barcode bounding box from `boundingBox` to `cornerPoints` for more accurate scan window detection.
+* Added support for `ITF-Two-of-Five`.
+* Added constants for testing the method channel methods in `MobileScannerMethods` and `MobileScannerEvents`.
+* The global method `calculateBoxFitRatio()` is now deprecated.
+
+**Bug Fixes**
+
+* [Android] Fixed incorrect texture size on orientation change.
+* [Android] Fixed a bug where the `isPaused` flag was not reset when `start()` was called.
+* [Android] Fixed `imageAnalysis` not being unbound on dispose.
+* [Android] Fixed an issue where the app orientation handling was not respecting auto-rotate settings
+* [Apple] Fixed `rawBytes` returning incorrect data for barcodes containing non-ASCII characters (e.g. `ø`). For QR codes, bytes are now extracted directly from the error-corrected bit stream via `CIQRCodeDescriptor`, bypassing the Vision string API entirely. For Aztec, DataMatrix, PDF417 and linear formats, the ISO-Latin-1 round-trip is used to recover the original bytes from `payloadStringValue`.
+* [Apple] Fixed `displayValue` returning a garbled Latin-1 string (e.g. `hellÃ¸`) for barcodes with non-ASCII UTF-8 content. It is now correctly decoded to UTF-8 (e.g. `hellø`).
+* [Apple] Fixed a bug where the barcode type results did not have a value.
+* [Apple] Fixed camera rotating, even when rotation is locked.
+* [macOS] Fixed barcode overlay text displaying upside down.
+* Fixed barcode overlay rendering at wrong position after orientation change.
+* Fixed a bug where taps were ignored on the scanner widget.
+* Fixed a bug where a controller that was only disposed would throw an incorrect error code.
+
+### 7.1.4
+
+* [Apple] Fixed crash on iPhone 17 when starting MobileScanner by checking available pixel formats before setting video output settings. ([#1578](https://github.com/juliansteenbakker/mobile_scanner/issues/1578))
+
+### 7.1.3
+
+* Overlay: Updated `BarcodePainter` to receive `deviceOrientation` and dynamically adjust `cameraPreviewSize`, fixing barcode overlay misalignment during device rotation changes [](https://github.com/juliansteenbakker/mobile_scanner/issues/1462).
+
+* [Android] Refactored orientation detection to use `OrientationEventListener` instead of `BroadcastReceiver` for `ACTION_CONFIGURATION_CHANGED`, ensuring physical device orientation is captured correctly and preventing unwanted screen rotations on `MobileScanner` initialization [](https://github.com/juliansteenbakker/mobile_scanner/issues/1486).
+* [Android] Changed minSDK from 21 to 23 in line with Flutter requirements.
+* [Android] Removed deprecated renderscript api's, improved performance for analysis.
+* [Apple] Prevent half-stopped camera state causing false ALREADY_STARTED.
+* [Apple] Fixed a bug where invalid images would cause crashes when processing them with CoreVideo.
+
+## 7.1.2
+
+* Fixed an issue with the `initialZoom` parameter.
+
+## 7.1.1
+
+* Fixed missing import of 'package:meta/meta.dart' on older Flutter sdk's
+
+## 7.1.0
+
+**Highlights**
+
+* [Apple & Android] Added tap to focus functionality. You can enable it in the `MobileScanner` widget.
+* [Apple & Android] You can now set the initial zoom factor using the `initialZoom` parameter in the `startOptions`.
+
+**Bug Fixes and Improvements**
+
+* [iOS] Increased minimum os level to 13 due to Flutter requirements.
+* [macOS] Increased minimum os level to 10.15 due to Flutter requirements.
+* [Android] Update to Java 17, and update other dependencies.
+* [Apple] Improved fallback for when camera is not found.
+* Added a `Barcode.scaleCorners()` method.
+
+## 7.0.1
+
+* Added error handling for when `MobileScannerController.start` is called without an active `MobileScanner` widget.
+
+## 7.0.0
+
+This version finalizes all changes from the beta and release candidate cycles and introduces major improvements, bug fixes, and breaking changes.
+
+**BREAKING CHANGES**
+
+* Requires Flutter 3.29.0 or higher.
+* The initial camera facing direction in `MobileScannerState` is now `CameraFacing.unknown`.
+* Removed the deprecated `EncryptionType.none`. Use `EncryptionType.unknown` instead.
+* The `errorBuilder` and `placeholderBuilder` no longer have a Widget argument.
+* Removed the `MobileScannerErrorBuilder` typedef.
+
+**Highlights**
+
+* [iOS/macOS] Migrated to the Vision API with a unified Apple codebase.
+* [iOS] Minimum iOS version changed from 15 to 12.
+* [Android] Removed dependency on `kotlin-bom` and updated CameraX and camera-camera2 dependencies.
+* Support for pause/resume functionality across platforms.
+* `MobileScannerErrorCode` now includes readable error messages in debug mode.
+* Hot-restart during development now works correctly.
+* Added overlay widgets for barcode and scan window visualization.
+* Exposed new API parameters like `autoZoom`, `invertImage`, and lifecycle handling.
+
+**Bug Fixes and Improvements**
+
+* [Apple]
+  * Fixed rotation, orientation, and zoom behavior.
+  * Resolved incorrect barcode overlay dimensions and corner coordinates.
+  * Fixed a crash when stopping the camera with a nil device.
+  * Fixed build issues including optional chaining on non-optional values.
+* [Android]
+  * Fixed rotation and orientation issues.
+  * Resolved timing issues in `SurfaceProducer` with Kotlin 1.8+.
+  * Fixed resource leaks and improved image analysis compatibility.
+  * Improved logging behavior (CameraX logs only errors).
+* [macOS]
+  * Fixed mirrored images and build issues.
+* [Web]
+  * Fixed barcode overlay not displaying due to incorrect corner point data.
+
+## 7.0.0-rc.2
+
+Bugs fixed:
+* [Apple] Fixed build issues "Cannot use optional chaining on non-optional value".
+
+## 7.0.0-rc.1
+
+After six months of development, Version 7.0.0 is finally moving out of beta with this release candidate!
+A stable release is scheduled for next week.
+
+Improvements:
+* [Android] Remove the dependency on `org.jetbrains.kotlin:kotlin-bom`.
+* [Android] Updated camerax dependencies.
+* Hot-restart for development purposes is now working correctly
+* Added message to `MobileScannerErrorCode`, which will be shown if kDebugMode is true. Otherwise, a generic error message will appear.
+* Fixed issues regarding initialization of the `MobileScannerController`, which could result in a black screen without error message.
+
+Bugs fixed:
+* [Android] Fixed rotation & orientation issues.
+* [Apple] Fixed rotation & orientation issues.
+* [Apple] Fixed a crash when stopping the camera when the camera device is nil.
+* [macOS] Fixed image not being mirrored.
+* [Web] Fixed barcode corners not being passed correctly resulting in no overlay being drawn.
+
+## 7.0.0-beta.9
+
+**BREAKING CHANGES:**
+
+* This release requires Flutter 3.29.0 or higher.
+
+Bugs fixed:
+* [Android] Fixed a timing issue for the SurfaceProducer implementation, by switching to the `onSurfaceCleanup` callback. 
+
+## 7.0.0-beta.8
+
+Improvements:
+* Updated examples in example app.
+* Added [useAppLifecycleState] parameter to enable or disable handling of lifecycle state when no controller is passed.
+* Dispose function of [MobileScanner] is now async.
+* The [BarcodeOverlay] now correctly disposes the text painter.
+
+Bugs fixed:
+* [Apple] Fixed barcode corners representation for barcode overlay.
+* [Apple] Fixed zoom callback not working.
+* [Apple] Updated zoom scale factor to match Android implementation.
+* Fixed build issues on older kotlin versions.
+
+## 7.0.0-beta.7
+
+**BREAKING CHANGES:**
+
+* The initial state of the `MobileScannerState` camera facing direction is changed to `CameraFacing.unknown`.
+
+Improvements:
+* [Android] Turn off logging for CameraX, except for the `Log.ERROR` logging level.
+* Added `CameraFacing.external` and `CameraFacing.unknown` enum values.
+
+Bugs fixed:
+* [Android] Fixed an issue when compiling with Kotlin 1.8.0 or higher.
+
+## 7.0.0-beta.6
+
+**BREAKING CHANGES:**
+
+* This release requires Flutter 3.27.0 or higher.
+
+Improvements:
+* [Android] Added support for Impeller.
+* [Apple] Added support for `rawBytes` from the Vision API observations.
+* Export the `MobileScannerViewAttributes` and `StartOptions` types, to allow them in tests.
+
+Bugs fixed:
+* [Apple] Fixed a bug that caused a crash when the capture session could not add the video input.
+
+## 7.0.0-beta.5
+
+Improvements:
+* [Android] Added `autoZoom` parameter to auto zoom if the detected code is to far from the camera.
+* [Android] Added `invertImage` parameter to invert image colors for analyzer to support white-on-black barcodes, which are not supported by MLKit.
+* [Android] Updated camera-camera2 dependencies.
+* Added pause functionality to all platforms.
+
+Bugs fixed:
+* [Android] Fixed resources not being closed.
+
+## 7.0.0-beta.4
+
+**BREAKING CHANGES:**
+
+* The `updateScanWindow` method is now private. Instead, update the scan window in the `MobileScanner` widget directly.
+* The deprecated `EncryptionType.none` constant has been removed. Use `EncryptionType.unknown` instead.
+* The `errorBuilder` and `placeholderBuilder` of the `MobileScanner` widget no longer take a Widget argument, as it was unused.
+* The `MobileScannerErrorBuilder` typedef has been removed.
+
+Bugs fixed:
+* [Apple] Fixed an issue which caused the scanWindow to always be present, even when reset to no value.
+* [Apple] Fixed an issue that caused the barcode size to report the wrong height.
+* [Apple] Fixed a bug that caused the corner points to not be returned in clockwise orientation.
+* [Apple] Fixed an issue where `analyzeImage` would not throw an error if no valid image is provided as argument.
+* [Apple] Fixed an issue where `analyzeImage` would not return if no barcodes are found in the image.
+* [Apple] Fixed an issue where the iOS Simulator did not report that analyzing images from a file is unsupported. 
+* [Android] Fixed an issue where `analyzeImage` would not return if no valid image is provided as argument.
+
+Improvements:
+* Added a basic barcode overlay widget, for use with the camera preview.
+* Added a basic scan window overlay widget, for use with the camera preview.
+* Update the bundled MLKit model for Android to version `17.3.0`.
+* Added documentation in places where it was missing.
+* Added `color` and `style` properties to the `BarcodePainter` widget.
+* Enabled Swift Package Manager for the example app.
+
+## 7.0.0-beta.3
+
+* Fixed a build issue on macOS.
+
+## 7.0.0-beta.2
+
+Bugs fixed:
+* [Apple] Fixed an issue with the zoom slider being non-functional.
+* [Apple] Fixed an issue where the flash would briefly show when the camera is turned on.
+* [Apple] Fixed an issue that prevented the scan window from working.
+* [Apple] Fixed an issue that caused the barcode overlay to use the wrong dimensions.
+
+Improvements:
+* [iOS] Adds support for Swift Package Manager.
+
+Known issues:
+* BoxFit.cover & BoxFit.fitHeight produce the wrong width in the barcode overlay.
+
+## 7.0.0-beta.1
+
+Improvements:
+* [iOS] Migrate to the Vision API.
+* [iOS] Updated the minimum iOS version back down to 12.0.
+* [Apple] Merged the iOS and MacOS sources.
+
+Known issues:
+* [Apple] The zoom slider does not work correctly.
+* [Apple] The scan window does not work correctly.
+* [Apple] The camera flash briefly shows when the camera is started.
+
+## 6.0.11
+* [Android] Update camerax dependencies to support 16KB pages sizes.
+
+## 6.0.10
+* [Apple] Fixed a crash when stopping the camera when the camera device is nil.
+
+## 6.0.9
+Fixed onDetect not working when a `MobileScannerController` is provided.
+
+## 6.0.8
+Improvements:
+* [Android] Remove the dependency on `org.jetbrains.kotlin:kotlin-bom`.
+* Hot-restart for development purposes is now working correctly
+* Added message to `MobileScannerErrorCode`, which will be shown if kDebugMode is true. Otherwise, a generic error message will appear.
+* Fixed issues regarding initialization of the `MobileScannerController`, which could result in a black screen without error message.
+
+## 6.0.7
+Improvements:
+* [Android] Updated bundled barcode scanning library to v17.3.0
+
 ## 6.0.6
 Bugs fixed:
 * [web] Fixed a bug that prevented color inverted barcodes from being scanned.

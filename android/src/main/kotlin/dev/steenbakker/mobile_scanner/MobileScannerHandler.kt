@@ -8,8 +8,8 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Size
-import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ExperimentalLensFacing
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import dev.steenbakker.mobile_scanner.objects.BarcodeFormats
 import dev.steenbakker.mobile_scanner.objects.DetectionSpeed
@@ -19,6 +19,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry.RequestPermissionsResultListener
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
+import io.flutter.plugin.common.EventChannel
 import io.flutter.view.TextureRegistry
 import java.io.File
 import com.google.mlkit.vision.barcode.ZoomSuggestionOptions
@@ -31,6 +32,13 @@ class MobileScannerHandler(
     private val addPermissionListener: (RequestPermissionsResultListener) -> Unit,
     textureRegistry: TextureRegistry): MethodChannel.MethodCallHandler {
 
+    /**
+     * Cached CameraManager instance to avoid repeated system service lookups.
+     */
+    private val cameraManager: CameraManager by lazy {
+        activity.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+    }
+
     private val analyzeImageErrorCallback: AnalyzerErrorCallback = {
         Handler(Looper.getMainLooper()).post {
             analyzerResult?.error(MobileScannerErrorCodes.BARCODE_ERROR, it, null)
@@ -40,6 +48,13 @@ class MobileScannerHandler(
 
     private val analyzeImageSuccessCallback: AnalyzerSuccessCallback = {
         Handler(Looper.getMainLooper()).post {
+            // TODO: Open for discussion if we want to publish the results on the barcode stream as well.
+//            // Also publish on controller result
+//            barcodeHandler.publishEvent(mapOf(
+//                "name" to "barcode",
+//                "data" to it,
+//            ))
+
             analyzerResult?.success(mapOf(
                 "name" to "barcode",
                 "data" to it
@@ -69,6 +84,7 @@ class MobileScannerHandler(
     }
 
     private var methodChannel: MethodChannel? = null
+    private var deviceOrientationChannel: EventChannel? = null
 
     private var mobileScanner: MobileScanner? = null
 
@@ -85,12 +101,23 @@ class MobileScannerHandler(
         methodChannel = MethodChannel(binaryMessenger,
             "dev.steenbakker.mobile_scanner/scanner/method")
         methodChannel!!.setMethodCallHandler(this)
-        mobileScanner = MobileScanner(activity, textureRegistry, callback, errorCallback)
+
+        val deviceOrientationListener = DeviceOrientationListener(activity)
+
+        deviceOrientationChannel = EventChannel(binaryMessenger,
+            "dev.steenbakker.mobile_scanner/scanner/deviceOrientation")
+        deviceOrientationChannel!!.setStreamHandler(deviceOrientationListener)
+
+        mobileScanner = MobileScanner(
+            activity, textureRegistry, callback, errorCallback, deviceOrientationListener)
     }
 
     fun dispose(activityPluginBinding: ActivityPluginBinding) {
         methodChannel?.setMethodCallHandler(null)
         methodChannel = null
+        deviceOrientationChannel?.setStreamHandler(null)
+        deviceOrientationChannel = null
+        barcodeHandler.dispose()
         mobileScanner?.dispose()
         mobileScanner = null
 
@@ -101,6 +128,7 @@ class MobileScannerHandler(
         }
     }
 
+    @ExperimentalLensFacing
     @ExperimentalGetImage
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -122,38 +150,45 @@ class MobileScannerHandler(
                     }
                 })
             "start" -> start(call, result)
-            "pause" -> pause(result)
-            "stop" -> stop(result)
+            "pause" -> pause(call, result)
+            "stop" -> stop(call, result)
             "toggleTorch" -> toggleTorch(result)
+            "getSupportedLenses" -> getSupportedLenses(result)
             "analyzeImage" -> analyzeImage(call, result)
             "setScale" -> setScale(call, result)
             "resetScale" -> resetScale(result)
             "updateScanWindow" -> updateScanWindow(call, result)
+            "setFocus" -> setFocus(call, result)
             "setShouldConsiderInvertedImages" -> setShouldConsiderInvertedImages(call, result)
             else -> result.notImplemented()
         }
     }
 
+    @ExperimentalLensFacing
     @ExperimentalGetImage
     private fun start(call: MethodCall, result: MethodChannel.Result) {
         val torch: Boolean = call.argument<Boolean>("torch") ?: false
         val facing: Int = call.argument<Int>("facing") ?: 0
+        val lensType: Int = call.argument<Int>("lensType") ?: -1
         val formats: List<Int>? = call.argument<List<Int>>("formats")
         val returnImage: Boolean = call.argument<Boolean>("returnImage") ?: false
         val speed: Int = call.argument<Int>("speed") ?: 1
         val timeout: Int = call.argument<Int>("timeout") ?: 250
         val cameraResolutionValues: List<Int>? = call.argument<List<Int>>("cameraResolution")
         val useNewCameraSelector: Boolean = call.argument<Boolean>("useNewCameraSelector") ?: false
-        val enableAutoZoom: Boolean = call.argument<Boolean>("autoZoom") ?: false
+        val autoZoom: Boolean = call.argument<Boolean>("autoZoom") ?: false
         val cameraResolution: Size? = if (cameraResolutionValues != null) {
             Size(cameraResolutionValues[0], cameraResolutionValues[1])
         } else {
             null
         }
+        val invertImage: Boolean = call.argument<Boolean>("invertImage") ?: false
         val shouldConsiderInvertedImages: Boolean = call.argument<Boolean>("shouldConsiderInvertedImages") ?: false
-        val barcodeScannerOptions: BarcodeScannerOptions? = buildBarcodeScannerOptions(formats, enableAutoZoom)
-        val position =
-            if (facing == 0) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+        val initialZoom: Double? = call.argument<Double?>("initialZoom")
+
+        val barcodeScannerOptions: BarcodeScannerOptions? = buildBarcodeScannerOptions(formats, autoZoom)
+
+        val position = MobileScannerCameraLensSelector.selectCamera(cameraManager, facing, lensType)
 
         val detectionSpeed: DetectionSpeed = when (speed) {
             0 -> DetectionSpeed.NO_DUPLICATES
@@ -174,8 +209,12 @@ class MobileScannerHandler(
                     result.success(mapOf(
                         "textureId" to it.id,
                         "size" to mapOf("width" to it.width, "height" to it.height),
+                        "naturalDeviceOrientation" to it.naturalDeviceOrientation,
+                        "handlesCropAndRotation" to it.handlesCropAndRotation,
+                        "sensorOrientation" to it.sensorOrientation,
                         "currentTorchState" to it.currentTorchState,
-                        "numberOfCameras" to it.numberOfCameras
+                        "numberOfCameras" to it.numberOfCameras,
+                        "cameraDirection" to it.cameraDirection
                     ))
                 }
             },
@@ -216,7 +255,9 @@ class MobileScannerHandler(
             timeout.toLong(),
             cameraResolution,
             useNewCameraSelector,
+            invertImage,
             shouldConsiderInvertedImages,
+            initialZoom
         )
     }
 
@@ -229,10 +270,10 @@ class MobileScannerHandler(
         result.success(null)
     }
 
-
-    private fun pause(result: MethodChannel.Result) {
+    private fun pause(call: MethodCall, result: MethodChannel.Result) {
+        val force: Boolean = call.argument<Boolean>("force") ?: false
         try {
-            mobileScanner!!.pause()
+            mobileScanner!!.pause(force)
             result.success(null)
         } catch (e: Exception) {
             when (e) {
@@ -242,9 +283,10 @@ class MobileScannerHandler(
         }
     }
 
-    private fun stop(result: MethodChannel.Result) {
+    private fun stop(call: MethodCall, result: MethodChannel.Result) {
+        val force: Boolean = call.argument<Boolean>("force") ?: false
         try {
-            mobileScanner!!.stop()
+            mobileScanner!!.stop(force)
             result.success(null)
         } catch (e: AlreadyStopped) {
             result.success(null)
@@ -269,6 +311,22 @@ class MobileScannerHandler(
         result.success(null)
     }
 
+    /**
+     * Get the list of supported lens types on this device.
+     */
+    private fun getSupportedLenses(result: MethodChannel.Result) {
+        try {
+            val supportedLenses = MobileScannerCameraLensSelector.getSupportedLenses(cameraManager)
+            result.success(supportedLenses.toList())
+        } catch (e: Exception) {
+            result.error(
+                MobileScannerErrorCodes.GENERIC_ERROR,
+                e.localizedMessage ?: MobileScannerErrorCodes.GENERIC_ERROR_MESSAGE,
+                null
+            )
+        }
+    }
+
     private fun setScale(call: MethodCall, result: MethodChannel.Result) {
         try {
             mobileScanner!!.setScale(call.arguments as Double)
@@ -282,7 +340,7 @@ class MobileScannerHandler(
         }
     }
 
-     private fun setZoomRatio(scale: Float) : Boolean {
+    private fun setZoomRatio(scale: Float) : Boolean {
         try {
             mobileScanner!!.setZoomRatio(scale.toDouble())
             return true
@@ -290,7 +348,7 @@ class MobileScannerHandler(
         return false
     }
 
-
+<
     private fun resetScale(result: MethodChannel.Result) {
         try {
             mobileScanner!!.resetScale()
@@ -307,10 +365,10 @@ class MobileScannerHandler(
         result.success(null)
     }
 
-     private fun buildBarcodeScannerOptions(formats: List<Int>?, enableAutoZoom: Boolean): BarcodeScannerOptions? {
+    private fun buildBarcodeScannerOptions(formats: List<Int>?, autoZoom: Boolean): BarcodeScannerOptions? {
         val builder : BarcodeScannerOptions.Builder?
         if (formats == null) {
-             builder = BarcodeScannerOptions.Builder()
+            builder = BarcodeScannerOptions.Builder()
         } else {
             val formatsList: MutableList<Int> = mutableListOf()
 
@@ -327,7 +385,7 @@ class MobileScannerHandler(
                 )
             }
         }
-        if (enableAutoZoom) {
+        if (autoZoom) {
             builder.setZoomSuggestionOptions(
                 ZoomSuggestionOptions.Builder {
                     setZoomRatio(it)
@@ -337,15 +395,17 @@ class MobileScannerHandler(
 return builder.build()
     }
 
+        return builder.build()
+    }
+
     private fun getMaxZoomRatio(): Float {
-        val cameraManager = activity.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         var maxZoom = 1.0F
 
         try {
             for (cameraId in cameraManager.cameraIdList) {
                 val characteristics = cameraManager.getCameraCharacteristics(cameraId)
 
-               val maxZoomRatio = characteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)
+                val maxZoomRatio = characteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)
                 if (maxZoomRatio != null && maxZoomRatio > maxZoom) {
                     maxZoom = maxZoomRatio
                 }
@@ -355,4 +415,36 @@ return builder.build()
         }
         return maxZoom
     }
+
+    private fun setFocus(call: MethodCall, result: MethodChannel.Result) {
+        val dx = call.argument<Double>("dx")?.toFloat()
+        val dy = call.argument<Double>("dy")?.toFloat()
+
+        if (dx == null || dy == null || dx !in 0f..1f || dy !in 0f..1f) {
+            result.error(
+                MobileScannerErrorCodes.INVALID_FOCUS_POINT,
+                MobileScannerErrorCodes.INVALID_FOCUS_POINT_MESSAGE,
+                null
+            )
+            return
+        }
+
+        try {
+            mobileScanner?.setFocus(dx, dy)
+            result.success(null)
+        } catch (e: ZoomWhenStopped) {
+            result.error(
+                MobileScannerErrorCodes.GENERIC_ERROR,
+                "Cannot set focus when camera is stopped.",
+                null
+            )
+        } catch (e: Exception) {
+            result.error(
+                MobileScannerErrorCodes.GENERIC_ERROR,
+                MobileScannerErrorCodes.GENERIC_ERROR_MESSAGE,
+                e.localizedMessage
+            )
+        }
+    }
+
 }

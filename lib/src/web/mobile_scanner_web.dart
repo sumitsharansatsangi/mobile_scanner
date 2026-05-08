@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:mobile_scanner/src/enums/barcode_format.dart';
 import 'package:mobile_scanner/src/enums/camera_facing.dart';
+import 'package:mobile_scanner/src/enums/camera_lens_type.dart';
 import 'package:mobile_scanner/src/enums/mobile_scanner_error_code.dart';
 import 'package:mobile_scanner/src/enums/torch_state.dart';
 import 'package:mobile_scanner/src/mobile_scanner_exception.dart';
@@ -14,11 +15,13 @@ import 'package:mobile_scanner/src/mobile_scanner_view_attributes.dart';
 import 'package:mobile_scanner/src/objects/barcode_capture.dart';
 import 'package:mobile_scanner/src/objects/start_options.dart';
 import 'package:mobile_scanner/src/web/barcode_reader.dart';
+import 'package:mobile_scanner/src/web/media_track_constraints_delegate.dart';
 import 'package:mobile_scanner/src/web/media_track_extension.dart';
 import 'package:mobile_scanner/src/web/zxing/zxing_barcode_reader.dart';
 import 'package:web/web.dart';
 
-/// A web implementation of the MobileScannerPlatform of the MobileScanner plugin.
+/// A web implementation of the MobileScannerPlatform of the MobileScanner
+/// plugin.
 class MobileScannerWeb extends MobileScannerPlatform {
   /// Constructs a [MobileScannerWeb] instance.
   MobileScannerWeb();
@@ -48,6 +51,10 @@ class MobileScannerWeb extends MobileScannerPlatform {
   final StreamController<MediaTrackSettings> _settingsController =
       StreamController.broadcast();
 
+  /// The delegate that retrieves the media track settings.
+  final MediaTrackConstraintsDelegate _settingsDelegate =
+      const MediaTrackConstraintsDelegate();
+
   /// The texture ID for the camera view.
   int _textureId = 1;
 
@@ -57,6 +64,7 @@ class MobileScannerWeb extends MobileScannerPlatform {
   /// Get the view type for the platform view factory.
   String _getViewType(int textureId) => 'mobile-scanner-view-$textureId';
 
+  /// Registers this class as the default instance of [MobileScannerPlatform].
   static void registerWith(Registrar registrar) {
     MobileScannerPlatform.instance = MobileScannerWeb();
   }
@@ -72,9 +80,10 @@ class MobileScannerWeb extends MobileScannerPlatform {
   Stream<double> get zoomScaleStateStream =>
       _settingsController.stream.map((_) => 1.0);
 
-  /// Create the [HTMLVideoElement] along with its parent container [HTMLDivElement].
+  /// Create the [HTMLVideoElement] along with its parent container
+  /// [HTMLDivElement].
   HTMLVideoElement _createVideoElement(int textureId) {
-    final HTMLVideoElement videoElement = HTMLVideoElement();
+    final videoElement = HTMLVideoElement();
 
     videoElement.style
       ..height = '100%'
@@ -85,23 +94,25 @@ class MobileScannerWeb extends MobileScannerPlatform {
 
     // Do not show the media controls, as this is a preview element.
     // Also prevent play/pause events from changing the media controls.
-    videoElement.controls = false;
-
-    videoElement.onplay = (JSAny _) {
-      videoElement.controls = false;
-    }.toJS;
-
-    videoElement.onpause = (JSAny _) {
-      videoElement.controls = false;
-    }.toJS;
+    videoElement
+      ..controls = false
+      ..onplay =
+          (JSAny _) {
+            videoElement.controls = false;
+          }.toJS
+      ..onpause =
+          (JSAny _) {
+            videoElement.controls = false;
+          }.toJS;
 
     // Attach the video element to its parent container
     // and setup the PlatformView factory for this `textureId`.
-    _divElement = HTMLDivElement()
-      ..style.objectFit = 'cover'
-      ..style.height = '100%'
-      ..style.width = '100%'
-      ..append(videoElement);
+    _divElement =
+        HTMLDivElement()
+          ..style.objectFit = 'cover'
+          ..style.height = '100%'
+          ..style.width = '100%'
+          ..append(videoElement);
 
     ui_web.platformViewRegistry.registerViewFactory(
       _getViewType(textureId),
@@ -125,31 +136,20 @@ class MobileScannerWeb extends MobileScannerPlatform {
     HTMLVideoElement videoElement,
     MediaStream videoStream,
   ) {
-    final List<MediaStreamTrack> tracks = videoStream.getVideoTracks().toDart;
+    final settings = _settingsDelegate.getSettings(videoStream);
 
-    if (tracks.isEmpty) {
+    // First try checking the facing mode.
+    if (settings?.facingModeNullable?.toDart == 'user') {
+      videoElement.style.transform = 'scaleX(-1)';
+
       return;
     }
 
-    final MediaStreamTrack videoTrack = tracks.first;
-    final MediaTrackCapabilities capabilities;
+    final videoTrack = videoStream.getVideoTracks().toDart.first;
 
-    if (videoTrack.getCapabilitiesNullable != null) {
-      capabilities = videoTrack.getCapabilities();
-    } else {
-      capabilities = MediaTrackCapabilities();
-    }
-
-    final JSArray<JSString>? facingModes = capabilities.facingModeNullable;
-
-    // TODO: this is an empty array on MacOS Chrome, where there is no facing mode, but one, user facing camera.
-    // We might be able to add a workaround, using the label of the video track.
-    // Facing mode is not supported by this track, do nothing.
-    if (facingModes == null || facingModes.toDart.isEmpty) {
-      return;
-    }
-
-    if (videoTrack.getSettings().facingMode == 'user') {
+    // On MacOS, even though the facing mode is supported, it is not reported.
+    // Use the label for FaceTime cameras to detect the user facing webcam.
+    if (videoTrack.label.contains('FaceTime')) {
       videoElement.style.transform = 'scaleX(-1)';
     }
   }
@@ -159,10 +159,9 @@ class MobileScannerWeb extends MobileScannerPlatform {
   /// This method requests permission to use the camera.
   ///
   /// Throws a [MobileScannerException] if the permission was denied,
-  /// or if using a video stream, with the given set of constraints, is unsupported.
-  Future<MediaStream> _prepareVideoStream(
-    CameraFacing cameraDirection,
-  ) async {
+  /// or if using a video stream, with the given set of constraints, is
+  /// unsupported.
+  Future<MediaStream> _prepareVideoStream(CameraFacing cameraDirection) async {
     if (window.navigator.mediaDevices.isUndefinedOrNull) {
       throw const MobileScannerException(
         errorCode: MobileScannerErrorCode.unsupported,
@@ -173,7 +172,7 @@ class MobileScannerWeb extends MobileScannerPlatform {
       );
     }
 
-    final MediaTrackSupportedConstraints capabilities =
+    final capabilities =
         window.navigator.mediaDevices.getSupportedConstraints();
 
     final MediaStreamConstraints constraints;
@@ -181,28 +180,23 @@ class MobileScannerWeb extends MobileScannerPlatform {
     if (capabilities.isUndefinedOrNull || !capabilities.facingMode) {
       constraints = MediaStreamConstraints(video: true.toJS);
     } else {
-      final String facingMode = switch (cameraDirection) {
-        CameraFacing.back => 'environment',
-        CameraFacing.front => 'user',
-      };
+      final facingMode = _settingsDelegate.getFacingMode(cameraDirection);
 
       constraints = MediaStreamConstraints(
-        video: MediaTrackConstraintSet(
-          facingMode: facingMode.toJS,
-        ),
+        video: MediaTrackConstraintSet(facingMode: facingMode.toJS),
       );
     }
 
     try {
       // Retrieving the media devices requests the camera permission.
-      final MediaStream videoStream =
+      final videoStream =
           await window.navigator.mediaDevices.getUserMedia(constraints).toDart;
 
       return videoStream;
     } on DOMException catch (error, stackTrace) {
-      final String errorMessage = error.toString();
+      final errorMessage = error.toString();
 
-      MobileScannerErrorCode errorCode = MobileScannerErrorCode.genericError;
+      var errorCode = MobileScannerErrorCode.genericError;
 
       // Handle both unsupported and permission errors from the web.
       if (errorMessage.contains('NotFoundError') ||
@@ -240,6 +234,31 @@ class MobileScannerWeb extends MobileScannerPlatform {
   }
 
   @override
+  Future<Set<CameraLensType>> getSupportedLenses() async {
+    if (window.navigator.mediaDevices.isUndefinedOrNull) {
+      return <CameraLensType>{};
+    }
+
+    try {
+      final jsDevices =
+          await window.navigator.mediaDevices.enumerateDevices().toDart;
+      final devices = jsDevices.toDart;
+
+      final hasVideoInput = devices.any(
+        (device) => device.kind == 'videoinput',
+      );
+
+      if (!hasVideoInput) {
+        return <CameraLensType>{};
+      }
+
+      return <CameraLensType>{CameraLensType.any};
+    } on DOMException {
+      return <CameraLensType>{};
+    }
+  }
+
+  @override
   Future<void> resetZoomScale() {
     throw UnsupportedError(
       'Setting the zoom scale is not supported for video tracks on the web.\n'
@@ -261,11 +280,22 @@ class MobileScannerWeb extends MobileScannerPlatform {
   }
 
   @override
+  Future<void> setFocusPoint(Offset position) {
+    throw UnimplementedError('setFocusPoint() has not been implemented.');
+  }
+
+  @override
   Future<MobileScannerViewAttributes> start(StartOptions startOptions) async {
     if (_barcodeReader != null) {
       if (_barcodeReader!.paused ?? false) {
         await _barcodeReader?.resume();
+
+        final cameraDirection = _settingsDelegate.getCameraDirection(
+          _barcodeReader?.videoStream,
+        );
+
         return MobileScannerViewAttributes(
+          cameraDirection: cameraDirection,
           // The torch of a media stream is not available for video tracks.
           // See https://developer.mozilla.org/en-US/docs/Web/API/MediaTrackConstraints#instance_properties_of_video_tracks
           currentTorchMode: TorchState.unavailable,
@@ -273,10 +303,10 @@ class MobileScannerWeb extends MobileScannerPlatform {
         );
       }
 
-      throw const MobileScannerException(
+      throw MobileScannerException(
         errorCode: MobileScannerErrorCode.controllerAlreadyInitialized,
         errorDetails: MobileScannerErrorDetails(
-          message: 'The scanner was already started.',
+          message: MobileScannerErrorCode.controllerAlreadyInitialized.message,
         ),
       );
     }
@@ -293,9 +323,7 @@ class MobileScannerWeb extends MobileScannerPlatform {
     );
 
     // Request camera permissions and prepare the video stream.
-    final MediaStream videoStream = await _prepareVideoStream(
-      startOptions.cameraDirection,
-    );
+    final videoStream = await _prepareVideoStream(startOptions.cameraDirection);
 
     try {
       // Clear the existing barcodes.
@@ -331,7 +359,7 @@ class MobileScannerWeb extends MobileScannerPlatform {
 
     try {
       _barcodesSubscription = _barcodeReader?.detectBarcodes().listen(
-        (BarcodeCapture barcode) {
+        (barcode) {
           if (_barcodesController.isClosed) {
             return;
           }
@@ -349,13 +377,16 @@ class MobileScannerWeb extends MobileScannerPlatform {
         cancelOnError: false,
       );
 
-      final bool hasTorch = await _barcodeReader?.hasTorch() ?? false;
+      final hasTorch = await _barcodeReader?.hasTorch() ?? false;
 
       if (hasTorch && startOptions.torchEnabled) {
         await _barcodeReader?.setTorchState(TorchState.on);
       }
 
+      final cameraDirection = _settingsDelegate.getCameraDirection(videoStream);
+
       return MobileScannerViewAttributes(
+        cameraDirection: cameraDirection,
         // The torch of a media stream is not available for video tracks.
         // See https://developer.mozilla.org/en-US/docs/Web/API/MediaTrackConstraints#instance_properties_of_video_tracks
         currentTorchMode: TorchState.unavailable,

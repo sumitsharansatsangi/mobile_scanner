@@ -19,34 +19,38 @@ class ContactInfo {
 
   /// Create a new [ContactInfo] instance from a map.
   factory ContactInfo.fromNative(Map<Object?, Object?> data) {
-    final List<Object?>? addresses = data['addresses'] as List<Object?>?;
-    final List<Object?>? emails = data['emails'] as List<Object?>?;
-    final List<Object?>? phones = data['phones'] as List<Object?>?;
-    final List<Object?>? urls = data['urls'] as List<Object?>?;
-    final Map<Object?, Object?>? name = data['name'] as Map<Object?, Object?>?;
+    final addresses = data['addresses'] as List<Object?>?;
+    final emails = data['emails'] as List<Object?>?;
+    final phones = data['phones'] as List<Object?>?;
+    final urls = data['urls'] as List<Object?>?;
+    final name = data['name'] as Map<Object?, Object?>?;
 
     return ContactInfo(
-      addresses: addresses == null
-          ? const <Address>[]
-          : List.unmodifiable(
-              addresses.cast<Map<Object?, Object?>>().map(Address.fromNative),
-            ),
-      emails: emails == null
-          ? const <Email>[]
-          : List.unmodifiable(
-              emails.cast<Map<Object?, Object?>>().map(Email.fromNative),
-            ),
+      addresses:
+          addresses == null
+              ? const <Address>[]
+              : List.unmodifiable(
+                addresses.cast<Map<Object?, Object?>>().map(Address.fromNative),
+              ),
+      emails:
+          emails == null
+              ? const <Email>[]
+              : List.unmodifiable(
+                emails.cast<Map<Object?, Object?>>().map(Email.fromNative),
+              ),
       name: name == null ? null : PersonName.fromNative(name),
       organization: data['organization'] as String?,
-      phones: phones == null
-          ? const <Phone>[]
-          : List.unmodifiable(
-              phones.cast<Map<Object?, Object?>>().map(Phone.fromNative),
-            ),
+      phones:
+          phones == null
+              ? const <Phone>[]
+              : List.unmodifiable(
+                phones.cast<Map<Object?, Object?>>().map(Phone.fromNative),
+              ),
       title: data['title'] as String?,
-      urls: urls == null
-          ? const <String>[]
-          : List.unmodifiable(urls.cast<String>()),
+      urls:
+          urls == null
+              ? const <String>[]
+              : List.unmodifiable(urls.cast<String>()),
     );
   }
 

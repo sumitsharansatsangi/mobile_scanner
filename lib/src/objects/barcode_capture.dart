@@ -29,9 +29,14 @@ class BarcodeCapture {
 
   /// The raw data of the barcode scan.
   ///
-  /// This is the data that was used to detect the available [barcodes], the input [image] and the [size].
+  /// This is the data that was used to detect the available [barcodes], the
+  /// input [image] and the [size].
   final Object? raw;
 
-  /// The size of the camera input [image].
+  /// The raw size of the camera input [image],
+  /// in which the [barcodes] were detected.
+  ///
+  /// For example if the camera resolution is 1920x1080 pixels,
+  /// this will be a [Size] with a width of 1920 and a height of 1080.
   final Size size;
 }

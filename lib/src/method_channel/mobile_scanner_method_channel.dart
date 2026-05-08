@@ -4,15 +4,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:mobile_scanner/src/enums/barcode_format.dart';
+import 'package:mobile_scanner/src/enums/camera_facing.dart';
+import 'package:mobile_scanner/src/enums/camera_lens_type.dart';
 import 'package:mobile_scanner/src/enums/mobile_scanner_authorization_state.dart';
 import 'package:mobile_scanner/src/enums/mobile_scanner_error_code.dart';
 import 'package:mobile_scanner/src/enums/torch_state.dart';
+import 'package:mobile_scanner/src/method_channel/android_surface_producer_delegate.dart';
+import 'package:mobile_scanner/src/method_channel/rotated_preview.dart';
 import 'package:mobile_scanner/src/mobile_scanner_exception.dart';
 import 'package:mobile_scanner/src/mobile_scanner_platform_interface.dart';
 import 'package:mobile_scanner/src/mobile_scanner_view_attributes.dart';
 import 'package:mobile_scanner/src/objects/barcode.dart';
 import 'package:mobile_scanner/src/objects/barcode_capture.dart';
 import 'package:mobile_scanner/src/objects/start_options.dart';
+import 'package:mobile_scanner/src/utils/parse_device_orientation_extension.dart';
 
 /// An implementation of [MobileScannerPlatform] that uses method channels.
 class MethodChannelMobileScanner extends MobileScannerPlatform {
@@ -24,10 +29,78 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
   @visibleForTesting
   static const String kBarcodeErrorEventName = 'MOBILE_SCANNER_BARCODE_ERROR';
 
+  /// The name of the error event that is sent when an operation is not
+  /// supported.
+  @visibleForTesting
+  static const String kUnsupportdOperationErrorEventName =
+      'MOBILE_SCANNER_UNSUPPORTED_OPERATION';
+
+  /// The name of the torch state event.
+  @visibleForTesting
+  static const String kTorchStateEventName = 'torchState';
+
+  /// The name of the zoom scale state event.
+  @visibleForTesting
+  static const String kZoomScaleStateEventName = 'zoomScaleState';
+
+  /// The name of the method that gets the camera authorization state.
+  @visibleForTesting
+  static const String kAuthorizationStateMethodName = 'state';
+
+  /// The name of the method that requests camera permissions.
+  @visibleForTesting
+  static const String kRequestAuthorizationMethodName = 'request';
+
+  /// The name of the method that analyzes an image for barcodes.
+  @visibleForTesting
+  static const String kAnalyzeImageMethodName = 'analyzeImage';
+
+  /// The name of the method that resets the zoom scale.
+  @visibleForTesting
+  static const String kResetScaleMethodName = 'resetScale';
+
+  /// The name of the method that sets the zoom scale.
+  @visibleForTesting
+  static const String kSetScaleMethodName = 'setScale';
+
+  /// The name of the method that sets the focus point.
+  @visibleForTesting
+  static const String kSetFocusMethodName = 'setFocus';
+
+  /// The name of the method that starts the camera.
+  @visibleForTesting
+  static const String kStartCameraMethodName = 'start';
+
+  /// The name of the method that stops the camera.
+  @visibleForTesting
+  static const String kStopCameraMethodName = 'stop';
+
+  /// The name of the method that pauses the camera.
+  @visibleForTesting
+  static const String kPauseCameraMethodName = 'pause';
+
+  /// The name of the method that toggles the torch.
+  @visibleForTesting
+  static const String kToggleTorchMethodName = 'toggleTorch';
+
+  /// The name of the method that updates the scan window.
+  @visibleForTesting
+  static const String kUpdateScanWindowMethodName = 'updateScanWindow';
+
+  /// The name of the method that gets the supported camera lenses.
+  @visibleForTesting
+  static const String kGetSupportedLensesMethodName = 'getSupportedLenses';
+
   /// The method channel used to interact with the native platform.
   @visibleForTesting
   final methodChannel = const MethodChannel(
     'dev.steenbakker.mobile_scanner/scanner/method',
+  );
+
+  /// The event channel that sends back device orientation change events.
+  @visibleForTesting
+  final deviceOrientationEventChannel = const EventChannel(
+    'dev.steenbakker.mobile_scanner/scanner/deviceOrientation',
   );
 
   /// The event channel that sends back scanned barcode events.
@@ -36,8 +109,21 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     'dev.steenbakker.mobile_scanner/scanner/event',
   );
 
+  Stream<DeviceOrientation>? _deviceOrientationStream;
   Stream<Map<Object?, Object?>>? _eventsStream;
 
+  /// Get the event stream of device orientation change events
+  /// that come from the [deviceOrientationEventChannel].
+  Stream<DeviceOrientation> get deviceOrientationChangedStream {
+    _deviceOrientationStream ??= deviceOrientationEventChannel
+        .receiveBroadcastStream()
+        .cast<String>()
+        .map((orientation) => orientation.parseDeviceOrientation());
+
+    return _deviceOrientationStream!;
+  }
+
+  /// Get the event stream of barcode events that come from the [eventChannel].
   Stream<Map<Object?, Object?>> get eventsStream {
     _eventsStream ??=
         eventChannel.receiveBroadcastStream().cast<Map<Object?, Object?>>();
@@ -45,6 +131,10 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     return _eventsStream!;
   }
 
+  /// The delegate that handles texture rotation corrections on Android.
+  AndroidSurfaceProducerDelegate? _surfaceProducerDelegate;
+
+  /// The identifier of the current texture.
   int? _textureId;
   bool _pausing = false;
 
@@ -54,23 +144,21 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
       return null;
     }
 
-    final Object? data = event['data'];
+    final data = event['data'];
 
     if (data == null || data is! List<Object?>) {
       return null;
     }
 
-    final List<Map<Object?, Object?>> barcodes =
-        data.cast<Map<Object?, Object?>>();
+    final barcodes = data.cast<Map<Object?, Object?>>();
 
     if (defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS) {
-      final Map<Object?, Object?>? imageData =
-          event['image'] as Map<Object?, Object?>?;
-      final Uint8List? image = imageData?['bytes'] as Uint8List?;
-      final double? width = imageData?['width'] as double?;
-      final double? height = imageData?['height'] as double?;
+      final imageData = event['image'] as Map<Object?, Object?>?;
+      final image = imageData?['bytes'] as Uint8List?;
+      final width = imageData?['width'] as double?;
+      final height = imageData?['height'] as double?;
 
       return BarcodeCapture(
         raw: event,
@@ -80,21 +168,25 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
       );
     }
 
-    throw const MobileScannerException(
-      errorCode: MobileScannerErrorCode.genericError,
+    throw MobileScannerException(
+      errorCode: MobileScannerErrorCode.unsupported,
       errorDetails: MobileScannerErrorDetails(
-        message: 'Only Android, iOS and macOS are supported.',
+        message: MobileScannerErrorCode.unsupported.message,
       ),
     );
   }
 
-  /// Parse a [MobileScannerBarcodeException] from the given [error] and [stackTrace], and throw it.
+  /// Parse a [MobileScannerBarcodeException] from the given [error] and
+  /// [stackTrace], and throw it.
   ///
   /// If the error is not a [PlatformException],
-  /// with [kBarcodeErrorEventName] as [PlatformException.code], the error is rethrown as-is.
+  /// with [kBarcodeErrorEventName] as [PlatformException.code], the error is
+  /// rethrown as-is.
   Never _parseBarcodeError(Object error, StackTrace stackTrace) {
-    if (error case PlatformException(:final String code, :final String? message)
-        when code == kBarcodeErrorEventName) {
+    if (error case PlatformException(
+      :final String code,
+      :final String? message,
+    ) when code == kBarcodeErrorEventName) {
       throw MobileScannerBarcodeException(message);
     }
 
@@ -106,9 +198,9 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
   /// Throws a [MobileScannerException] if the permission is not granted.
   Future<void> _requestCameraPermission() async {
     try {
-      final MobileScannerAuthorizationState authorizationState =
-          MobileScannerAuthorizationState.fromRawValue(
-        await methodChannel.invokeMethod<int>('state') ?? 0,
+      final authorizationState = MobileScannerAuthorizationState.fromRawValue(
+        await methodChannel.invokeMethod<int>(kAuthorizationStateMethodName) ??
+            0,
       );
 
       switch (authorizationState) {
@@ -119,8 +211,11 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
         // So if the permission was denied, request it again.
         case MobileScannerAuthorizationState.denied:
         case MobileScannerAuthorizationState.undetermined:
-          final bool permissionGranted =
-              await methodChannel.invokeMethod<bool>('request') ?? false;
+          final permissionGranted =
+              await methodChannel.invokeMethod<bool>(
+                kRequestAuthorizationMethodName,
+              ) ??
+              false;
 
           if (!permissionGranted) {
             throw const MobileScannerException(
@@ -141,27 +236,28 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     }
   }
 
+  /// Handle incoming barcode events.
+  /// The error events are transformed to `MobileScannerBarcodeException` where
+  /// possible.
   @override
   Stream<BarcodeCapture?> get barcodesStream {
-    // Handle incoming barcode events.
-    // The error events are transformed to `MobileScannerBarcodeException` where possible.
     return eventsStream
         .where((e) => e['name'] == kBarcodeEventName)
-        .map((event) => _parseBarcode(event))
+        .map(_parseBarcode)
         .handleError(_parseBarcodeError);
   }
 
   @override
   Stream<TorchState> get torchStateStream {
     return eventsStream
-        .where((event) => event['name'] == 'torchState')
+        .where((event) => event['name'] == kTorchStateEventName)
         .map((event) => TorchState.fromRawValue(event['data'] as int? ?? 0));
   }
 
   @override
   Stream<double> get zoomScaleStateStream {
     return eventsStream
-        .where((event) => event['name'] == 'zoomScaleState')
+        .where((event) => event['name'] == kZoomScaleStateEventName)
         .map((event) => event['data'] as double? ?? 0.0);
   }
 
@@ -171,17 +267,17 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     List<BarcodeFormat> formats = const <BarcodeFormat>[],
   }) async {
     try {
-      final Map<Object?, Object?>? result =
-          await methodChannel.invokeMapMethod<Object?, Object?>(
-        'analyzeImage',
+      final result = await methodChannel.invokeMapMethod<Object?, Object?>(
+        kAnalyzeImageMethodName,
         {
           'filePath': path,
-          'formats': formats.isEmpty
-              ? null
-              : [
-                  for (final BarcodeFormat format in formats)
-                    if (format != BarcodeFormat.unknown) format.rawValue,
-                ],
+          'formats':
+              formats.isEmpty
+                  ? null
+                  : [
+                    for (final BarcodeFormat format in formats)
+                      if (format != BarcodeFormat.unknown) format.rawValue,
+                  ],
         },
       );
 
@@ -190,6 +286,10 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
       // Handle any errors from analyze image requests.
       if (error.code == kBarcodeErrorEventName) {
         throw MobileScannerBarcodeException(error.message);
+      }
+
+      if (error.code == kUnsupportdOperationErrorEventName) {
+        throw UnsupportedError(error.message ?? 'Unsupported operation.');
       }
 
       return null;
@@ -202,26 +302,58 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
       return const SizedBox();
     }
 
-    return Texture(textureId: _textureId!);
+    final Widget texture = Texture(textureId: _textureId!);
+
+    // If the preview needs manual orientation corrections,
+    // correct the preview orientation based on the currently reported device
+    // orientation.
+    // On Android, the underlying device orientation stream will emit the
+    // current orientation
+    // when the first listener is attached.
+    if (_surfaceProducerDelegate
+        case final AndroidSurfaceProducerDelegate delegate
+        when !delegate.handlesCropAndRotation) {
+      return RotatedPreview.fromCameraDirection(
+        delegate.cameraFacingDirection,
+        deviceOrientationStream: deviceOrientationChangedStream,
+        initialDeviceOrientation: delegate.initialDeviceOrientation,
+        sensorOrientationDegrees: delegate.sensorOrientationDegrees,
+        child: texture,
+      );
+    }
+
+    return texture;
   }
 
   @override
   Future<void> resetZoomScale() async {
-    await methodChannel.invokeMethod<void>('resetScale');
+    await methodChannel.invokeMethod<void>(kResetScaleMethodName);
   }
 
   @override
   Future<void> setZoomScale(double zoomScale) async {
-    await methodChannel.invokeMethod<void>('setScale', zoomScale);
+    await methodChannel.invokeMethod<void>(kSetScaleMethodName, zoomScale);
+  }
+
+  @override
+  Future<void> setFocusPoint(Offset position) async {
+    if (defaultTargetPlatform != TargetPlatform.iOS &&
+        defaultTargetPlatform != TargetPlatform.android) {
+      throw UnimplementedError('setFocusPoint() has not been implemented.');
+    }
+
+    final params = <String, Object?>{'dx': position.dx, 'dy': position.dy};
+
+    await methodChannel.invokeMethod<void>(kSetFocusMethodName, params);
   }
 
   @override
   Future<MobileScannerViewAttributes> start(StartOptions startOptions) async {
     if (!_pausing && _textureId != null) {
-      throw const MobileScannerException(
+      throw MobileScannerException(
         errorCode: MobileScannerErrorCode.controllerAlreadyInitialized,
         errorDetails: MobileScannerErrorDetails(
-          message: 'The scanner was already started.',
+          message: MobileScannerErrorCode.controllerAlreadyInitialized.message,
         ),
       );
     }
@@ -232,7 +364,7 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
 
     try {
       startResult = await methodChannel.invokeMapMethod<String, Object?>(
-        'start',
+        kStartCameraMethodName,
         startOptions.toMap(),
       );
     } on PlatformException catch (error) {
@@ -255,7 +387,7 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
       );
     }
 
-    final int? textureId = startResult['textureId'] as int?;
+    final textureId = startResult['textureId'] as int?;
 
     if (textureId == null) {
       throw const MobileScannerException(
@@ -266,17 +398,40 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
       );
     }
 
+    final cameraDirection = CameraFacing.fromRawValue(
+      startResult['cameraDirection'] as int?,
+    );
+
     _textureId = textureId;
 
-    final int? numberOfCameras = startResult['numberOfCameras'] as int?;
-    final TorchState currentTorchState = TorchState.fromRawValue(
+    DeviceOrientation? initialDeviceOrientation;
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      _surfaceProducerDelegate =
+          AndroidSurfaceProducerDelegate.fromConfiguration(
+            startResult,
+            cameraDirection,
+          );
+      initialDeviceOrientation =
+          _surfaceProducerDelegate?.initialDeviceOrientation;
+    } else if (startResult
+        case {'initialDeviceOrientation': final String orientation}
+        when defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS) {
+      initialDeviceOrientation = orientation.parseDeviceOrientation();
+    }
+
+    final numberOfCameras = startResult['numberOfCameras'] as int?;
+    final currentTorchState = TorchState.fromRawValue(
       startResult['currentTorchState'] as int? ?? -1,
     );
 
     final Size size;
 
-    if (startResult['size']
-        case {'width': final double width, 'height': final double height}) {
+    if (startResult['size'] case {
+      'width': final double width,
+      'height': final double height,
+    }) {
       size = Size(width, height);
     } else {
       size = Size.zero;
@@ -285,38 +440,47 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     _pausing = false;
 
     return MobileScannerViewAttributes(
+      cameraDirection: cameraDirection,
       currentTorchMode: currentTorchState,
       numberOfCameras: numberOfCameras,
       size: size,
+      initialDeviceOrientation: initialDeviceOrientation,
     );
   }
 
   @override
-  Future<void> stop() async {
-    if (_textureId == null) {
+  Future<void> stop({bool force = false}) async {
+    if (_textureId == null && !force) {
       return;
     }
 
     _textureId = null;
     _pausing = false;
+    _surfaceProducerDelegate = null;
+    _eventsStream = null;
+    _deviceOrientationStream = null;
 
-    await methodChannel.invokeMethod<void>('stop');
+    await methodChannel.invokeMethod<void>(kStopCameraMethodName, {
+      'force': force,
+    });
   }
 
   @override
-  Future<void> pause() async {
+  Future<void> pause({bool force = false}) async {
     if (_pausing) {
       return;
     }
 
     _pausing = true;
 
-    await methodChannel.invokeMethod<void>('pause');
+    await methodChannel.invokeMethod<void>(kPauseCameraMethodName, {
+      'force': force,
+    });
   }
 
   @override
   Future<void> toggleTorch() async {
-    await methodChannel.invokeMethod<void>('toggleTorch');
+    await methodChannel.invokeMethod<void>(kToggleTorchMethodName);
   }
 
   @override
@@ -331,14 +495,27 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
       points = [window.left, window.top, window.right, window.bottom];
     }
 
-    await methodChannel.invokeMethod<void>(
-      'updateScanWindow',
-      {'rect': points},
+    await methodChannel.invokeMethod<void>(kUpdateScanWindowMethodName, {
+      'rect': points,
+    });
+  }
+
+  @override
+  Future<Set<CameraLensType>> getSupportedLenses() async {
+    final lensTypes = await methodChannel.invokeListMethod<Object?>(
+      kGetSupportedLensesMethodName,
     );
+
+    if (lensTypes == null || lensTypes.isEmpty) {
+      return <CameraLensType>{};
+    }
+
+    return lensTypes.whereType<int>().map(CameraLensType.fromRawValue).toSet();
   }
 
   @override
   Future<void> dispose() async {
+    await updateScanWindow(null);
     await stop();
   }
 }

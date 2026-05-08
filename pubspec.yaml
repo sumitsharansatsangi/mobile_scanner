@@ -1,26 +1,23 @@
 name: mobile_scanner
-description: A universal barcode and QR code scanner for Flutter based on MLKit. Uses CameraX on Android, AVFoundation on iOS and Apple Vision & AVFoundation on macOS.
-version: 6.0.6
+description: A universal Flutter barcode and QR code scanner using CameraX/ML Kit for Android, AVFoundation/Apple Vision for iOS & macOS, and ZXing for web.
+version: 7.2.0
 publish_to: none
 repository: https://github.com/juliansteenbakker/mobile_scanner
 
 screenshots:
-  - description: "Flutter Demo Home Page"
-    path: example/screenshots/homepage.png
-  - description: "Mobile Scanner with controller"
-    path: example/screenshots/controller.png
-  - description: "Mobile Scanner with controller (returning image)"
-    path: example/screenshots/returningImage.png
-  - description: "Mobile Scanner with zoom slider"
-    path: example/screenshots/zoomSlider.png
-  - description: "Mobile Scanner with overlay"
-    path: example/screenshots/overlay.png
+- description: 'Mobile Scanner Example'
+  path: example/screenshots/example_advanced.png
+- description: 'Mobile Scanner Example Settings'
+  path: example/screenshots/example_advanced_settings.png
+- description: 'Mobile Scanner Example Homepage'
+  path: example/screenshots/homepage.png
 
 environment:
-  sdk: ">=3.4.0 <4.0.0"
-  flutter: ">=3.22.0"
+  sdk: ">=3.7.0 <4.0.0"
+  flutter: ">=3.29.0"
 
 dependencies:
+  collection: ">=1.15.0 <2.0.0"
   flutter:
     sdk: flutter
   flutter_web_plugins:
@@ -32,7 +29,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  very_good_analysis: ">=10.0.0 <11.0.0"
 
 flutter:
   plugin:
@@ -42,8 +39,10 @@ flutter:
         pluginClass: MobileScannerPlugin
       ios:
         pluginClass: MobileScannerPlugin
+        sharedDarwinSource: true
       macos:
         pluginClass: MobileScannerPlugin
+        sharedDarwinSource: true
       web:
         pluginClass: MobileScannerWeb
         fileName: src/web/mobile_scanner_web.dart

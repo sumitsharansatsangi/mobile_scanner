@@ -2,12 +2,15 @@ import 'dart:ui';
 
 import 'package:mobile_scanner/src/enums/barcode_format.dart';
 import 'package:mobile_scanner/src/enums/camera_facing.dart';
+import 'package:mobile_scanner/src/enums/camera_lens_type.dart';
 import 'package:mobile_scanner/src/enums/detection_speed.dart';
 
 /// This class defines the different start options for the mobile scanner.
 class StartOptions {
+  /// Construct a new [StartOptions] instance.
   const StartOptions({
     required this.cameraDirection,
+    required this.cameraLensType,
     required this.cameraResolution,
     required this.detectionSpeed,
     required this.detectionTimeoutMs,
@@ -15,8 +18,10 @@ class StartOptions {
     required this.returnImage,
     required this.torchEnabled,
     required this.useNewCameraSelector,
-      required this.enableAutoZoom,
     required this.shouldConsiderInvertedImages,
+    required this.invertImage,
+    required this.autoZoom,
+    required this.initialZoom,
   });
 
   /// The direction for the camera.
@@ -24,6 +29,19 @@ class StartOptions {
 
   /// The desired camera resolution for the scanner.
   final Size? cameraResolution;
+
+  /// The preferred lens type for the camera.
+  ///
+  /// This allows selection between normal, wide, and zoom lenses on devices
+  /// with multiple cameras.
+  ///
+  /// When set to [CameraLensType.any], the first available camera for the
+  /// given [cameraDirection] will be used.
+  final CameraLensType cameraLensType;
+
+  /// Invert image colors for analyzer to support white-on-black barcodes, which
+  /// are not supported by MLKit.
+  final bool invertImage;
 
   /// The detection speed for the scanner.
   final DetectionSpeed detectionSpeed;
@@ -43,9 +61,16 @@ class StartOptions {
   /// Whether the torch should be turned on when the scanner starts.
   final bool torchEnabled;
 
-  /// Whether the new resolution selector should be used.
+  /// Whether the camera should auto zoom if the detected code is to far from
+  /// the camera.
   ///
-  /// This option is only supported on Android. Other platforms will ignore this option.
+  /// This option is only supported on Android. Other platforms will ignore this
+  /// option.
+  final bool autoZoom;
+
+  /// Whether to use the new camera selector.
+  ///
+  /// This option is only supported on Android.
   final bool useNewCameraSelector;
 
   /// Whether the Camera should auto zoom.
@@ -53,6 +78,12 @@ class StartOptions {
   /// This option is only supported on Android. Other platforms will ignore this option.
   final bool enableAutoZoom;
 
+  /// The initial zoom scale factor for the camera.
+  ///
+  /// Currently only supported on iOS, MacOS and Android.
+  final double? initialZoom;
+
+  /// Converts this object to a map.
   Map<String, Object?> toMap() {
     return <String, Object?>{
       if (cameraResolution != null)
@@ -61,6 +92,7 @@ class StartOptions {
           cameraResolution!.height.toInt(),
         ],
       'facing': cameraDirection.rawValue,
+      'lensType': cameraLensType.rawValue,
       if (formats.isNotEmpty)
         'formats': formats.map((f) => f.rawValue).toList(),
       'returnImage': returnImage,
@@ -68,8 +100,10 @@ class StartOptions {
       'timeout': detectionTimeoutMs,
       'torch': torchEnabled,
       'useNewCameraSelector': useNewCameraSelector,
-       'autoZoom' : enableAutoZoom,
       'shouldConsiderInvertedImages': shouldConsiderInvertedImages,
+      'invertImage': invertImage,
+      'autoZoom': autoZoom,
+      'initialZoom': initialZoom,
     };
   }
 }
