@@ -161,10 +161,10 @@ fun applyBilateralFilter(bitmap: Bitmap, sigmaSpace: Float = 2f, sigmaColor: Flo
 
     for (y in 0 until height) {
         for (x in 0 until width) {
-            var sumR = 0f
-            var sumG = 0f
-            var sumB = 0f
-            var weightSum = 0f
+            var sumR = 0.0
+            var sumG = 0.0
+            var sumB = 0.0
+            var weightSum = 0.0
 
             // Sample neighboring pixels
             for (dy in -2..2) {
@@ -177,7 +177,7 @@ fun applyBilateralFilter(bitmap: Bitmap, sigmaSpace: Float = 2f, sigmaColor: Flo
                         val centerPixel = pixels[y * width + x]
 
                         // Spatial weight
-                        val spatialWeight = Math.exp(-(dx * dx + dy * dy) / (2 * sigmaSpace * sigmaSpace))
+                        val spatialWeight = Math.exp(-(dx * dx + dy * dy) / (2.0 * sigmaSpace * sigmaSpace))
 
                         // Color weight
                         val nr = (neighborPixel shr 16) and 0xFF
@@ -188,9 +188,9 @@ fun applyBilateralFilter(bitmap: Bitmap, sigmaSpace: Float = 2f, sigmaColor: Flo
                         val cb = centerPixel and 0xFF
 
                         val colorDiff = (nr - cr) * (nr - cr) + (ng - cg) * (ng - cg) + (nb - cb) * (nb - cb)
-                        val colorWeight = Math.exp(-colorDiff / (2 * sigmaColor * sigmaColor))
+                        val colorWeight = Math.exp(-colorDiff / (2.0 * sigmaColor * sigmaColor))
 
-                        val weight = spatialWeight * colorWeight.toFloat()
+                        val weight = spatialWeight * colorWeight
 
                         sumR += nr * weight
                         sumG += ng * weight

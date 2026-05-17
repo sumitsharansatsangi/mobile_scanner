@@ -139,9 +139,9 @@ class MobileScanner(
         var invertedBitmap: Bitmap? = null
         val inputImage = if (invertImage) {
             val bitmap = imageProxy.toBitmap()
-            invertedBitmap = invertBitmapColors(bitmap)
-            bitmap.recycle()
-            InputImage.fromBitmap(invertedBitmap, imageProxy.imageInfo.rotationDegrees)
+            invertBitmapColors(bitmap)
+            invertedBitmap = bitmap
+            InputImage.fromBitmap(bitmap, imageProxy.imageInfo.rotationDegrees)
         } else {
             InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
         }
@@ -151,18 +151,6 @@ class MobileScanner(
             return@Analyzer
         } else if (detectionSpeed == DetectionSpeed.NORMAL) {
             scannerTimeout = true
-        }
-
-        // Create InputImage directly from ImageProxy for better performance
-        // Only convert to Bitmap if we need to invert colors
-        var invertedBitmap: Bitmap? = null
-        val inputImage = if (invertImage) {
-            val bitmap = imageProxy.toBitmap()
-            invertedBitmap = invertBitmapColors(bitmap)
-            bitmap.recycle()
-            InputImage.fromBitmap(invertedBitmap, imageProxy.imageInfo.rotationDegrees)
-        } else {
-            InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
         }
 
         scanner?.let {
@@ -224,9 +212,7 @@ class MobileScanner(
 
                     // Revert inverted image colors for the returned image (MLKit already scanned the inverted version)
                     if (invertImage) {
-                        val revertedBitmap = invertBitmapColors(rotatedBitmap)
-                        rotatedBitmap.recycle()
-                        rotatedBitmap = revertedBitmap
+                        invertBitmapColors(rotatedBitmap)
                     }
 
                     // Clean up the base bitmap if it's not needed anymore
@@ -467,12 +453,12 @@ class MobileScanner(
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .setOutputImageFormat(OUTPUT_IMAGE_FORMAT_YUV_420_888)
 
-            val cameraResolution =  cameraResolutionWanted ?: Size(1920, 1080)
+            val selectedResolution = cameraResolution ?: Size(1920, 1080)
 
             val selectorBuilder = ResolutionSelector.Builder()
             selectorBuilder.setResolutionStrategy(
                 ResolutionStrategy(
-                    cameraResolution,
+                    selectedResolution,
                     ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
                 )
             )
@@ -665,18 +651,9 @@ class MobileScanner(
     /**
      * Inverts the image colours respecting the alpha channel
      */
-    @SuppressLint("UnsafeOptInUsageError")
     fun invertInputImage(imageProxy: ImageProxy): InputImage {
-        val image = imageProxy.image ?: throw IllegalArgumentException("Image is null")
-
-        // Convert YUV_420_888 image to NV21 format
-        // based on our util helper
-        val bitmap = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
-        YuvToRgbConverter(activity).yuvToRgb(image, bitmap)
-
-        // Invert RGB values
+        val bitmap = imageProxy.toBitmap()
         invertBitmapColors(bitmap)
-
         return InputImage.fromBitmap(bitmap, imageProxy.imageInfo.rotationDegrees)
     }
 
@@ -733,7 +710,7 @@ class MobileScanner(
         }
     }
 
-      fun setZoomRatio(zoomRatio: Double) {
+    fun setZoomRatio(zoomRatio: Double) {
         if (camera == null) throw ZoomWhenStopped()
         camera?.cameraControl?.setZoomRatio(zoomRatio.toFloat())
     }
@@ -745,11 +722,6 @@ class MobileScanner(
         if (scale > 1.0 || scale < 0) throw ZoomNotInRange()
         if (camera == null) throw ZoomWhenStopped()
         camera?.cameraControl?.setLinearZoom(scale.toFloat())
-    }
-
-    fun setZoomRatio(zoomRatio: Double) {
-        if (camera == null) throw ZoomWhenStopped()
-        camera?.cameraControl?.setZoomRatio(zoomRatio.toFloat())
     }
 
     /**

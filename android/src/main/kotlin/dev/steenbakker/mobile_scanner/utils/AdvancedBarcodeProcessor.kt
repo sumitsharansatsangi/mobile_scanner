@@ -176,5 +176,4 @@ data class ImageQualityAnalysis(
     val contrast: Float,   // 0-1 scale
     val edgeDensity: Float, // 0-1 scale
     val recommendedEnhancement: String
-)</content>
-<parameter name="filePath">android/src/main/kotlin/dev/steenbakker/mobile_scanner/utils/AdvancedBarcodeProcessor.kt
+)

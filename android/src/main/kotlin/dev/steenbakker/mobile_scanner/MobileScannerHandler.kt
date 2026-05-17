@@ -358,7 +358,7 @@ class MobileScannerHandler(
         return false
     }
 
-<
+
     private fun resetScale(result: MethodChannel.Result) {
         try {
             mobileScanner!!.resetScale()
