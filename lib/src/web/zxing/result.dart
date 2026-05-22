@@ -152,9 +152,6 @@ extension type Result(JSObject _) implements JSObject {
       corners: corners,
       format: barcodeFormat,
       displayValue: text,
-      // Populate deprecated rawBytes for backward compatibility.
-      // ignore: deprecated_member_use_from_same_package
-      rawBytes: rawBytesData,
       rawDecodedBytes:
           rawBytesData != null
               ? DecodedBarcodeBytes(bytes: rawBytesData)

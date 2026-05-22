@@ -31,7 +31,6 @@ void main() {
         expect(barcode.format, BarcodeFormat.unknown);
         expect(barcode.geoPoint, isNull);
         expect(barcode.phone, isNull);
-        expect(barcode.rawBytes, isNull);
         expect(barcode.rawDecodedBytes, isNull);
         expect(barcode.rawValue, isNull);
         expect(barcode.size, Size.zero);
@@ -54,12 +53,11 @@ void main() {
         const email = Email(address: 'test@example.com');
         const geoPoint = GeoPoint(latitude: 37.7749, longitude: -122.4194);
         const phone = Phone(number: '+1234567890');
-        final rawBytes = Uint8List.fromList([1, 2, 3, 4]);
         const sms = SMS(phoneNumber: '+1234567890', message: 'Hello');
         const url = UrlBookmark(url: 'https://example.com');
         const wifi = WiFi(ssid: 'TestNetwork');
 
-        final barcode = Barcode(
+        const barcode = Barcode(
           calendarEvent: calendarEvent,
           contactInfo: contactInfo,
           corners: corners,
@@ -69,9 +67,8 @@ void main() {
           format: BarcodeFormat.qrCode,
           geoPoint: geoPoint,
           phone: phone,
-          rawBytes: rawBytes,
           rawValue: 'Test Raw Value',
-          size: const Size(200, 200),
+          size: Size(200, 200),
           sms: sms,
           type: BarcodeType.url,
           url: url,
@@ -87,7 +84,7 @@ void main() {
         expect(barcode.format, BarcodeFormat.qrCode);
         expect(barcode.geoPoint?.latitude, 37.7749);
         expect(barcode.phone?.number, '+1234567890');
-        expect(barcode.rawBytes, rawBytes);
+        expect(barcode.rawDecodedBytes, isA<DecodedBarcodeBytes>());
         expect(barcode.rawValue, 'Test Raw Value');
         expect(barcode.size, const Size(200, 200));
         expect(barcode.sms?.message, 'Hello');
@@ -110,7 +107,6 @@ void main() {
         expect(barcode.format, BarcodeFormat.unknown);
         expect(barcode.geoPoint, isNull);
         expect(barcode.phone, isNull);
-        expect(barcode.rawBytes, isNull);
         expect(barcode.rawDecodedBytes, isNull);
         expect(barcode.rawValue, isNull);
         expect(barcode.size, Size.zero);
@@ -136,7 +132,6 @@ void main() {
           'rawBytes': rawBytes,
         });
 
-        expect(barcode.rawBytes, rawBytes);
         expect(barcode.rawDecodedBytes, isA<DecodedBarcodeBytes>());
         final decoded = barcode.rawDecodedBytes! as DecodedBarcodeBytes;
         expect(decoded.bytes, rawBytes);
@@ -155,7 +150,6 @@ void main() {
             'rawPayloadData': rawPayloadData,
           });
 
-          expect(barcode.rawBytes, rawBytes);
           expect(barcode.rawDecodedBytes, isA<DecodedVisionBarcodeBytes>());
           final decoded = barcode.rawDecodedBytes! as DecodedVisionBarcodeBytes;
           expect(decoded.bytes, rawBytes);

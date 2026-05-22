@@ -30,7 +30,6 @@ class Barcode {
     this.format = BarcodeFormat.unknown,
     this.geoPoint,
     this.phone,
-    @Deprecated('Use rawDecodedBytes instead.') this.rawBytes,
     this.rawDecodedBytes,
     this.rawValue,
     this.size = Size.zero,
@@ -101,9 +100,6 @@ class Barcode {
       format: BarcodeFormat.fromRawValue(data['format'] as int? ?? -1),
       geoPoint: geoPoint == null ? null : GeoPoint.fromNative(geoPoint),
       phone: phone == null ? null : Phone.fromNative(phone),
-      // Populate deprecated rawBytes for backward compatibility.
-      // ignore: deprecated_member_use_from_same_package
-      rawBytes: rawBytesData,
       rawDecodedBytes: rawDecodedBytes,
       rawValue: data['rawValue'] as String?,
       size:
@@ -165,12 +161,6 @@ class Barcode {
 
   /// The phone number that is embedded in the barcode.
   final Phone? phone;
-
-  /// The raw bytes of the barcode.
-  ///
-  /// This is null if the raw bytes are not available.
-  @Deprecated('Use rawDecodedBytes instead.')
-  final Uint8List? rawBytes;
 
   /// The decoded raw bytes of the barcode.
   ///

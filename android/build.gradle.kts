@@ -1,8 +1,6 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.android") version "2.3.21"
     id("org.jetbrains.kotlin.kapt")
     id("com.google.dagger.hilt.android") version "2.50"
 }
@@ -86,19 +84,6 @@ android {
     }
 }
 
-kotlin {
-    compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_21)
-
-        freeCompilerArgs.addAll(
-            listOf(
-                "-opt-in=kotlin.RequiresOptIn",
-                "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
-                "-opt-in=androidx.camera.core.ExperimentalGetImage"
-            )
-        )
-    }
-}
 
 dependencies {
     val useUnbundled =
