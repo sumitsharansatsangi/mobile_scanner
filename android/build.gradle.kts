@@ -1,8 +1,7 @@
+import com.android.build.api.dsl.LibraryExtension
 
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.kapt")
-    id("com.google.dagger.hilt.android") version "2.50"
 }
 
 group = "dev.steenbakker.mobile_scanner"
@@ -13,7 +12,7 @@ repositories {
     mavenCentral()
 }
 
-android {
+extensions.configure<LibraryExtension>("android") {
     namespace = "dev.steenbakker.mobile_scanner"
 
     compileSdk = 37
@@ -25,11 +24,11 @@ android {
 
     sourceSets {
         getByName("main") {
-            java.srcDirs("src/main/kotlin")
+            java.directories.add("src/main/kotlin")
         }
 
         getByName("test") {
-            java.srcDirs("src/test/kotlin")
+            java.directories.add("src/test/kotlin")
         }
     }
 
@@ -109,8 +108,6 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
-    implementation("com.google.dagger:hilt-android:2.59.2")
-    kapt("com.google.dagger:hilt-compiler:2.59.2")
 
     testImplementation(kotlin("test"))
     testImplementation("org.mockito:mockito-core:5.23.0")
