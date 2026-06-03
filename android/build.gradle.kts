@@ -43,7 +43,7 @@ extensions.configure<LibraryExtension>("android") {
         // ../src via CMake. Loaded at runtime by Dart FFI and JNI.
         externalNativeBuild {
             cmake {
-                cppFlags("-std=c++17")
+                cppFlags("-std=c++20")
             }
         }
     }
