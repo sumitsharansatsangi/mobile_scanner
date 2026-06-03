@@ -9,6 +9,7 @@ import 'package:mobile_scanner/src/enums/camera_lens_type.dart';
 import 'package:mobile_scanner/src/enums/mobile_scanner_authorization_state.dart';
 import 'package:mobile_scanner/src/enums/mobile_scanner_error_code.dart';
 import 'package:mobile_scanner/src/enums/torch_state.dart';
+import 'package:mobile_scanner/src/ffi/zxing_image_analyzer.dart';
 import 'package:mobile_scanner/src/method_channel/android_surface_producer_delegate.dart';
 import 'package:mobile_scanner/src/method_channel/rotated_preview.dart';
 import 'package:mobile_scanner/src/mobile_scanner_exception.dart';
@@ -308,6 +309,16 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     String path, {
     List<BarcodeFormat> formats = const <BarcodeFormat>[],
   }) async {
+    // Primary: the native ZXing-C++ engine via FFI. This is the only path on
+    // desktop (Linux/Windows) and also covers the extra formats (DataBar /
+    // MaxiCode / DotCode) on mobile. Returns empty when unavailable.
+    final zxingBarcodes = await analyzeImageWithZxing(path, formats);
+    if (zxingBarcodes.isNotEmpty) {
+      return BarcodeCapture(barcodes: zxingBarcodes);
+    }
+
+    // Fallback: the platform's native analyzer (ML Kit / Apple Vision). Absent
+    // on desktop, where the method channel throws MissingPluginException.
     try {
       final result = await methodChannel.invokeMapMethod<Object?, Object?>(
         kAnalyzeImageMethodName,
@@ -324,6 +335,10 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
       );
 
       return _parseBarcode(result);
+    } on MissingPluginException {
+      // No native analyzer on this platform (e.g. desktop); ZXing found
+      // nothing, so there is no result to report.
+      return null;
     } on PlatformException catch (error) {
       // Handle any errors from analyze image requests.
       if (error.code == kBarcodeErrorEventName) {
