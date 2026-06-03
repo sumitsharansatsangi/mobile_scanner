@@ -12,10 +12,10 @@
 #include <string>
 #include <vector>
 
-#include <ZXing/ReadBarcode.h>
-#include <ZXing/BarcodeFormat.h>
-#include <ZXing/ImageView.h>
-#include <ZXing/Version.h>
+#include <ReadBarcode.h>
+#include <BarcodeFormat.h>
+#include <ImageView.h>
+#include <ZXVersion.h>
 
 using namespace ZXing;
 
