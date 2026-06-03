@@ -1,11 +1,12 @@
-import java.util.Properties
-
 pluginManagement {
-    val flutterSdkPath = run {
-        val properties = Properties()
+    val flutterSdkPath = kotlin.run<String> {
+        val properties = java.util.Properties()
+        val localPropertiesFile = java.io.File(rootDir, "local.properties")
 
-        file("local.properties").inputStream().use {
-            properties.load(it)
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.inputStream().use { stream ->
+                properties.load(stream)
+            }
         }
 
         properties.getProperty("flutter.sdk")
