@@ -43,6 +43,15 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
 
     var symbologies:[VNBarcodeSymbology] = []
 
+    /// OR-ed BarcodeFormat.rawValue bits to scan for (0 = all formats). Used by
+    /// the primary ZXing-C++ engine.
+    var zxingFormatMask: UInt32 = 0
+
+    /// Number of consecutive frames ZXing must find nothing in before Apple
+    /// Vision is consulted as a recovery fallback.
+    var zxingFallbackThreshold: Int = 3
+    private var consecutiveZxingMisses: Int = 0
+
     var position = AVCaptureDevice.Position.back
     
     var standardZoomFactor: CGFloat = 1
@@ -170,9 +179,19 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
                     self.imagesCurrentlyBeingProcessed = false
                     return
                 }
-                
+
+                // === ZXing-C++ primary fast path ===
+                // Apple Vision is only consulted after a run of frames ZXing
+                // can't read (see zxingFallbackThreshold). Compiled in only when
+                // the native ZXing core is wired (MOBILE_SCANNER_ZXING).
+#if MOBILE_SCANNER_ZXING
+                if self.tryZxingDecode(buffer: buffer) {
+                    return
+                }
+#endif
+
                 var cgImage: CGImage? = nil
-                
+
                 let status = VTCreateCGImageFromCVPixelBuffer(buffer, options: nil, imageOut: &cgImage)
                 
                 guard status == kCVReturnSuccess, let currentImage = cgImage else {
@@ -270,7 +289,83 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
             }
         }
     }
-    
+
+#if MOBILE_SCANNER_ZXING
+    /// Attempt to decode [buffer] with the primary ZXing-C++ engine.
+    ///
+    /// Returns `true` when the frame is fully handled and Apple Vision should be
+    /// skipped (either ZXing produced a result, or it's a miss still under the
+    /// fallback threshold). Returns `false` to let the caller fall through to
+    /// the Apple Vision recovery path. Always manages `imagesCurrentlyBeingProcessed`.
+    private func tryZxingDecode(buffer: CVPixelBuffer) -> Bool {
+        let bufWidth = CVPixelBufferGetWidth(buffer)
+        let bufHeight = CVPixelBufferGetHeight(buffer)
+
+        // scanWindow is normalized [0..1]; convert to a pixel crop rect.
+        let cropRect: CGRect? = self.scanWindow.map { sw in
+            CGRect(
+                x: sw.minX * CGFloat(bufWidth),
+                y: sw.minY * CGFloat(bufHeight),
+                width: sw.width * CGFloat(bufWidth),
+                height: sw.height * CGFloat(bufHeight)
+            )
+        }
+
+        let results = ZxingScannerDarwin.decode(
+            pixelBuffer: buffer,
+            formatMask: self.zxingFormatMask,
+            crop: cropRect,
+            tryHarder: false
+        )
+
+        if !results.isEmpty {
+            self.consecutiveZxingMisses = 0
+
+            var bytes: FlutterStandardTypedData? = nil
+            if MobileScannerPlugin.returnImage {
+                var cg: CGImage? = nil
+                if VTCreateCGImageFromCVPixelBuffer(buffer, options: nil, imageOut: &cg) == kCVReturnSuccess,
+                   let img = cg, let jpeg = img.jpegData(compressionQuality: 0.8) {
+                    bytes = FlutterStandardTypedData(bytes: jpeg)
+                }
+            }
+
+            self.imagesCurrentlyBeingProcessed = false
+            DispatchQueue.main.async {
+#if os(iOS)
+                let imageData: [String: Any?] = [
+                    "bytes": bytes,
+                    "width": Double(min(bufWidth, bufHeight)),
+                    "height": Double(max(bufWidth, bufHeight)),
+                ]
+#else
+                let imageData: [String: Any?] = [
+                    "bytes": bytes,
+                    "width": Double(bufWidth),
+                    "height": Double(bufHeight),
+                ]
+#endif
+                self.sink?([
+                    "name": "barcode",
+                    "image": imageData,
+                    "data": results,
+                ])
+            }
+            return true
+        }
+
+        // ZXing found nothing this frame.
+        self.consecutiveZxingMisses += 1
+        if self.consecutiveZxingMisses < self.zxingFallbackThreshold {
+            self.imagesCurrentlyBeingProcessed = false
+            return true
+        }
+        // Threshold reached: let Apple Vision recover this frame.
+        self.consecutiveZxingMisses = 0
+        return false
+    }
+#endif // MOBILE_SCANNER_ZXING
+
     func checkPermission(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
         if #available(iOS 12.0, macOS 10.14, *) {
             let status = AVCaptureDevice.authorizationStatus(for: .video)
@@ -373,6 +468,8 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
             }
         }()
         symbologies = argReader.toSymbology()
+        zxingFormatMask = argReader.toFormatMask()
+        consecutiveZxingMisses = 0
         MobileScannerPlugin.returnImage = argReader.bool(key: "returnImage") ?? false
 
         timeoutSeconds = Double(timeoutMs) / 1000.0
@@ -1035,6 +1132,18 @@ class MapArgumentReader {
         return barcodeFormats
     }
 
+    /// OR-ed BarcodeFormat.rawValue bits for the native ZXing engine.
+    /// Returns 0 (all formats) when none/`all` are requested.
+    func toFormatMask() -> UInt32 {
+        guard let syms: [Int] = args?["formats"] as? [Int] else {
+            return 0
+        }
+        if syms.contains(0) {
+            return 0
+        }
+        return syms.reduce(UInt32(0)) { acc, raw in acc | UInt32(raw) }
+    }
+
     func floatArray(key: String) -> [CGFloat]? {
         return args?[key] as? [CGFloat]
     }
@@ -1203,6 +1312,13 @@ extension VNBarcodeSymbology {
             if(mapValue == 8){
                 return VNBarcodeSymbology.codabar
             }
+            // GS1 DataBar (RSS-14) and DataBar Expanded.
+            if(mapValue == 8192){
+                return VNBarcodeSymbology.gs1DataBar
+            }
+            if(mapValue == 16384){
+                return VNBarcodeSymbology.gs1DataBarExpanded
+            }
         }
         switch(mapValue){
         case 1:
@@ -1240,6 +1356,12 @@ extension VNBarcodeSymbology {
         if #available(iOS 15.0, macOS 12.0, *) {
             if(self == VNBarcodeSymbology.codabar){
                 return 8
+            }
+            if(self == VNBarcodeSymbology.gs1DataBar){
+                return 8192
+            }
+            if(self == VNBarcodeSymbology.gs1DataBarExpanded){
+                return 16384
             }
         }
         switch(self){

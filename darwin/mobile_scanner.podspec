@@ -22,4 +22,37 @@ An universal scanner for Flutter based on the Vision API.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
   s.swift_version = '5.0'
   s.resource_bundles = {'mobile_scanner_privacy' => ['mobile_scanner/Sources/mobile_scanner/Resources/PrivacyInfo.xcprivacy']}
+
+  # ---------------------------------------------------------------------------
+  # Optional: ZXing-C++ primary engine (DataBar / MaxiCode / DotCode + faster
+  # decoding). Disabled by default so the plugin builds with Apple Vision only.
+  #
+  # To enable on iOS/macOS:
+  #   1. Vendor zxing-cpp:
+  #        git submodule add https://github.com/zxing-cpp/zxing-cpp \
+  #          darwin/third_party/zxing-cpp   # checkout tag v2.3.0
+  #   2. Compile the shared C ABI + zxing-cpp core and expose the C header so
+  #      Swift can call it, then define the MOBILE_SCANNER_ZXING flag:
+  #
+  #        s.source_files = [
+  #          'mobile_scanner/Sources/mobile_scanner/**/*.swift',
+  #          '../src/ms_zxing.{h,cpp}',
+  #          'third_party/zxing-cpp/core/src/**/*.{h,c,cc,cpp}',
+  #        ]
+  #        s.public_header_files = '../src/ms_zxing.h'
+  #        s.libraries = 'c++'
+  #        s.pod_target_xcconfig = {
+  #          'DEFINES_MODULE' => 'YES',
+  #          'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
+  #          'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17',
+  #          'HEADER_SEARCH_PATHS' => '"$(PODS_TARGET_SRCROOT)/third_party/zxing-cpp/core/src" "$(PODS_TARGET_SRCROOT)/../src"',
+  #          'SWIFT_ACTIVE_COMPILATION_CONDITIONS' => 'MOBILE_SCANNER_ZXING',
+  #          'GCC_PREPROCESSOR_DEFINITIONS' => 'ZXING_HAS_DOTCODE=1',
+  #        }
+  #
+  #   3. `cd example/ios && pod install` (and example/macos) then rebuild.
+  #
+  # NOTE: this wiring needs validation in Xcode; the exact zxing-cpp source glob
+  # may vary by release. See ZxingScannerDarwin.swift for the Swift side.
+  # ---------------------------------------------------------------------------
 end

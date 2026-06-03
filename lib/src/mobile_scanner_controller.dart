@@ -117,11 +117,15 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   final bool returnImage;
 
 
-  /// Whether the scanner should try to detect color-inverted barcodes in every other frame.
+  /// Whether the scanner should try to detect color-inverted barcodes in every
+  ///  other frame.
   ///
-  /// When this option is enabled, every odd frame from the camera preview has its colors inverted before processing.
-  /// This is useful if barcodes can be both black-on-white (the most common) and white-on-black (less common).
-  /// Usage of this parameter can incur a performance cost, as some frames need to be altered further during processing.
+  /// When this option is enabled, every odd frame from the camera preview has
+  ///  its colors inverted before processing.
+  /// This is useful if barcodes can be both black-on-white (the most common)
+  ///  and white-on-black (less common).
+  /// Usage of this parameter can incur a performance cost, as some frames need
+  ///  to be altered further during processing.
   ///
   /// Defaults to false and is only supported on Android and iOS.
   ///
@@ -167,7 +171,8 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
 
   /// Enable image quality analysis for barcode detection optimization.
   ///
-  /// When enabled, the scanner will analyze image quality and suggest enhancements.
+  /// When enabled, the scanner will analyze image quality and suggest
+  ///  enhancements.
   /// Defaults to false.
   final bool enableQualityAnalysis;
 
@@ -179,7 +184,8 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
 
   /// Enable automatic image quality enhancement.
   ///
-  /// When enabled, the scanner will automatically enhance image quality for better detection.
+  /// When enabled, the scanner will automatically enhance image quality for
+  ///  better detection.
   /// Defaults to true.
   final bool enhanceImageQuality;
 

@@ -13,11 +13,12 @@ screenshots:
   path: example/screenshots/homepage.png
 
 environment:
-  sdk: ">=3.11.0 <4.0.0"
-  flutter: ">=3.41.0"
+  sdk: ">=3.12.0 <4.0.0"
+  flutter: ">=3.44.0"
 
 dependencies:
-  collection: ">=1.19.0 <2.0.0"
+  collection: ">=1.19.1 <2.0.0"
+  ffi: ">=2.2.0 <3.0.0"
   flutter:
     sdk: flutter
   flutter_web_plugins:
@@ -30,7 +31,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  very_good_analysis: ">=10.0.0 <11.0.0"
+  very_good_analysis: ">=10.2.0 <11.0.0"
 
 flutter:
   plugin:
@@ -47,3 +48,10 @@ flutter:
       web:
         pluginClass: MobileScannerWeb
         fileName: src/web/mobile_scanner_web.dart
+      # Desktop: FFI-only plugins (no platform channel). They build the native
+      # ZXing-C++ engine and expose image/byte decoding via dart:ffi. Live
+      # camera capture on desktop is a separate follow-on (no capture backend).
+      linux:
+        ffiPlugin: true
+      windows:
+        ffiPlugin: true

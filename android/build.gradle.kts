@@ -38,6 +38,26 @@ extensions.configure<LibraryExtension>("android") {
         consumerProguardFiles("proguard-rules.pro")
 
         multiDexEnabled = true
+
+        // Build the shared ZXing-C++ engine (libms_zxing.so) from the C ABI in
+        // ../src via CMake. Loaded at runtime by Dart FFI and JNI.
+        externalNativeBuild {
+            cmake {
+                cppFlags("-std=c++17")
+            }
+        }
+    }
+
+    // Pin the NDK used to build the ZXing-C++ engine. 30.x is required for the
+    // 16 KB page-size support flag set in the shared CMakeLists.
+    ndkVersion = "30.0.14904198"
+
+    // Points at the Android CMake wrapper which pulls in ../../src/CMakeLists.txt.
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     buildTypes {

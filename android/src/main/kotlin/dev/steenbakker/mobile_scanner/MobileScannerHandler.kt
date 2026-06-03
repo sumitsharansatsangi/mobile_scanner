@@ -267,7 +267,8 @@ class MobileScannerHandler(
             enableAdvancedProcessing,
             enableQualityAnalysis,
             enableBatchProcessing,
-            enhanceImageQuality
+            enhanceImageQuality,
+            formats,
         )
     }
 

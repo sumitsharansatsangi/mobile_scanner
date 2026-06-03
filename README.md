@@ -27,7 +27,26 @@ See the [examples](example/README.md) for runnable examples of various usages, s
 
 | Android | iOS | macOS | Web | Linux | Windows |
 |---------|-----|-------|-----|-------|---------|
-| ✅      | ✅   | ✅     | ✅   | ❌     | ❌      |
+| ✅      | ✅   | ✅     | ✅   | 🟡     | 🟡      |
+
+🟡 **Desktop (Linux/Windows):** barcode **decoding** is supported via the native
+ZXing-C++ engine (used by `analyzeImage` and byte decoding). Live **camera preview**
+on desktop is not yet available — there is no desktop camera-capture backend.
+
+### Detection engine
+
+mobile_scanner uses a hybrid pipeline. **ZXing-C++** is the primary decoder on every
+platform (it is fast, low-CPU, cross-platform, and natively decodes DataBar, MaxiCode
+and DotCode). On mobile, a platform ML engine acts as a **recovery fallback** for hard
+frames (blur, low light, heavy rotation, perspective distortion):
+
+| Platform | Primary engine | ML fallback |
+|----------|----------------|-------------|
+| Android | ZXing-C++ (FFI/JNI) | ML Kit |
+| iOS | ZXing-C++ | Apple Vision |
+| macOS | ZXing-C++ | Apple Vision |
+| Web | ZXing-js | — |
+| Linux/Windows | ZXing-C++ | — |
 
 ### 🎯 **Advanced Features Matrix**
 
@@ -49,21 +68,36 @@ See the [examples](example/README.md) for runnable examples of various usages, s
 | | multiFormatDetection | ✅ | ✅ | ✅ | ✅ |
 | **Formats** | All 18 formats | ✅ | ✅ | ✅ | ✅ |
 
-### 📊 **Supported Barcode Formats (18 total)**
+### 📊 **Supported Barcode Formats**
 
-| Format | Type | Android | iOS | macOS | Web |
-|--------|------|---------|-----|-------|-----|
-| **QR Code** | 2D | ✅ | ✅ | ✅ | ✅ |
-| **Data Matrix** | 2D | ✅ | ✅ | ✅ | ✅ |
-| **PDF417** | 2D | ✅ | ✅ | ✅ | ✅ |
-| **Aztec** | 2D | ✅ | ✅ | ✅ | ✅ |
-| **Code 128** | 1D | ✅ | ✅ | ✅ | ✅ |
-| **Code 39** | 1D | ✅ | ✅ | ✅ | ✅ |
-| **EAN-13/8** | 1D | ✅ | ✅ | ✅ | ✅ |
-| **UPC-A/E** | 1D | ✅ | ✅ | ✅ | ✅ |
-| **ITF** | 1D | ✅ | ✅ | ✅ | ✅ |
-| **Codabar** | 1D | ✅ | ✅ | ✅ | ✅ |
-| **Code 93** | 1D | ✅ | ✅ | ✅ | ✅ |
+Detected by the primary ZXing-C++ engine on all native platforms (and ZXing-js on web):
+
+| Format | Type | Android | iOS | macOS | Web | Linux/Windows |
+|--------|------|---------|-----|-------|-----|---------------|
+| **QR Code** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Data Matrix** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **PDF417** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Aztec** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **MaxiCode** | 2D | ✅ | ✅² | ✅² | ✅ | ✅ |
+| **DotCode** | 2D | ✅ | ✅² | ✅² | ❌¹ | ✅ |
+| **Code 128** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Code 39** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **EAN-13/8** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **UPC-A/E** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **ITF** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Codabar** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Code 93** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **GS1 DataBar** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **GS1 DataBar Expanded** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+¹ DotCode is not supported by the web ZXing-js reader.
+² On iOS/macOS, MaxiCode and DotCode require the ZXing-C++ engine to be enabled
+(`MOBILE_SCANNER_ZXING` — see `darwin/mobile_scanner.podspec`). Apple Vision alone
+covers the other formats, including GS1 DataBar (iOS 15+ / macOS 12+).
+
+> **Not supported:** MSI, Code 11, and postal codes (PostNet / IMb / Planet etc.)
+> are **not** decodable by any engine this plugin integrates (ML Kit, Apple Vision,
+> ZXing-C++, or ZXing-js) and are therefore unavailable on all platforms.
 
 ## 📦 **Installation**
 

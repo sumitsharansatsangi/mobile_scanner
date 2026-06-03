@@ -53,7 +53,36 @@ enum BarcodeFormat {
   pdf417(2048),
 
   /// Barcode format constant for AZTEC.
-  aztec(4096);
+  aztec(4096),
+
+  /// Barcode format constant for GS1 DataBar (RSS-14).
+  ///
+  /// Platform support: decoded by the primary ZXing-C++ engine on all
+  /// platforms. On iOS/macOS it is additionally detected by Apple Vision
+  /// (`gs1DataBar`, iOS 15+ / macOS 12+). On web it maps to ZXing-js `RSS_14`.
+  /// Not supported by Android ML Kit (handled by the ZXing engine instead).
+  dataBar(8192),
+
+  /// Barcode format constant for GS1 DataBar Expanded (RSS Expanded).
+  ///
+  /// Platform support: decoded by the primary ZXing-C++ engine on all
+  /// platforms. On iOS/macOS additionally via Apple Vision
+  /// (`gs1DataBarExpanded`, iOS 15+ / macOS 12+). On web maps to ZXing-js
+  /// `RSS_EXPANDED`. Not supported by Android ML Kit.
+  dataBarExpanded(16384),
+
+  /// Barcode format constant for MaxiCode.
+  ///
+  /// Platform support: decoded by the ZXing engine only. Not supported by
+  /// Android ML Kit or Apple Vision. On web maps to ZXing-js `MAXICODE`.
+  maxiCode(32768),
+
+  /// Barcode format constant for DotCode.
+  ///
+  /// Platform support: decoded by the native ZXing-C++ engine only
+  /// (Android/iOS/macOS/desktop). Not supported by ML Kit, Apple Vision, or
+  /// the web ZXing-js reader.
+  dotCode(65536);
 
   const BarcodeFormat(this.rawValue);
 
@@ -93,6 +122,14 @@ enum BarcodeFormat {
         return BarcodeFormat.pdf417;
       case 4096:
         return BarcodeFormat.aztec;
+      case 8192:
+        return BarcodeFormat.dataBar;
+      case 16384:
+        return BarcodeFormat.dataBarExpanded;
+      case 32768:
+        return BarcodeFormat.maxiCode;
+      case 65536:
+        return BarcodeFormat.dotCode;
       default:
         throw ArgumentError.value(value, 'value', 'Invalid raw value.');
     }

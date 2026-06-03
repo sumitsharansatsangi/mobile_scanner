@@ -22,6 +22,10 @@ void main() {
         1024: BarcodeFormat.upcE,
         2048: BarcodeFormat.pdf417,
         4096: BarcodeFormat.aztec,
+        8192: BarcodeFormat.dataBar,
+        16384: BarcodeFormat.dataBarExpanded,
+        32768: BarcodeFormat.maxiCode,
+        65536: BarcodeFormat.dotCode,
       };
 
       for (final entry in values.entries) {
@@ -71,6 +75,10 @@ void main() {
         BarcodeFormat.upcE: 1024,
         BarcodeFormat.pdf417: 2048,
         BarcodeFormat.aztec: 4096,
+        BarcodeFormat.dataBar: 8192,
+        BarcodeFormat.dataBarExpanded: 16384,
+        BarcodeFormat.maxiCode: 32768,
+        BarcodeFormat.dotCode: 65536,
       };
 
       for (final entry in values.entries) {

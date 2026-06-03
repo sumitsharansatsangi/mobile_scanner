@@ -38,6 +38,8 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import dev.steenbakker.mobile_scanner.engine.ZxingEngine
+import dev.steenbakker.mobile_scanner.engine.data
 import dev.steenbakker.mobile_scanner.objects.DetectionSpeed
 import dev.steenbakker.mobile_scanner.objects.MobileScannerErrorCodes
 import dev.steenbakker.mobile_scanner.objects.MobileScannerStartParameters
@@ -92,6 +94,20 @@ class MobileScanner(
     private var enableQualityAnalysis: Boolean = false
     private var enableBatchProcessing: Boolean = false
     private var enhanceImageQuality: Boolean = true
+
+    // Hybrid engine: ZXing-C++ is the primary decoder; ML Kit is the recovery
+    // fallback. The native engine is loaded lazily and disabled if unavailable.
+    private val zxingEngine = ZxingEngine()
+    private val zxingAvailable: Boolean by lazy { ZxingEngine.ensureLoaded() }
+
+    /// OR-ed BarcodeFormat.rawValue bits to scan for (0 = all formats).
+    private var zxingFormatMask: Int = 0
+
+    /// Number of consecutive frames ZXing must find nothing in before the
+    /// ML Kit recovery path is invoked. Keeps ML Kit off the hot path for
+    /// ordinary frames while still recovering hard-to-read barcodes.
+    private var zxingFallbackThreshold: Int = 3
+    private var consecutiveZxingMisses: Int = 0
 
     companion object {
         // Configure the `ProcessCameraProvider` to only log errors.
@@ -153,6 +169,57 @@ class MobileScanner(
             scannerTimeout = true
         }
 
+        // === ZXing-C++ primary fast path ===
+        // ML Kit is only consulted after a run of frames ZXing can't read.
+        if (zxingAvailable) {
+            val portrait = (camera?.cameraInfo?.sensorRotationDegrees ?: 0) % 180 == 0
+            val reportWidth = if (portrait) inputImage.width else inputImage.height
+            val reportHeight = if (portrait) inputImage.height else inputImage.width
+
+            val zxingBarcodes = tryZxingDecode(mediaImage)
+            val barcodeMap = zxingBarcodes
+                .filter {
+                    scanWindow == null || isZxingBarcodeInScanWindow(
+                        scanWindow!!, it.corners, mediaImage.width, mediaImage.height,
+                    )
+                }
+                .map { it.data }
+
+            if (barcodeMap.isNotEmpty()) {
+                consecutiveZxingMisses = 0
+
+                if (detectionSpeed == DetectionSpeed.NO_DUPLICATES) {
+                    val newScanned = barcodeMap
+                        .mapNotNull { it["rawValue"] as String? }
+                        .sorted()
+                    if (newScanned == lastScanned) {
+                        invertedBitmap?.recycle()
+                        imageProxy.close()
+                        scheduleScannerTimeoutReset()
+                        return@Analyzer
+                    }
+                    if (newScanned.isNotEmpty()) {
+                        lastScanned = newScanned
+                    }
+                }
+
+                emitBarcodes(barcodeMap, imageProxy, invertedBitmap, reportWidth, reportHeight)
+                scheduleScannerTimeoutReset()
+                return@Analyzer
+            }
+
+            // ZXing read nothing this frame.
+            consecutiveZxingMisses++
+            if (consecutiveZxingMisses < zxingFallbackThreshold) {
+                invertedBitmap?.recycle()
+                imageProxy.close()
+                scheduleScannerTimeoutReset()
+                return@Analyzer
+            }
+            // Threshold reached: fall through to the ML Kit recovery path once.
+            consecutiveZxingMisses = 0
+        }
+
         scanner?.let {
             it.process(inputImage).addOnSuccessListener { barcodes ->
                 if (detectionSpeed == DetectionSpeed.NO_DUPLICATES) {
@@ -190,56 +257,13 @@ class MobileScanner(
 
                 val portrait = (camera?.cameraInfo?.sensorRotationDegrees ?: 0) % 180 == 0
 
-                if (!returnImage) {
-                    mobileScannerCallback(
-                        barcodeMap,
-                        null,
-                        if (portrait) inputImage.width else inputImage.height,
-                        if (portrait) inputImage.height else inputImage.width)
-                    // Clean up the inverted bitmap if we created one
-                    invertedBitmap?.recycle()
-                    imageProxy.close()
-                    return@addOnSuccessListener
-                }
-
-                // Use Coroutine to process the image and generate the Bitmap to prevent main UI
-                CoroutineScope(Dispatchers.IO).launch {
-                    // Get bitmap for image return. reuse inverted bitmap if available, otherwise create from imageProxy
-                    val baseBitmap = invertedBitmap ?: imageProxy.toBitmap()
-
-                    // Rotate the bitmap based on the camera's rotation degrees
-                    var rotatedBitmap = rotateBitmap(baseBitmap, camera?.cameraInfo?.sensorRotationDegrees ?: 90)
-
-                    // Revert inverted image colors for the returned image (MLKit already scanned the inverted version)
-                    if (invertImage) {
-                        invertBitmapColors(rotatedBitmap)
-                    }
-
-                    // Clean up the base bitmap if it's not needed anymore
-                    if (baseBitmap != rotatedBitmap) {
-                        baseBitmap.recycle()
-                    }
-
-                    // Convert the final bitmap to JPEG byte array
-                    val stream = ByteArrayOutputStream()
-                    rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
-                    val byteArray = stream.toByteArray()
-
-                    val bmWidth = rotatedBitmap.width
-                    val bmHeight = rotatedBitmap.height
-
-                    // Call the callback with the result
-                    mobileScannerCallback(
-                        barcodeMap,
-                        byteArray,
-                        bmWidth,
-                        bmHeight
-                    )
-
-                    // Clean up resources
-                    rotatedBitmap.recycle()
-                    imageProxy.close()
-                }
+                emitBarcodes(
+                    barcodeMap,
+                    imageProxy,
+                    invertedBitmap,
+                    if (portrait) inputImage.width else inputImage.height,
+                    if (portrait) inputImage.height else inputImage.width,
+                )
             }.addOnFailureListener { e ->
                 mobileScannerErrorCallback(
                     e.localizedMessage ?: e.toString()
@@ -247,11 +271,122 @@ class MobileScanner(
             }
         }
 
+        scheduleScannerTimeoutReset()
+    }
+
+    /**
+     * In [DetectionSpeed.NORMAL], re-arm the throttle timer so the next frame is
+     * processed after [detectionTimeout]. No-op in other detection speeds.
+     */
+    private fun scheduleScannerTimeoutReset() {
         if (detectionSpeed == DetectionSpeed.NORMAL) {
-            // Set timer and continue
             Handler(Looper.getMainLooper()).postDelayed({
                 scannerTimeout = false
             }, detectionTimeout)
+        }
+    }
+
+    /**
+     * Decode the luminance (Y) plane of [mediaImage] with the native ZXing-C++
+     * engine. Returns an empty list on any failure so the caller can fall back
+     * to ML Kit.
+     */
+    @ExperimentalGetImage
+    private fun tryZxingDecode(mediaImage: Image): List<dev.steenbakker.mobile_scanner.engine.ZxingBarcode> {
+        return try {
+            val yPlane = mediaImage.planes[0]
+            zxingEngine.decodeLuma(
+                luma = yPlane.buffer,
+                width = mediaImage.width,
+                height = mediaImage.height,
+                rowStride = yPlane.rowStride,
+                formatMask = zxingFormatMask,
+                tryHarder = false,
+                tryRotate = true,
+                tryInvert = shouldConsiderInvertedImages || invertImage,
+            )
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Scan-window containment test for ZXing results.
+     *
+     * NOTE: ZXing corners are in sensor (unrotated) space while [scanWindow] is
+     * normalized in preview space; for non-trivial rotations this mapping may
+     * need refinement and should be validated on-device.
+     */
+    private fun isZxingBarcodeInScanWindow(
+        scanWindow: List<Float>,
+        corners: FloatArray,
+        imageWidth: Int,
+        imageHeight: Int,
+    ): Boolean {
+        return try {
+            val rect = Rect(
+                (scanWindow[0] * imageWidth).roundToInt(),
+                (scanWindow[1] * imageHeight).roundToInt(),
+                (scanWindow[2] * imageWidth).roundToInt(),
+                (scanWindow[3] * imageHeight).roundToInt(),
+            )
+            var i = 0
+            while (i < corners.size - 1) {
+                if (!rect.contains(corners[i].roundToInt(), corners[i + 1].roundToInt())) {
+                    return false
+                }
+                i += 2
+            }
+            true
+        } catch (_: IllegalArgumentException) {
+            false
+        }
+    }
+
+    /**
+     * Emit [barcodeMap] to Flutter, optionally attaching a JPEG of the frame
+     * when [returnImage] is set. Shared by the ZXing and ML Kit paths. Always
+     * closes [imageProxy].
+     */
+    private fun emitBarcodes(
+        barcodeMap: List<Map<String, Any?>>,
+        imageProxy: ImageProxy,
+        invertedBitmap: Bitmap?,
+        reportWidth: Int,
+        reportHeight: Int,
+    ) {
+        if (!returnImage) {
+            mobileScannerCallback(barcodeMap, null, reportWidth, reportHeight)
+            invertedBitmap?.recycle()
+            imageProxy.close()
+            return
+        }
+
+        // Generate the JPEG off the main thread to keep the preview smooth.
+        CoroutineScope(Dispatchers.IO).launch {
+            val baseBitmap = invertedBitmap ?: imageProxy.toBitmap()
+            val rotatedBitmap =
+                rotateBitmap(baseBitmap, camera?.cameraInfo?.sensorRotationDegrees ?: 90)
+
+            if (invertImage) {
+                invertBitmapColors(rotatedBitmap)
+            }
+            if (baseBitmap != rotatedBitmap) {
+                baseBitmap.recycle()
+            }
+
+            val stream = ByteArrayOutputStream()
+            rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
+
+            mobileScannerCallback(
+                barcodeMap,
+                stream.toByteArray(),
+                rotatedBitmap.width,
+                rotatedBitmap.height,
+            )
+
+            rotatedBitmap.recycle()
+            imageProxy.close()
         }
     }
 
@@ -383,6 +518,7 @@ class MobileScanner(
         enableQualityAnalysis: Boolean = false,
         enableBatchProcessing: Boolean = false,
         enhanceImageQuality: Boolean = true,
+        formats: List<Int>? = null,
     ) {
         this.detectionSpeed = detectionSpeed
         this.detectionTimeout = detectionTimeout
@@ -393,6 +529,11 @@ class MobileScanner(
         this.enableQualityAnalysis = enableQualityAnalysis
         this.enableBatchProcessing = enableBatchProcessing
         this.enhanceImageQuality = enhanceImageQuality
+
+        // Build the ZXing format mask from the requested rawValue bits. An empty
+        // or null list means "all formats" (mask 0).
+        zxingFormatMask = formats?.fold(0) { acc, raw -> acc or raw } ?: 0
+        consecutiveZxingMisses = 0
 
         isPaused = false
 
