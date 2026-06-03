@@ -1,1 +1,1 @@
-rootProject.name = 'mobile_scanner'
+rootProject.name = "mobile_scanner"
