@@ -46,6 +46,21 @@ target_include_directories(ms_zxing PUBLIC "${CMAKE_CURRENT_LIST_DIR}")
 target_include_directories(ms_zxing PRIVATE ${zxing-cpp_SOURCE_DIR}/core/src)
 target_link_libraries(ms_zxing PRIVATE ZXing::ZXing)
 
+include(CheckCXXSourceCompiles)
+set(_old_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
+set(_old_CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
+set(CMAKE_REQUIRED_INCLUDES "${zxing-cpp_SOURCE_DIR}/core/src")
+set(CMAKE_REQUIRED_FLAGS "-std=c++17")
+check_cxx_source_compiles(
+  "#include <BarcodeFormat.h>\nint main() { auto f = ZXing::BarcodeFormat::DotCode; (void)f; return 0; }\n"
+  ZXING_HAS_DOTCODE)
+set(CMAKE_REQUIRED_INCLUDES "${_old_CMAKE_REQUIRED_INCLUDES}")
+set(CMAKE_REQUIRED_FLAGS "${_old_CMAKE_REQUIRED_FLAGS}")
+
+if(ZXING_HAS_DOTCODE)
+  target_compile_definitions(ms_zxing PRIVATE ZXING_HAS_DOTCODE=1)
+endif()
+
 if(ANDROID)
   # Android 15+ ships 16 KB memory pages; shared libs must be aligned for them.
   # Requires NDK r27+ (we build with NDK 30.x).
@@ -57,10 +72,7 @@ if(ANDROID)
   target_link_libraries(ms_zxing PRIVATE c++_static)
 endif()
 
-# zxing-cpp currently does not expose BarcodeFormat::DotCode in the pinned
-# v2.3.0 release, so do not define ZXING_HAS_DOTCODE here.
-# If the pinned version is bumped to one that adds DotCode support, re-enable
-# this guard using the correct release tag.
+# DotCode support is detected from the actual zxing-cpp headers at configure time.
 
 set_target_properties(ms_zxing PROPERTIES
   CXX_VISIBILITY_PRESET hidden
