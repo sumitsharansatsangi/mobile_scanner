@@ -43,6 +43,7 @@ add_library(ms_zxing SHARED
 )
 
 target_include_directories(ms_zxing PUBLIC "${CMAKE_CURRENT_LIST_DIR}")
+target_include_directories(ms_zxing PRIVATE ${zxing-cpp_SOURCE_DIR}/core/src)
 target_link_libraries(ms_zxing PRIVATE ZXing::ZXing)
 
 if(ANDROID)
@@ -52,6 +53,8 @@ if(ANDROID)
   # zxing-cpp / our wrapper may emit __android_log_* when logging is enabled.
   find_library(log-lib log)
   target_link_libraries(ms_zxing PRIVATE ${log-lib})
+  # Ensure proper C++ library linkage for NDK
+  target_link_libraries(ms_zxing PRIVATE c++_static)
 endif()
 
 # zxing-cpp gained DotCode support in 2.x; expose it to ms_zxing.cpp when the
