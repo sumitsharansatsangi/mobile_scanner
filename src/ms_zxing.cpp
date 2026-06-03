@@ -15,7 +15,7 @@
 #include <ReadBarcode.h>
 #include <BarcodeFormat.h>
 #include <ImageView.h>
-#include <ZXVersion.h>
+#include <Version.h>
 
 using namespace ZXing;
 

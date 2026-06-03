@@ -57,11 +57,10 @@ if(ANDROID)
   target_link_libraries(ms_zxing PRIVATE c++_static)
 endif()
 
-# zxing-cpp gained DotCode support in 2.x; expose it to ms_zxing.cpp when the
-# linked version provides the enumerator. (Guarded so older pins still build.)
-if(ZXING_CPP_TAG VERSION_GREATER_EQUAL "v2.2.0")
-  target_compile_definitions(ms_zxing PRIVATE ZXING_HAS_DOTCODE=1)
-endif()
+# zxing-cpp currently does not expose BarcodeFormat::DotCode in the pinned
+# v2.3.0 release, so do not define ZXING_HAS_DOTCODE here.
+# If the pinned version is bumped to one that adds DotCode support, re-enable
+# this guard using the correct release tag.
 
 set_target_properties(ms_zxing PROPERTIES
   CXX_VISIBILITY_PRESET hidden
