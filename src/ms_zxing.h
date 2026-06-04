@@ -46,7 +46,9 @@ typedef struct {
   int32_t row_stride;    // bytes per row; 0 = tightly packed
   int32_t pixel_format;  // one of MsZxingPixelFormat
 
-  // OR-ed BarcodeFormat.rawValue bits to search for; 0 = every supported format.
+  // OR-ed BarcodeFormat.rawValue bits to search for; 0 = every broadly safe
+  // supported format. Checksum-less fallback formats such as Pharmacode require
+  // an explicit format bit to avoid false positives.
   uint32_t format_mask;
 
   // Optional crop rectangle in pixels, used to restrict scanning to a scan

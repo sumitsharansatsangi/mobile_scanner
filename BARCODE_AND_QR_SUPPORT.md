@@ -13,10 +13,10 @@ content categories through `BarcodeType`.
 
 | Platform | Primary engine | Fallback engine | Notes |
 | --- | --- | --- | --- |
-| Android | ZXing-C++ | ML Kit | ZXing-C++ covers extra formats such as GS1 DataBar, MaxiCode, DotCode, and Code 11. |
-| iOS | Apple Vision | Optional ZXing-C++ | MaxiCode, DotCode, and Code 11 require the optional `MOBILE_SCANNER_ZXING` build path. |
-| macOS | Apple Vision | Optional ZXing-C++ | Same format notes as iOS. |
-| Web | ZXing-js | None | DotCode and Code 11 are not supported on web. |
+| Android | ZXing-C++ | ML Kit | ZXing-C++ covers extra formats such as GS1 DataBar, MaxiCode, DotCode, Code 11, MSI/Plessey, and Pharmacode. |
+| iOS | Apple Vision, or ZXing-C++ when enabled | Vision fallback when ZXing is enabled | MaxiCode, DotCode, Code 11, MSI/Plessey, and Pharmacode require the optional `MOBILE_SCANNER_ZXING` build path. |
+| macOS | Apple Vision, or ZXing-C++ when enabled | Vision fallback when ZXing is enabled | Same format notes as iOS. |
+| Web | ZXing-js | None | DotCode, Code 11, MSI/Plessey, and Pharmacode are not supported on web. |
 | Linux / Windows | ZXing-C++ | None | Image decoding is supported; live camera preview is not available in this project. |
 
 ## Supported Symbologies
@@ -33,6 +33,9 @@ content categories through `BarcodeType`.
 | Code 39 | Yes | 1D | Industrial labels, badges, inventory, older systems. | Simple and widely implemented. | Easy to print, broad legacy support. | Low density, larger labels, limited character set unless extended variants are used. |
 | Code 93 | Yes | 1D | Inventory, logistics, compact labels. | Similar to Code 39 but denser and more reliable. | Better density than Code 39, checksum support. | Less common than Code 128. |
 | Code 11 | Yes where the native ZXing-C++ bridge is active | 1D | Telecommunications equipment labels and older industrial systems. | Compact numeric/dash encoding for legacy telecom workflows. | Dense for its small character set; checksum-protected. | Not supported by ML Kit, Apple Vision, or ZXing-js web; native fallback uses sampled scan lines and requires valid checksum characters. |
+| MSI / MSI Plessey | Yes where the native ZXing-C++ bridge is active | 1D | Inventory, warehouse shelves, stock locations, and older retail systems. | Numeric-only legacy format with common checksum variants. | Variable length, simple legacy workflows, Mod-10/Mod-11 checksum support. | Not supported by ML Kit, Apple Vision, or ZXing-js web; native fallback requires a valid Mod-10, Mod-10/10, Mod-11, or Mod-11/10 checksum. |
+| Pharmacode One-Track | Yes where the native ZXing-C++ bridge is active, when explicitly requested | 1D | Pharmaceutical packaging verification. | Encodes one internal control number in narrow/wide bars. | Compact, designed for packaging-control workflows. | No checksum; detector is explicit-only to avoid false positives; not supported by ML Kit, Apple Vision, or ZXing-js web. |
+| Pharmacode Two-Track | Yes where the native ZXing-C++ bridge is active, when explicitly requested | Two-track 1D | Pharmaceutical packaging verification where shorter symbols are needed. | Encodes one internal control number using upper/lower/full bars. | Higher capacity than one-track in a short symbol. | No checksum; detector is explicit-only to avoid false positives; not supported by ML Kit, Apple Vision, or ZXing-js web. |
 | Codabar | Yes | 1D | Libraries, blood banks, legacy medical/logistics systems. | Simple format used by older domain-specific systems. | Easy to print, works with older workflows. | Limited character set, legacy-oriented. |
 | EAN-13 | Yes | 1D | Retail product barcodes worldwide. | Standard product identifier for retail goods. | Universal retail support, compact, reliable. | Numeric only, fixed length, product identity only. |
 | EAN-8 | Yes | 1D | Small retail products. | Shorter version for packages too small for EAN-13. | Compact retail code. | Numeric only, limited namespace. |
@@ -50,17 +53,15 @@ These formats are not exposed by this project because the integrated engines do
 not provide dependable support for them.
 
 Some C++20 helper code for these formats lives in
-`src/ms_unsupported_barcodes.{h,cpp}`. Those helpers decode or validate
-already-normalized symbol streams. Code 11 is the exception: its checksum
-helper is now wired into a native sampled-line detector.
+`src/ms_fallback_barcodes.{h,cpp}`. Those helpers decode or validate
+already-normalized symbol streams. Code 11, MSI/Plessey, and Pharmacode are the
+exceptions: their helpers are wired into native sampled-line detectors.
 
 | Format | Supported | Why not supported | Typical purpose |
 | --- | --- | --- | --- |
-| MSI / MSI Plessey | Not exposed | Native helper validates decoded digits and checksums; full image detection is not wired into the scanner. | Inventory and warehouse labels in older systems. |
 | POSTNET | Not exposed | Native helper decodes normalized full/half bars; postal image detection is not wired into the scanner. | USPS postal routing. |
 | PLANET | Not exposed | Native helper decodes normalized full/half bars; postal image detection is not wired into the scanner. | USPS postal tracking, now legacy. |
 | Intelligent Mail Barcode / IMb | No | Postal barcode formats are not supported by the integrated engines. | USPS mail tracking and routing. |
-| Pharmacode | Not exposed | Native helper decodes normalized narrow/wide bars; full image detection is not wired into the scanner. | Pharmaceutical packaging control. |
 | Australia Post / Royal Mail / other postal variants | No | Postal barcode formats are not supported by the integrated engines. | Postal sorting and routing. |
 
 ## Supported QR / Barcode Content Types
@@ -126,11 +127,16 @@ Avoid QR Code when:
 ## Important Limitations
 
 - Platform support is not identical across every engine. DotCode is not
-  supported on web; Code 11 is also unavailable on web.
-- MaxiCode, DotCode, and Code 11 rely on the native bridge; on Apple platforms
-  that path is optional and must be enabled at build time.
+  supported on web; Code 11, MSI/Plessey, and Pharmacode are also unavailable
+  on web.
+- MaxiCode, DotCode, Code 11, MSI/Plessey, and Pharmacode rely on the native
+  bridge; on Apple platforms that path is optional and must be enabled at build
+  time.
 - Android ML Kit does not support GS1 DataBar, GS1 DataBar Expanded, MaxiCode,
-  DotCode, or Code 11; the project handles those through native decoding.
+  DotCode, Code 11, MSI/Plessey, or Pharmacode; the project handles those
+  through native decoding.
+- Pharmacode has no checksum, so it is decoded only when the caller explicitly
+  requests `BarcodeFormat.pharmaCode` or `BarcodeFormat.pharmaCodeTwoTrack`.
 - `BarcodeType` classification can be `unknown` even when the barcode format is
   decoded correctly. In that case, use `rawValue` or `rawDecodedBytes` and parse
   it yourself.

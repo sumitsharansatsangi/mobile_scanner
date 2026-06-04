@@ -24,8 +24,9 @@ An universal scanner for Flutter based on the Vision API.
   s.resource_bundles = {'mobile_scanner_privacy' => ['mobile_scanner/Sources/mobile_scanner/Resources/PrivacyInfo.xcprivacy']}
 
   # ---------------------------------------------------------------------------
-  # Optional: ZXing-C++ primary engine (DataBar / MaxiCode / DotCode + faster
-  # decoding). Disabled by default so the plugin builds with Apple Vision only.
+  # Optional: ZXing-C++ primary engine (DataBar / MaxiCode / DotCode / Code 11 /
+  # MSI / Pharmacode + faster decoding). Disabled by default so the plugin
+  # builds with Apple Vision only.
   #
   # To enable on iOS/macOS:
   #   1. Vendor zxing-cpp:
@@ -37,7 +38,7 @@ An universal scanner for Flutter based on the Vision API.
   #        s.source_files = [
   #          'mobile_scanner/Sources/mobile_scanner/**/*.swift',
   #          '../src/ms_zxing.{h,cpp}',
-  #          '../src/ms_unsupported_barcodes.{h,cpp}',
+  #          '../src/ms_fallback_barcodes.{h,cpp}',
   #          'third_party/zxing-cpp/core/src/**/*.{h,c,cc,cpp}',
   #        ]
   #        s.public_header_files = '../src/ms_zxing.h'

@@ -1,4 +1,4 @@
-#include "ms_unsupported_barcodes.h"
+#include "ms_fallback_barcodes.h"
 
 #include <algorithm>
 #include <array>
@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace mobile_scanner::unsupported {
+namespace mobile_scanner::fallback {
 namespace {
 
 constexpr std::array<std::pair<std::string_view, char>, 10> kPostnetDigits{{
@@ -136,6 +136,35 @@ std::optional<bool> WideBit(char c) {
   }
 }
 
+std::optional<int> TwoTrackState(char c) {
+  switch (c) {
+    case '1':
+    case 'D':
+    case 'd':
+    case 'B':
+    case 'b':
+      return 1;
+    case '2':
+    case 'A':
+    case 'a':
+    case 'T':
+    case 't':
+      return 2;
+    case '3':
+    case 'F':
+    case 'f':
+      return 3;
+    case ' ':
+    case '\t':
+    case '\n':
+    case '\r':
+    case '|':
+      return 0;
+    default:
+      return -1;
+  }
+}
+
 bool IsDigits(std::string_view s) {
   return !s.empty() && std::ranges::all_of(s, [](unsigned char c) {
     return std::isdigit(c) != 0;
@@ -169,6 +198,35 @@ int MsiMod11CheckDigit(std::string_view payload) {
   }
   const int check = 11 - (sum % 11);
   return check == 11 ? 0 : check;
+}
+
+std::optional<std::string> ValidateMsiChecksum(std::string_view value,
+                                               bool firstMod11,
+                                               bool secondMod10) {
+  if (value.size() < (secondMod10 ? 3u : 2u)) return std::nullopt;
+
+  std::string payload(value);
+  const int actualSecond = secondMod10 ? payload.back() - '0' : -1;
+  if (secondMod10) payload.pop_back();
+
+  const int actualFirst = payload.back() - '0';
+  payload.pop_back();
+
+  const int expectedFirst =
+      firstMod11 ? MsiMod11CheckDigit(payload) : MsiMod10CheckDigit(payload);
+  if (expectedFirst > 9 || actualFirst != expectedFirst) {
+    return std::nullopt;
+  }
+
+  if (secondMod10) {
+    std::string payloadWithFirst = payload;
+    payloadWithFirst.push_back(static_cast<char>('0' + actualFirst));
+    if (actualSecond != MsiMod10CheckDigit(payloadWithFirst)) {
+      return std::nullopt;
+    }
+  }
+
+  return payload;
 }
 
 std::optional<int> Code11Value(char c) {
@@ -216,7 +274,7 @@ std::optional<DecodeResult> DecodePlanet(std::string_view bars) {
   return DecodePostnetLike(bars, true);
 }
 
-std::optional<DecodeResult> DecodePharmacode(std::string_view bars) {
+std::optional<DecodeResult> DecodePharmacodeOneTrack(std::string_view bars) {
   int value = 0;
   int count = 0;
   for (const char c : bars) {
@@ -234,10 +292,31 @@ std::optional<DecodeResult> DecodePharmacode(std::string_view bars) {
   if (count == 0 || value < 3 || value > 131070) return std::nullopt;
 
   return DecodeResult{
-      .format = Format::pharmacode,
+      .format = Format::pharmacodeOneTrack,
       .text = std::to_string(value),
       .checksumValid = true,
       .note = "Pharmacode has no checksum; value range was validated.",
+  };
+}
+
+std::optional<DecodeResult> DecodePharmacodeTwoTrack(std::string_view bars) {
+  int value = 0;
+  int count = 0;
+  for (const char c : bars) {
+    const auto state = TwoTrackState(c);
+    if (!state.has_value() || *state < 0) return std::nullopt;
+    if (*state == 0) continue;
+    value = value * 3 + *state;
+    ++count;
+  }
+
+  if (count == 0 || value < 4 || value > 64570080) return std::nullopt;
+
+  return DecodeResult{
+      .format = Format::pharmacodeTwoTrack,
+      .text = std::to_string(value),
+      .checksumValid = true,
+      .note = "Pharmacode two-track has no checksum; value range was validated.",
   };
 }
 
@@ -276,6 +355,43 @@ std::optional<DecodeResult> ValidateMsiPlessey(
       .note = valid ? "Checksum digit(s) removed from text."
                     : "Checksum failed; text contains payload without the "
                       "configured checksum digit(s).",
+  };
+}
+
+std::optional<DecodeResult> ValidateMsiPlesseyAuto(
+    std::string_view digitsWithChecksum) {
+  if (!IsDigits(digitsWithChecksum)) return std::nullopt;
+
+  struct Mode {
+    bool firstMod11;
+    bool secondMod10;
+    std::string_view note;
+  };
+  constexpr std::array<Mode, 4> modes{{
+      {false, true, "Mod-10/10 checksum digits removed from text."},
+      {true, true, "Mod-11/10 checksum digits removed from text."},
+      {false, false, "Mod-10 checksum digit removed from text."},
+      {true, false, "Mod-11 checksum digit removed from text."},
+  }};
+
+  for (const auto& mode : modes) {
+    const auto payload =
+        ValidateMsiChecksum(digitsWithChecksum, mode.firstMod11,
+                            mode.secondMod10);
+    if (!payload.has_value()) continue;
+    return DecodeResult{
+        .format = Format::msiPlessey,
+        .text = *payload,
+        .checksumValid = true,
+        .note = std::string(mode.note),
+    };
+  }
+
+  return DecodeResult{
+      .format = Format::msiPlessey,
+      .text = std::string(digitsWithChecksum),
+      .checksumValid = false,
+      .note = "MSI/Plessey checksum failed.",
   };
 }
 
@@ -340,4 +456,4 @@ DecodeResult DecodeAustraliaPostPlaceholder(std::string_view bars) {
   return FourStatePlaceholder(Format::australiaPost, bars, "Australia Post");
 }
 
-}  // namespace mobile_scanner::unsupported
+}  // namespace mobile_scanner::fallback

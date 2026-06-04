@@ -27,6 +27,9 @@ void main() {
         32768: BarcodeFormat.maxiCode,
         65536: BarcodeFormat.dotCode,
         131072: BarcodeFormat.code11,
+        262144: BarcodeFormat.msiPlessey,
+        524288: BarcodeFormat.pharmaCode,
+        1048576: BarcodeFormat.pharmaCodeTwoTrack,
       };
 
       for (final entry in values.entries) {
@@ -82,6 +85,9 @@ void main() {
         BarcodeFormat.maxiCode: 32768,
         BarcodeFormat.dotCode: 65536,
         BarcodeFormat.code11: 131072,
+        BarcodeFormat.msiPlessey: 262144,
+        BarcodeFormat.pharmaCode: 524288,
+        BarcodeFormat.pharmaCodeTwoTrack: 1048576,
       };
 
       for (final entry in values.entries) {

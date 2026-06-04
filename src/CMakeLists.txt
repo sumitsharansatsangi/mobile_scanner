@@ -40,7 +40,7 @@ FetchContent_MakeAvailable(zxing-cpp)
 # The plugin's shared library that Dart FFI / JNI / Swift loads.
 add_library(ms_zxing SHARED
   "${CMAKE_CURRENT_LIST_DIR}/ms_zxing.cpp"
-  "${CMAKE_CURRENT_LIST_DIR}/ms_unsupported_barcodes.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/ms_fallback_barcodes.cpp"
 )
 
 target_include_directories(ms_zxing PUBLIC "${CMAKE_CURRENT_LIST_DIR}")

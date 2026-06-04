@@ -89,7 +89,32 @@ enum BarcodeFormat {
   /// Platform support: decoded by mobile_scanner's native linear fallback
   /// detector on platforms that use the native ZXing-C++ bridge. Not supported
   /// by Android ML Kit, Apple Vision, or the web ZXing-js reader.
-  code11(131072);
+  code11(131072),
+
+  /// Barcode format constant for MSI / MSI Plessey.
+  ///
+  /// Platform support: decoded by mobile_scanner's native linear fallback
+  /// detector on platforms that use the native ZXing-C++ bridge. Not supported
+  /// by Android ML Kit, Apple Vision, or the web ZXing-js reader.
+  msiPlessey(262144),
+
+  /// Barcode format constant for Pharmacode / PHARMA-CODE one-track.
+  ///
+  /// Platform support: decoded by mobile_scanner's native linear fallback
+  /// detector on platforms that use the native ZXing-C++ bridge. Because
+  /// Pharmacode has no checksum, this detector runs only when explicitly
+  /// requested. Not supported by Android ML Kit, Apple Vision, or the web
+  /// ZXing-js reader.
+  pharmaCode(524288),
+
+  /// Barcode format constant for Pharmacode / PHARMA-CODE two-track.
+  ///
+  /// Platform support: decoded by mobile_scanner's native linear fallback
+  /// detector on platforms that use the native ZXing-C++ bridge. Because
+  /// Pharmacode has no checksum, this detector runs only when explicitly
+  /// requested. Not supported by Android ML Kit, Apple Vision, or the web
+  /// ZXing-js reader.
+  pharmaCodeTwoTrack(1048576);
 
   const BarcodeFormat(this.rawValue);
 
@@ -139,6 +164,12 @@ enum BarcodeFormat {
         return BarcodeFormat.dotCode;
       case 131072:
         return BarcodeFormat.code11;
+      case 262144:
+        return BarcodeFormat.msiPlessey;
+      case 524288:
+        return BarcodeFormat.pharmaCode;
+      case 1048576:
+        return BarcodeFormat.pharmaCodeTwoTrack;
       default:
         throw ArgumentError.value(value, 'value', 'Invalid raw value.');
     }

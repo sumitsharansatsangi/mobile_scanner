@@ -6,9 +6,10 @@
 // pulled in by that CMake file via FetchContent, so no headers are vendored.
 
 #include "ms_zxing.h"
-#include "ms_unsupported_barcodes.h"
+#include "ms_fallback_barcodes.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <cstring>
 #include <optional>
@@ -45,8 +46,12 @@ constexpr uint32_t kRawDataBarExpanded = 16384;
 constexpr uint32_t kRawMaxiCode = 32768;
 constexpr uint32_t kRawDotCode = 65536;
 constexpr uint32_t kRawCode11 = 131072;
+constexpr uint32_t kRawMsiPlessey = 262144;
+constexpr uint32_t kRawPharmaCode = 524288;
+constexpr uint32_t kRawPharmaCodeTwoTrack = 1048576;
 
-struct Code11Candidate {
+struct FallbackCandidate {
+  int32_t format = -1;
   std::string text;
   int32_t start = 0;
   int32_t end = 0;
@@ -121,6 +126,14 @@ BarcodeFormats RawMaskToZxing(uint32_t mask) {
 
 bool Code11Requested(uint32_t mask) {
   return mask == 0 || (mask & kRawCode11) != 0;
+}
+
+bool MsiPlesseyRequested(uint32_t mask) {
+  return mask == 0 || (mask & kRawMsiPlessey) != 0;
+}
+
+bool ExplicitFormatRequested(uint32_t mask, uint32_t format) {
+  return mask != 0 && (mask & format) != 0;
 }
 
 // Translate a zxing-cpp BarcodeFormat back to a Dart rawValue.
@@ -226,7 +239,7 @@ std::optional<std::vector<Run>> ExtractRuns(const MsZxingDecodeParams& params,
   while (!runs.empty() && !runs.back().black) {
     runs.pop_back();
   }
-  if (runs.size() < 23) return std::nullopt;
+  if (runs.empty()) return std::nullopt;
   return runs;
 }
 
@@ -264,6 +277,222 @@ std::optional<double> WideThreshold(const std::vector<Run>& runs,
 
   if (wide / narrow < 1.45 || wide / narrow > 3.1) return std::nullopt;
   return (narrow + wide) / 2.0;
+}
+
+std::optional<double> BlackWideThreshold(const std::vector<Run>& runs) {
+  std::vector<int32_t> widths;
+  widths.reserve(runs.size());
+  for (const Run& run : runs) {
+    if (run.black) widths.push_back(run.width);
+  }
+  if (widths.size() < 2) return std::nullopt;
+
+  int32_t minWidth = widths.front();
+  int32_t maxWidth = widths.front();
+  for (const int32_t width : widths) {
+    minWidth = std::min(minWidth, width);
+    maxWidth = std::max(maxWidth, width);
+  }
+  if (minWidth <= 0 || maxWidth < minWidth * 1.45) return std::nullopt;
+
+  double narrow = minWidth;
+  double wide = maxWidth;
+  for (int i = 0; i < 8; ++i) {
+    double narrowSum = 0;
+    double wideSum = 0;
+    int narrowCount = 0;
+    int wideCount = 0;
+    const double threshold = (narrow + wide) / 2.0;
+    for (const int32_t width : widths) {
+      if (width <= threshold) {
+        narrowSum += width;
+        ++narrowCount;
+      } else {
+        wideSum += width;
+        ++wideCount;
+      }
+    }
+    if (narrowCount == 0 || wideCount == 0) return std::nullopt;
+    narrow = narrowSum / narrowCount;
+    wide = wideSum / wideCount;
+  }
+
+  if (wide / narrow < 1.45 || wide / narrow > 3.5) return std::nullopt;
+  return (narrow + wide) / 2.0;
+}
+
+std::optional<std::string> DecodePharmacodeOneTrackPattern(
+    const std::string& pattern) {
+  auto decoded = mobile_scanner::fallback::DecodePharmacodeOneTrack(pattern);
+  if (decoded.has_value()) return decoded->text;
+
+  std::string reversed(pattern.rbegin(), pattern.rend());
+  decoded = mobile_scanner::fallback::DecodePharmacodeOneTrack(reversed);
+  if (decoded.has_value()) return decoded->text;
+
+  return std::nullopt;
+}
+
+std::optional<FallbackCandidate> DecodePharmacodeOneTrackRuns(
+    const std::vector<Run>& runs, int32_t fixed, bool vertical) {
+  if (runs.empty() || !runs.front().black || !runs.back().black) {
+    return std::nullopt;
+  }
+
+  int blackCount = 0;
+  for (size_t i = 0; i < runs.size(); ++i) {
+    if (runs[i].black) {
+      ++blackCount;
+    } else if (i == 0 || i + 1 == runs.size()) {
+      return std::nullopt;
+    }
+  }
+  if (blackCount < 2 || blackCount > 16) return std::nullopt;
+
+  const auto threshold = BlackWideThreshold(runs);
+  if (!threshold.has_value()) return std::nullopt;
+
+  std::string pattern;
+  pattern.reserve(static_cast<size_t>(blackCount));
+  for (const Run& run : runs) {
+    if (!run.black) continue;
+    pattern.push_back(run.width > *threshold ? 'W' : 'N');
+  }
+
+  const auto text = DecodePharmacodeOneTrackPattern(pattern);
+  if (!text.has_value()) return std::nullopt;
+
+  return FallbackCandidate{
+      .format = kRawPharmaCode,
+      .text = *text,
+      .start = runs.front().start,
+      .end = runs.back().start + runs.back().width,
+      .fixed = fixed,
+      .vertical = vertical,
+  };
+}
+
+std::vector<bool> BlackColumnsFromRuns(const std::vector<Run>& runs,
+                                       int32_t length) {
+  std::vector<bool> columns(static_cast<size_t>(length), false);
+  for (const Run& run : runs) {
+    if (!run.black) continue;
+    const int32_t end = std::min(length, run.start + run.width);
+    for (int32_t x = std::max(0, run.start); x < end; ++x) {
+      columns[static_cast<size_t>(x)] = true;
+    }
+  }
+  return columns;
+}
+
+bool HasBlackInRange(const std::vector<bool>& columns, int32_t start,
+                     int32_t end) {
+  start = std::max(0, start);
+  end = std::min(static_cast<int32_t>(columns.size()), end);
+  for (int32_t x = start; x < end; ++x) {
+    if (columns[static_cast<size_t>(x)]) return true;
+  }
+  return false;
+}
+
+std::optional<std::string> DecodePharmacodeTwoTrackPattern(
+    const std::string& pattern) {
+  auto decoded = mobile_scanner::fallback::DecodePharmacodeTwoTrack(pattern);
+  if (decoded.has_value()) return decoded->text;
+
+  std::string reversed(pattern.rbegin(), pattern.rend());
+  decoded = mobile_scanner::fallback::DecodePharmacodeTwoTrack(reversed);
+  if (decoded.has_value()) return decoded->text;
+
+  return std::nullopt;
+}
+
+std::optional<FallbackCandidate> DecodePharmacodeTwoTrackRows(
+    const std::vector<Run>& topRuns, const std::vector<Run>& bottomRuns,
+    int32_t length, int32_t topFixed, int32_t bottomFixed, bool vertical) {
+  if (length <= 0 || (topRuns.empty() && bottomRuns.empty())) {
+    return std::nullopt;
+  }
+
+  const std::vector<bool> top = BlackColumnsFromRuns(topRuns, length);
+  const std::vector<bool> bottom = BlackColumnsFromRuns(bottomRuns, length);
+
+  std::vector<Run> merged;
+  bool current = top[0] || bottom[0];
+  int32_t start = 0;
+  for (int32_t i = 1; i < length; ++i) {
+    const bool black = top[static_cast<size_t>(i)] ||
+                       bottom[static_cast<size_t>(i)];
+    if (black == current) continue;
+    merged.push_back(
+        Run{.start = start, .width = i - start, .black = current});
+    start = i;
+    current = black;
+  }
+  merged.push_back(
+      Run{.start = start, .width = length - start, .black = current});
+
+  while (!merged.empty() && !merged.front().black) {
+    merged.erase(merged.begin());
+  }
+  while (!merged.empty() && !merged.back().black) {
+    merged.pop_back();
+  }
+  if (merged.empty()) return std::nullopt;
+
+  std::string pattern;
+  pattern.reserve(merged.size());
+  for (const Run& run : merged) {
+    if (!run.black) continue;
+    const int32_t pad = std::max(1, run.width / 4);
+    const bool hasTop =
+        HasBlackInRange(top, run.start - pad, run.start + run.width + pad);
+    const bool hasBottom =
+        HasBlackInRange(bottom, run.start - pad, run.start + run.width + pad);
+    if (!hasTop && !hasBottom) return std::nullopt;
+    pattern.push_back(hasTop && hasBottom ? '3' : (hasTop ? '2' : '1'));
+  }
+
+  if (pattern.size() < 2 || pattern.size() > 16) return std::nullopt;
+  const auto text = DecodePharmacodeTwoTrackPattern(pattern);
+  if (!text.has_value()) return std::nullopt;
+
+  return FallbackCandidate{
+      .format = kRawPharmaCodeTwoTrack,
+      .text = *text,
+      .start = merged.front().start,
+      .end = merged.back().start + merged.back().width,
+      .fixed = (topFixed + bottomFixed) / 2,
+      .vertical = vertical,
+  };
+}
+
+std::optional<FallbackCandidate> DecodePharmacodeTwoTrackPair(
+    const std::optional<std::vector<Run>>& topRuns,
+    const std::optional<std::vector<Run>>& bottomRuns, int32_t length,
+    int32_t topFixed, int32_t bottomFixed, bool vertical) {
+  if (!topRuns.has_value() && !bottomRuns.has_value()) {
+    return std::nullopt;
+  }
+
+  const std::vector<Run> empty;
+  const std::vector<Run>& top = topRuns.has_value() ? *topRuns : empty;
+  const std::vector<Run>& bottom = bottomRuns.has_value() ? *bottomRuns : empty;
+  return DecodePharmacodeTwoTrackRows(top, bottom, length, topFixed,
+                                      bottomFixed, vertical);
+}
+
+std::vector<int32_t> SamplePositions(int32_t length, int32_t sampleCount) {
+  std::vector<int32_t> positions;
+  positions.reserve(static_cast<size_t>(sampleCount));
+  int32_t previous = -1;
+  for (int32_t sample = 0; sample < sampleCount; ++sample) {
+    const int32_t position = ((sample + 1) * length) / (sampleCount + 1);
+    if (position == previous) continue;
+    positions.push_back(position);
+    previous = position;
+  }
+  return positions;
 }
 
 std::optional<char> DecodeCode11Pattern(std::string_view pattern) {
@@ -312,14 +541,14 @@ std::optional<std::string> DecodeCode11Slice(const std::vector<Run>& runs,
 
   const std::string withChecks = decoded.substr(1, decoded.size() - 2);
   const auto validated =
-      mobile_scanner::unsupported::ValidateCode11(withChecks);
+      mobile_scanner::fallback::ValidateCode11(withChecks);
   if (!validated.has_value() || !validated->checksumValid) return std::nullopt;
   return validated->text;
 }
 
-std::optional<Code11Candidate> DecodeCode11Runs(const std::vector<Run>& runs,
-                                                int32_t fixed,
-                                                bool vertical) {
+std::optional<FallbackCandidate> DecodeCode11Runs(const std::vector<Run>& runs,
+                                                  int32_t fixed,
+                                                  bool vertical) {
   std::vector<size_t> starts;
   for (size_t i = 0; i < runs.size(); ++i) {
     if (runs[i].black) starts.push_back(i);
@@ -343,7 +572,8 @@ std::optional<Code11Candidate> DecodeCode11Runs(const std::vector<Run>& runs,
 
       const int32_t startCoord = runs[start].start;
       const Run& last = runs[start + count - 1];
-      return Code11Candidate{
+      return FallbackCandidate{
+          .format = kRawCode11,
           .text = *text,
           .start = startCoord,
           .end = last.start + last.width,
@@ -355,7 +585,7 @@ std::optional<Code11Candidate> DecodeCode11Runs(const std::vector<Run>& runs,
   return std::nullopt;
 }
 
-std::vector<Code11Candidate> DecodeCode11(const MsZxingDecodeParams& params) {
+std::vector<FallbackCandidate> DecodeCode11(const MsZxingDecodeParams& params) {
   const int32_t originX =
       params.crop_width > 0 && params.crop_height > 0 ? params.crop_left : 0;
   const int32_t originY =
@@ -367,7 +597,7 @@ std::vector<Code11Candidate> DecodeCode11(const MsZxingDecodeParams& params) {
       params.crop_width > 0 && params.crop_height > 0 ? params.crop_height
                                                       : params.height;
 
-  std::vector<Code11Candidate> candidates;
+  std::vector<FallbackCandidate> candidates;
   const int32_t horizontalSamples = params.try_harder != 0 ? 25 : 9;
   for (int32_t sample = 0; sample < horizontalSamples; ++sample) {
     const int32_t y =
@@ -397,6 +627,301 @@ std::vector<Code11Candidate> DecodeCode11(const MsZxingDecodeParams& params) {
       candidate->end += originY;
       candidates.push_back(*candidate);
       break;
+    }
+  }
+
+  return candidates;
+}
+
+std::optional<char> DecodeMsiDigitModules(std::string_view modules) {
+  constexpr std::array<std::string_view, 10> digitModules{{
+      "100100100100", "100100100110", "100100110100", "100100110110",
+      "100110100100", "100110100110", "100110110100", "100110110110",
+      "110100100100", "110100100110",
+  }};
+
+  for (size_t i = 0; i < digitModules.size(); ++i) {
+    if (modules == digitModules[i]) {
+      return static_cast<char>('0' + i);
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<std::string> DecodeMsiModules(std::string modules) {
+  if (!modules.starts_with("110") || !modules.ends_with("1001") ||
+      modules.size() < 31) {
+    return std::nullopt;
+  }
+
+  modules = modules.substr(3, modules.size() - 7);
+  if (modules.size() % 12 != 0) return std::nullopt;
+
+  std::string digits;
+  digits.reserve(modules.size() / 12);
+  for (size_t i = 0; i < modules.size(); i += 12) {
+    const auto digit = DecodeMsiDigitModules(
+        std::string_view(modules).substr(i, 12));
+    if (!digit.has_value()) return std::nullopt;
+    digits.push_back(*digit);
+  }
+
+  const auto validated = mobile_scanner::fallback::ValidateMsiPlesseyAuto(
+      digits);
+  if (!validated.has_value() || !validated->checksumValid) return std::nullopt;
+  return validated->text;
+}
+
+std::optional<std::string> DecodeMsiSlice(const std::vector<Run>& runs,
+                                          size_t start, size_t count) {
+  if (count < 13 || !runs[start].black || !runs[start + count - 1].black) {
+    return std::nullopt;
+  }
+
+  const auto threshold = WideThreshold(runs, start, count);
+  if (!threshold.has_value()) return std::nullopt;
+
+  std::string modules;
+  modules.reserve(count * 2);
+  for (size_t i = start; i < start + count; ++i) {
+    modules.append(runs[i].width > *threshold ? 2 : 1,
+                   runs[i].black ? '1' : '0');
+  }
+
+  auto text = DecodeMsiModules(modules);
+  if (text.has_value()) return text;
+
+  std::reverse(modules.begin(), modules.end());
+  return DecodeMsiModules(modules);
+}
+
+std::optional<FallbackCandidate> DecodeMsiRuns(const std::vector<Run>& runs,
+                                               int32_t fixed,
+                                               bool vertical) {
+  for (size_t start = 0; start < runs.size(); ++start) {
+    if (!runs[start].black) continue;
+    for (size_t count = 13; start + count <= runs.size(); count += 2) {
+      auto text = DecodeMsiSlice(runs, start, count);
+      if (!text.has_value()) continue;
+
+      const int32_t startCoord = runs[start].start;
+      const Run& last = runs[start + count - 1];
+      return FallbackCandidate{
+          .format = kRawMsiPlessey,
+          .text = *text,
+          .start = startCoord,
+          .end = last.start + last.width,
+          .fixed = fixed,
+          .vertical = vertical,
+      };
+    }
+  }
+  return std::nullopt;
+}
+
+std::vector<FallbackCandidate> DecodeMsiPlessey(
+    const MsZxingDecodeParams& params) {
+  const int32_t originX =
+      params.crop_width > 0 && params.crop_height > 0 ? params.crop_left : 0;
+  const int32_t originY =
+      params.crop_width > 0 && params.crop_height > 0 ? params.crop_top : 0;
+  const int32_t width =
+      params.crop_width > 0 && params.crop_height > 0 ? params.crop_width
+                                                      : params.width;
+  const int32_t height =
+      params.crop_width > 0 && params.crop_height > 0 ? params.crop_height
+                                                      : params.height;
+
+  std::vector<FallbackCandidate> candidates;
+  const int32_t horizontalSamples = params.try_harder != 0 ? 25 : 9;
+  for (int32_t sample = 0; sample < horizontalSamples; ++sample) {
+    const int32_t y = ((sample + 1) * height) / (horizontalSamples + 1);
+    const auto runs =
+        ExtractRuns(params, originX, originY, width, height, y, false);
+    if (!runs.has_value()) continue;
+    auto candidate = DecodeMsiRuns(*runs, originY + y, false);
+    if (!candidate.has_value()) continue;
+    candidate->start += originX;
+    candidate->end += originX;
+    candidates.push_back(*candidate);
+    break;
+  }
+
+  if (params.try_rotate != 0) {
+    const int32_t verticalSamples = params.try_harder != 0 ? 25 : 9;
+    for (int32_t sample = 0; sample < verticalSamples; ++sample) {
+      const int32_t x = ((sample + 1) * width) / (verticalSamples + 1);
+      const auto runs =
+          ExtractRuns(params, originX, originY, width, height, x, true);
+      if (!runs.has_value()) continue;
+      auto candidate = DecodeMsiRuns(*runs, originX + x, true);
+      if (!candidate.has_value()) continue;
+      candidate->start += originY;
+      candidate->end += originY;
+      candidates.push_back(*candidate);
+      break;
+    }
+  }
+
+  return candidates;
+}
+
+std::vector<FallbackCandidate> DecodePharmacodeOneTrack(
+    const MsZxingDecodeParams& params) {
+  const int32_t originX =
+      params.crop_width > 0 && params.crop_height > 0 ? params.crop_left : 0;
+  const int32_t originY =
+      params.crop_width > 0 && params.crop_height > 0 ? params.crop_top : 0;
+  const int32_t width =
+      params.crop_width > 0 && params.crop_height > 0 ? params.crop_width
+                                                      : params.width;
+  const int32_t height =
+      params.crop_width > 0 && params.crop_height > 0 ? params.crop_height
+                                                      : params.height;
+
+  std::vector<FallbackCandidate> candidates;
+  const int32_t horizontalSamples = params.try_harder != 0 ? 25 : 9;
+  for (int32_t sample = 0; sample < horizontalSamples; ++sample) {
+    const int32_t y = ((sample + 1) * height) / (horizontalSamples + 1);
+    const auto runs =
+        ExtractRuns(params, originX, originY, width, height, y, false);
+    if (!runs.has_value()) continue;
+    auto candidate = DecodePharmacodeOneTrackRuns(*runs, originY + y, false);
+    if (!candidate.has_value()) continue;
+    candidate->start += originX;
+    candidate->end += originX;
+    candidates.push_back(*candidate);
+    break;
+  }
+
+  if (params.try_rotate != 0) {
+    const int32_t verticalSamples = params.try_harder != 0 ? 25 : 9;
+    for (int32_t sample = 0; sample < verticalSamples; ++sample) {
+      const int32_t x = ((sample + 1) * width) / (verticalSamples + 1);
+      const auto runs =
+          ExtractRuns(params, originX, originY, width, height, x, true);
+      if (!runs.has_value()) continue;
+      auto candidate = DecodePharmacodeOneTrackRuns(*runs, originX + x, true);
+      if (!candidate.has_value()) continue;
+      candidate->start += originY;
+      candidate->end += originY;
+      candidates.push_back(*candidate);
+      break;
+    }
+  }
+
+  return candidates;
+}
+
+std::vector<FallbackCandidate> DecodePharmacodeTwoTrack(
+    const MsZxingDecodeParams& params) {
+  const int32_t originX =
+      params.crop_width > 0 && params.crop_height > 0 ? params.crop_left : 0;
+  const int32_t originY =
+      params.crop_width > 0 && params.crop_height > 0 ? params.crop_top : 0;
+  const int32_t width =
+      params.crop_width > 0 && params.crop_height > 0 ? params.crop_width
+                                                      : params.width;
+  const int32_t height =
+      params.crop_width > 0 && params.crop_height > 0 ? params.crop_height
+                                                      : params.height;
+
+  std::vector<FallbackCandidate> candidates;
+  constexpr std::array<std::pair<int32_t, int32_t>, 3> samplePairs{{
+      {1, 3},
+      {1, 4},
+      {2, 4},
+  }};
+
+  for (const auto& pair : samplePairs) {
+    const int32_t topY = (pair.first * height) / 5;
+    const int32_t bottomY = (pair.second * height) / 5;
+    const auto topRuns =
+        ExtractRuns(params, originX, originY, width, height, topY, false);
+    const auto bottomRuns =
+        ExtractRuns(params, originX, originY, width, height, bottomY, false);
+    auto candidate = DecodePharmacodeTwoTrackPair(
+        topRuns, bottomRuns, width, originY + topY, originY + bottomY, false);
+    if (!candidate.has_value()) continue;
+    candidate->start += originX;
+    candidate->end += originX;
+    candidates.push_back(*candidate);
+    break;
+  }
+
+  if (candidates.empty()) {
+    const int32_t horizontalSamples = params.try_harder != 0 ? 25 : 15;
+    const int32_t maxSampleGap = params.try_harder != 0 ? 8 : 5;
+    const std::vector<int32_t> sampleYs =
+        SamplePositions(height, horizontalSamples);
+    std::vector<std::optional<std::vector<Run>>> sampleRuns;
+    sampleRuns.reserve(sampleYs.size());
+    for (const int32_t y : sampleYs) {
+      sampleRuns.push_back(
+          ExtractRuns(params, originX, originY, width, height, y, false));
+    }
+
+    for (size_t top = 0; top + 1 < sampleYs.size() && candidates.empty();
+         ++top) {
+      const size_t maxBottom =
+          std::min(sampleYs.size() - 1, top + static_cast<size_t>(maxSampleGap));
+      for (size_t bottom = top + 1; bottom <= maxBottom; ++bottom) {
+        auto candidate = DecodePharmacodeTwoTrackPair(
+            sampleRuns[top], sampleRuns[bottom], width, originY + sampleYs[top],
+            originY + sampleYs[bottom], false);
+        if (!candidate.has_value()) continue;
+        candidate->start += originX;
+        candidate->end += originX;
+        candidates.push_back(*candidate);
+        break;
+      }
+    }
+  }
+
+  if (params.try_rotate != 0) {
+    for (const auto& pair : samplePairs) {
+      const int32_t leftX = (pair.first * width) / 5;
+      const int32_t rightX = (pair.second * width) / 5;
+      const auto leftRuns =
+          ExtractRuns(params, originX, originY, width, height, leftX, true);
+      const auto rightRuns =
+          ExtractRuns(params, originX, originY, width, height, rightX, true);
+      auto candidate = DecodePharmacodeTwoTrackPair(
+          leftRuns, rightRuns, height, originX + leftX, originX + rightX, true);
+      if (!candidate.has_value()) continue;
+      candidate->start += originY;
+      candidate->end += originY;
+      candidates.push_back(*candidate);
+      break;
+    }
+
+    if (candidates.empty()) {
+      const int32_t verticalSamples = params.try_harder != 0 ? 25 : 15;
+      const int32_t maxSampleGap = params.try_harder != 0 ? 8 : 5;
+      const std::vector<int32_t> sampleXs =
+          SamplePositions(width, verticalSamples);
+      std::vector<std::optional<std::vector<Run>>> sampleRuns;
+      sampleRuns.reserve(sampleXs.size());
+      for (const int32_t x : sampleXs) {
+        sampleRuns.push_back(
+            ExtractRuns(params, originX, originY, width, height, x, true));
+      }
+
+      for (size_t left = 0; left + 1 < sampleXs.size() && candidates.empty();
+           ++left) {
+        const size_t maxRight = std::min(
+            sampleXs.size() - 1, left + static_cast<size_t>(maxSampleGap));
+        for (size_t right = left + 1; right <= maxRight; ++right) {
+          auto candidate = DecodePharmacodeTwoTrackPair(
+              sampleRuns[left], sampleRuns[right], height,
+              originX + sampleXs[left], originX + sampleXs[right], true);
+          if (!candidate.has_value()) continue;
+          candidate->start += originY;
+          candidate->end += originY;
+          candidates.push_back(*candidate);
+          break;
+        }
+      }
     }
   }
 
@@ -460,15 +985,37 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
     options.setTryRotate(params->try_rotate != 0);
     options.setTryInvert(params->try_invert != 0);
     options.setTryDownscale(params->try_downscale != 0);
-    options.setMaxNumberOfSymbols(
-        params->max_symbols > 0 ? params->max_symbols : 16);
+    const int32_t maxSymbols =
+        params->max_symbols > 0 ? params->max_symbols : 16;
+    options.setMaxNumberOfSymbols(maxSymbols);
 
     const Barcodes barcodes = ReadBarcodes(image, options);
-    std::vector<Code11Candidate> code11Candidates;
+    std::vector<FallbackCandidate> fallbackCandidates;
     if (Code11Requested(params->format_mask)) {
-      code11Candidates = DecodeCode11(*params);
+      const auto code11Candidates = DecodeCode11(*params);
+      fallbackCandidates.insert(fallbackCandidates.end(),
+                                code11Candidates.begin(),
+                                code11Candidates.end());
     }
-    const size_t resultCapacity = barcodes.size() + code11Candidates.size();
+    if (MsiPlesseyRequested(params->format_mask)) {
+      const auto msiCandidates = DecodeMsiPlessey(*params);
+      fallbackCandidates.insert(fallbackCandidates.end(),
+                                msiCandidates.begin(), msiCandidates.end());
+    }
+    if (ExplicitFormatRequested(params->format_mask, kRawPharmaCode)) {
+      const auto pharmaCandidates = DecodePharmacodeOneTrack(*params);
+      fallbackCandidates.insert(fallbackCandidates.end(),
+                                pharmaCandidates.begin(),
+                                pharmaCandidates.end());
+    }
+    if (ExplicitFormatRequested(params->format_mask, kRawPharmaCodeTwoTrack)) {
+      const auto pharmaTwoCandidates = DecodePharmacodeTwoTrack(*params);
+      fallbackCandidates.insert(fallbackCandidates.end(),
+                                pharmaTwoCandidates.begin(),
+                                pharmaTwoCandidates.end());
+    }
+
+    const size_t resultCapacity = barcodes.size() + fallbackCandidates.size();
     if (resultCapacity == 0) {
       return list;
     }
@@ -481,6 +1028,7 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
 
     int32_t i = 0;
     for (const auto& barcode : barcodes) {
+      if (i >= maxSymbols) break;
       if (!barcode.isValid()) continue;
 
       MsZxingResult& r = results[i];
@@ -513,10 +1061,10 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
       ++i;
     }
 
-    for (const auto& candidate : code11Candidates) {
-      if (i >= static_cast<int32_t>(resultCapacity)) break;
+    for (const auto& candidate : fallbackCandidates) {
+      if (i >= maxSymbols || i >= static_cast<int32_t>(resultCapacity)) break;
       MsZxingResult& r = results[i];
-      r.format = kRawCode11;
+      r.format = candidate.format;
       r.text = DupString(candidate.text);
 
       if (!candidate.text.empty()) {

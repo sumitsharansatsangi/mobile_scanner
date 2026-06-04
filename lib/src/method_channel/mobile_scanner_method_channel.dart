@@ -110,7 +110,6 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     'dev.steenbakker.mobile_scanner/scanner/event',
   );
 
-
   StreamController<DeviceOrientation>? _deviceOrientationStreamController;
   StreamController<Map<Object?, Object?>>? _eventsStreamController;
   StreamSubscription<Object?>? _deviceOrientationSubscription;
@@ -175,7 +174,7 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
 
   /// Buffer of active camera instances
   final Map<int, (Future<void> Function() start, Future<void> Function() stop)>
-      _instances = {};
+  _instances = {};
 
   /// The identifier of the current texture.
   int? _textureId;
@@ -311,8 +310,8 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
   }) async {
     // Primary: the native ZXing-C++ engine via FFI. This is the only path on
     // desktop (Linux/Windows) and also covers the extra native formats
-    // (DataBar / MaxiCode / DotCode / Code 11) on mobile. Returns empty when
-    // unavailable.
+    // (DataBar / MaxiCode / DotCode / Code 11 / MSI / Pharmacode) on mobile.
+    // Returns empty when unavailable.
     final zxingBarcodes = await analyzeImageWithZxing(path, formats);
     if (zxingBarcodes.isNotEmpty) {
       return BarcodeCapture(barcodes: zxingBarcodes);
@@ -325,13 +324,12 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
         kAnalyzeImageMethodName,
         {
           'filePath': path,
-          'formats':
-              formats.isEmpty
-                  ? null
-                  : [
-                    for (final BarcodeFormat format in formats)
-                      if (format != BarcodeFormat.unknown) format.rawValue,
-                  ],
+          'formats': formats.isEmpty
+              ? null
+              : [
+                  for (final BarcodeFormat format in formats)
+                    if (format != BarcodeFormat.unknown) format.rawValue,
+                ],
         },
       );
 

@@ -376,6 +376,57 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
         self.consecutiveZxingMisses = 0
         return false
     }
+
+    private func analyzeImageWithZxing(ciImage: CIImage, formatMask: UInt32) -> [[String: Any?]] {
+        let extent = ciImage.extent.integral
+        let width = Int(extent.width)
+        let height = Int(extent.height)
+        if width <= 0 || height <= 0 {
+            return []
+        }
+
+        var pixelBuffer: CVPixelBuffer?
+        let attrs = [
+            kCVPixelBufferCGImageCompatibilityKey: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey: true,
+        ] as CFDictionary
+
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            width,
+            height,
+            kCVPixelFormatType_32BGRA,
+            attrs,
+            &pixelBuffer
+        )
+        guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
+            return []
+        }
+
+        let context = CIContext(options: nil)
+        context.render(
+            ciImage,
+            to: buffer,
+            bounds: extent,
+            colorSpace: CGColorSpaceCreateDeviceRGB()
+        )
+
+        let cropRect: CGRect? = self.scanWindow.map { sw in
+            CGRect(
+                x: sw.minX * CGFloat(width),
+                y: sw.minY * CGFloat(height),
+                width: sw.width * CGFloat(width),
+                height: sw.height * CGFloat(height)
+            )
+        }
+
+        return ZxingScannerDarwin.decode(
+            pixelBuffer: buffer,
+            formatMask: formatMask,
+            crop: cropRect,
+            tryHarder: true
+        )
+    }
 #endif // MOBILE_SCANNER_ZXING
 
     func checkPermission(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
@@ -1019,6 +1070,20 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
             ))
             return
         }
+
+#if MOBILE_SCANNER_ZXING
+        let zxingResults = analyzeImageWithZxing(
+            ciImage: ciImage,
+            formatMask: argReader.toFormatMask()
+        )
+        if !zxingResults.isEmpty {
+            result([
+                "name": "barcode",
+                "data": zxingResults,
+            ])
+            return
+        }
+#endif
 
         let imageRequestHandler = VNImageRequestHandler(ciImage: ciImage, orientation: CGImagePropertyOrientation.up, options: [:])
 

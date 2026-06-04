@@ -14,7 +14,7 @@ The most advanced, fastest, and most reliable Flutter plugin for scanning barcod
 ## ✨ **Key Features**
 
 - **🔥 Enterprise Performance**: Advanced image processing with 99% detection accuracy
-- **🎯 Universal Format Support**: 19+ barcode formats including Aztec, Data Matrix, PDF417, Code 11
+- **🎯 Universal Format Support**: 22+ barcode formats including Aztec, Data Matrix, PDF417, Code 11, MSI, Pharmacode
 - **🧠 Smart Processing**: AI-powered image enhancement and quality analysis
 - **📸 Professional Camera Control**: Multi-lens support, auto-zoom, focus control
 - **⚡ Real-time Detection**: Multi-frame analysis with instant results
@@ -37,14 +37,15 @@ on desktop is not yet available — there is no desktop camera-capture backend.
 
 mobile_scanner uses a hybrid pipeline. **ZXing-C++** is the primary decoder on
 Android, Linux, and Windows; web uses ZXing-js. On Apple platforms, Apple Vision
-is the default engine, with an optional ZXing-C++ path behind the
-`MOBILE_SCANNER_ZXING` build flag for formats Vision does not cover.
+is the default engine until the optional native bridge is compiled. With the
+`MOBILE_SCANNER_ZXING` build flag enabled, ZXing-C++ becomes primary on
+iOS/macOS too and Apple Vision is used as the fallback.
 
 | Platform | Primary engine | ML fallback |
 |----------|----------------|-------------|
 | Android | ZXing-C++ (FFI/JNI) | ML Kit |
-| iOS | Apple Vision | Optional ZXing-C++ |
-| macOS | Apple Vision | Optional ZXing-C++ |
+| iOS | Apple Vision, or ZXing-C++ when enabled | Vision fallback when ZXing is enabled |
+| macOS | Apple Vision, or ZXing-C++ when enabled | Vision fallback when ZXing is enabled |
 | Web | ZXing-js | — |
 | Linux/Windows | ZXing-C++ | — |
 
@@ -90,16 +91,23 @@ Detected by ZXing-C++, Apple Vision, ML Kit, or ZXing-js depending on platform:
 | **GS1 DataBar** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **GS1 DataBar Expanded** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Code 11** | 1D | ✅ | ⚠️³ | ⚠️³ | ❌³ | ✅ |
+| **MSI / MSI Plessey** | 1D | ✅ | ⚠️³ | ⚠️³ | ❌³ | ✅ |
+| **Pharmacode One-Track** | 1D | ✅⁴ | ⚠️³⁴ | ⚠️³⁴ | ❌³ | ✅⁴ |
+| **Pharmacode Two-Track** | 1D | ✅⁴ | ⚠️³⁴ | ⚠️³⁴ | ❌³ | ✅⁴ |
 
 ¹ DotCode is not supported by the web ZXing-js reader.
 ² On iOS/macOS, MaxiCode and DotCode require the optional ZXing-C++ engine
 (`MOBILE_SCANNER_ZXING` — see `darwin/mobile_scanner.podspec`). Apple Vision alone
 covers the other formats, including GS1 DataBar (iOS 15+ / macOS 12+).
-³ Code 11 is decoded by mobile_scanner's native linear fallback detector. It is
-not available through Android ML Kit, Apple Vision, or ZXing-js web; on
-iOS/macOS it requires the optional native ZXing-C++ bridge to be enabled.
+³ Code 11, MSI/Plessey, and Pharmacode are decoded by mobile_scanner's native
+linear fallback detector. They are not available through Android ML Kit, Apple
+Vision, or ZXing-js web; on iOS/macOS they require the optional native
+ZXing-C++ bridge to be enabled.
+⁴ Pharmacode has no checksum, so the fallback detector only runs when
+`BarcodeFormat.pharmaCode` or `BarcodeFormat.pharmaCodeTwoTrack` is explicitly
+requested.
 
-> **Not supported:** MSI and postal codes (PostNet / IMb / Planet etc.) are not
+> **Not supported:** postal codes (PostNet / IMb / Planet etc.) are not
 > decodable by the integrated engines and remain unavailable.
 
 ## 📦 **Installation**
