@@ -86,9 +86,29 @@ class AdvancedBarcodeProcessor(private val context: Context) {
         if (formats.isNullOrEmpty()) {
             builder.setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
         } else {
+            val supportedFormats = formats.filter {
+                it == Barcode.FORMAT_UNKNOWN ||
+                it == Barcode.FORMAT_ALL_FORMATS ||
+                it == Barcode.FORMAT_CODE_128 ||
+                it == Barcode.FORMAT_CODE_39 ||
+                it == Barcode.FORMAT_CODE_93 ||
+                it == Barcode.FORMAT_CODABAR ||
+                it == Barcode.FORMAT_DATA_MATRIX ||
+                it == Barcode.FORMAT_EAN_13 ||
+                it == Barcode.FORMAT_EAN_8 ||
+                it == Barcode.FORMAT_ITF ||
+                it == Barcode.FORMAT_QR_CODE ||
+                it == Barcode.FORMAT_UPC_A ||
+                it == Barcode.FORMAT_UPC_E ||
+                it == Barcode.FORMAT_PDF417 ||
+                it == Barcode.FORMAT_AZTEC
+            }
+            val mlKitFormats = supportedFormats.ifEmpty {
+                listOf(Barcode.FORMAT_UNKNOWN)
+            }
             builder.setBarcodeFormats(
-                formats.first(),
-                *formats.subList(1, formats.size).toIntArray()
+                mlKitFormats.first(),
+                *mlKitFormats.subList(1, mlKitFormats.size).toIntArray()
             )
         }
 

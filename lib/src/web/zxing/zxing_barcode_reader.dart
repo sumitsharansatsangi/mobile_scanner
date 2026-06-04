@@ -64,14 +64,18 @@ final class ZXingBarcodeReader extends BarcodeReader {
       return null;
     }
 
-    final hints =
-        JSMap()
-          // Set the formats hint.
-          // See https://github.com/zxing-js/library/blob/master/src/core/DecodeHintType.ts#L45
-          ..set(
-            2.toJS,
-            [for (final BarcodeFormat format in formats) format.toJS].toJS,
-          );
+    final zxingFormats = <int>[
+      for (final BarcodeFormat format in formats)
+        if (format.toJSCode != null) format.toJSCode!,
+    ];
+
+    final hints = JSMap()
+      // Set the formats hint.
+      // See https://github.com/zxing-js/library/blob/master/src/core/DecodeHintType.ts#L45
+      ..set(
+        2.toJS,
+        zxingFormats.map((format) => format.toJS).toList().toJS,
+      );
 
     return hints;
   }
@@ -196,8 +200,8 @@ extension on BarcodeFormat {
   /// Get the barcode format from the ZXing library.
   ///
   /// See https://github.com/zxing-js/library/blob/master/src/core/BarcodeFormat.ts
-  JSNumber get toJS {
-    final zxingFormat = switch (this) {
+  int? get toJSCode {
+    return switch (this) {
       BarcodeFormat.aztec => 0,
       BarcodeFormat.codabar => 1,
       BarcodeFormat.code39 => 2,
@@ -221,9 +225,7 @@ extension on BarcodeFormat {
       BarcodeFormat.dotCode ||
       BarcodeFormat.unknown ||
       BarcodeFormat.all ||
-      _ => -1,
+      _ => null,
     };
-
-    return zxingFormat.toJS;
   }
 }

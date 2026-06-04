@@ -18,7 +18,7 @@ enum class BarcodeFormats(val intValue: Int) {
     AZTEC(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_AZTEC);
 
     companion object {
-        fun fromRawValue(rawValue: Int): BarcodeFormats {
+        fun fromRawValueOrNull(rawValue: Int): BarcodeFormats? {
             return when(rawValue) {
                 -1 -> UNKNOWN
                 0 -> ALL_FORMATS
@@ -35,8 +35,12 @@ enum class BarcodeFormats(val intValue: Int) {
                 1024 -> UPC_E
                 2048 -> PDF417
                 4096 -> AZTEC
-                else -> UNKNOWN
+                else -> null
             }
+        }
+
+        fun fromRawValue(rawValue: Int): BarcodeFormats {
+            return fromRawValueOrNull(rawValue) ?: UNKNOWN
         }
     }
 }

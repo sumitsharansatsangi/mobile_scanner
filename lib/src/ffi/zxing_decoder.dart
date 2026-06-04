@@ -122,9 +122,27 @@ final class ZxingDecoder {
     var mask = 0;
     for (final format in formats) {
       if (format == BarcodeFormat.unknown) continue;
-      mask |= format.rawValue;
+      mask |= _maskBit(format);
     }
     return mask;
+  }
+
+  /// The bitmask contribution for [format].
+  ///
+  /// Most [BarcodeFormat.rawValue]s are already power-of-two flags, but
+  /// [BarcodeFormat.itf2of5] (126) and [BarcodeFormat.itf2of5WithChecksum]
+  /// (127) are not: their values collide with combinations of the other flags
+  /// (126 == code39|code93|codabar|dataMatrix|ean13|ean8). OR-ing them raw both
+  /// enables those unrelated formats and, on the native side, can spuriously
+  /// turn on ITF for plain linear requests. Normalize them onto the dedicated
+  /// ITF bit ([BarcodeFormat.itf14] == 128). zxing-cpp exposes a single ITF
+  /// format, so the variant is not distinguished at decode time anyway.
+  static int _maskBit(BarcodeFormat format) {
+    if (format == BarcodeFormat.itf2of5 ||
+        format == BarcodeFormat.itf2of5WithChecksum) {
+      return BarcodeFormat.itf14.rawValue;
+    }
+    return format.rawValue;
   }
 
   static List<Barcode> _readResults(MsZxingResultList list, Size imageSize) {

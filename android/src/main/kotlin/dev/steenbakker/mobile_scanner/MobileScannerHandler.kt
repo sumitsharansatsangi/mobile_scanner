@@ -381,13 +381,15 @@ class MobileScannerHandler(
         if (formats == null) {
             builder = BarcodeScannerOptions.Builder()
         } else {
-            val formatsList: MutableList<Int> = mutableListOf()
-
-            for (formatValue in formats) {
-                formatsList.add(BarcodeFormats.fromRawValue(formatValue).intValue)
+            val formatsList = formats.mapNotNull {
+                BarcodeFormats.fromRawValueOrNull(it)?.intValue
             }
 
-            if (formatsList.size == 1) {
+            if (formatsList.isEmpty()) {
+                builder = BarcodeScannerOptions.Builder().setBarcodeFormats(
+                    com.google.mlkit.vision.barcode.common.Barcode.FORMAT_UNKNOWN
+                )
+            } else if (formatsList.size == 1) {
                 builder = BarcodeScannerOptions.Builder().setBarcodeFormats(formatsList.first())
             } else {
                 builder = BarcodeScannerOptions.Builder().setBarcodeFormats(

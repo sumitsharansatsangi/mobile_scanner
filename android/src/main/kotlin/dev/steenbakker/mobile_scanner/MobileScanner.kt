@@ -532,7 +532,13 @@ class MobileScanner(
 
         // Build the ZXing format mask from the requested rawValue bits. An empty
         // or null list means "all formats" (mask 0).
-        zxingFormatMask = formats?.fold(0) { acc, raw -> acc or raw } ?: 0
+        // itf2of5 (126) and itf2of5WithChecksum (127) are not power-of-two
+        // flags; their values collide with combinations of the other format
+        // bits, so normalize them onto the dedicated ITF bit (itf14 == 128)
+        // before OR-ing. zxing-cpp has a single ITF format.
+        zxingFormatMask = formats?.fold(0) { acc, raw ->
+            acc or if (raw == 126 || raw == 127) 128 else raw
+        } ?: 0
         consecutiveZxingMisses = 0
 
         isPaused = false

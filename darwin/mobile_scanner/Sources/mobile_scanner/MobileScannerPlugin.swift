@@ -43,6 +43,11 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
 
     var symbologies:[VNBarcodeSymbology] = []
 
+    /// Whether the caller requested a non-`all` format filter for Apple Vision.
+    /// If this is true and `symbologies` is empty, the requested formats are
+    /// handled only by ZXing-C++ and Vision must not fall back to scanning all.
+    var visionFormatFilterRequested = false
+
     /// OR-ed BarcodeFormat.rawValue bits to scan for (0 = all formats). Used by
     /// the primary ZXing-C++ engine.
     var zxingFormatMask: UInt32 = 0
@@ -266,6 +271,11 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
                         }
                     })
 
+                    if self.symbologies.isEmpty && self.visionFormatFilterRequested {
+                        self.imagesCurrentlyBeingProcessed = false
+                        return
+                    }
+
                     if self.symbologies.isEmpty == false {
                         // Add the symbologies the user wishes to support.
                         barcodeRequest.symbologies = self.symbologies
@@ -468,6 +478,7 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
             }
         }()
         symbologies = argReader.toSymbology()
+        visionFormatFilterRequested = argReader.hasFormatFilter()
         zxingFormatMask = argReader.toFormatMask()
         consecutiveZxingMisses = 0
         MobileScannerPlugin.returnImage = argReader.bool(key: "returnImage") ?? false
@@ -989,6 +1000,7 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
 
         let argReader = MapArgumentReader(call.arguments as? [String: Any])
         let symbologies:[VNBarcodeSymbology] = argReader.toSymbology()
+        let visionFormatFilterRequested = argReader.hasFormatFilter()
 
         guard let filePath: String = argReader.string(key: "filePath") else {
             result(nil)
@@ -1048,6 +1060,16 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
                     ])
                 }
             })
+
+            if symbologies.isEmpty && visionFormatFilterRequested {
+                DispatchQueue.main.async {
+                    result([
+                        "name": "barcode",
+                        "data": [],
+                    ])
+                }
+                return
+            }
 
             if !symbologies.isEmpty {
                 // Add the symbologies the user wishes to support.
@@ -1116,6 +1138,13 @@ class MapArgumentReader {
         return args?[key] as? [String]
     }
 
+    func hasFormatFilter() -> Bool {
+        guard let syms: [Int] = args?["formats"] as? [Int] else {
+            return false
+        }
+        return !syms.isEmpty && !syms.contains(0)
+    }
+
     func toSymbology() -> [VNBarcodeSymbology] {
         guard let syms:[Int] = args?["formats"] as? [Int] else {
             return []
@@ -1141,7 +1170,14 @@ class MapArgumentReader {
         if syms.contains(0) {
             return 0
         }
-        return syms.reduce(UInt32(0)) { acc, raw in acc | UInt32(raw) }
+        // itf2of5 (126) and itf2of5WithChecksum (127) are not power-of-two
+        // flags; their values collide with combinations of the other format
+        // bits. Normalize them onto the dedicated ITF bit (itf14 == 128) before
+        // OR-ing. zxing-cpp has a single ITF format.
+        return syms.reduce(UInt32(0)) { acc, raw in
+            let bit = (raw == 126 || raw == 127) ? 128 : raw
+            return acc | UInt32(bit)
+        }
     }
 
     func floatArray(key: String) -> [CGFloat]? {

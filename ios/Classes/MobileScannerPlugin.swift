@@ -324,9 +324,43 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin {
         var barcodeFormats: BarcodeFormat = []
 
         for format in formats {
-            barcodeFormats.insert(BarcodeFormat(rawValue: format))
+            if let supportedFormat = mlKitBarcodeFormat(rawValue: format) {
+                barcodeFormats.insert(supportedFormat)
+            }
+        }
+
+        guard !barcodeFormats.isEmpty else {
+            return BarcodeScannerOptions(
+                formats: BarcodeFormat(rawValue: BarcodeFormat.unknown.rawValue)
+            )
         }
 
         return BarcodeScannerOptions(formats: barcodeFormats)
+    }
+
+    private func mlKitBarcodeFormat(rawValue: Int) -> BarcodeFormat? {
+        switch rawValue {
+        case BarcodeFormat.unknown.rawValue,
+             BarcodeFormat.all.rawValue,
+             BarcodeFormat.code128.rawValue,
+             BarcodeFormat.code39.rawValue,
+             BarcodeFormat.code93.rawValue,
+             BarcodeFormat.codaBar.rawValue,
+             BarcodeFormat.dataMatrix.rawValue,
+             BarcodeFormat.EAN13.rawValue,
+             BarcodeFormat.EAN8.rawValue,
+             126,
+             127,
+             BarcodeFormat.itf.rawValue,
+             BarcodeFormat.qrCode.rawValue,
+             BarcodeFormat.UPCA.rawValue,
+             BarcodeFormat.UPCE.rawValue,
+             BarcodeFormat.PDF417.rawValue,
+             BarcodeFormat.aztec.rawValue:
+            let normalizedRawValue = rawValue == 126 || rawValue == 127 ? BarcodeFormat.itf.rawValue : rawValue
+            return BarcodeFormat(rawValue: normalizedRawValue)
+        default:
+            return nil
+        }
     }
 }

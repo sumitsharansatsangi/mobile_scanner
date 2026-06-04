@@ -47,6 +47,16 @@ BarcodeFormats RawMaskToZxing(uint32_t mask) {
   if (mask == 0) {
     return BarcodeFormat::Any;
   }
+  // BarcodeFormat.itf2of5 (126) and itf2of5WithChecksum (127) are NOT
+  // power-of-two flags: 126 == code39|code93|codabar|dataMatrix|ean13|ean8 and
+  // 127 adds code128. So they can only be interpreted unambiguously when they
+  // arrive on their own (the common case of asking for just ITF). Map those
+  // exact values straight to ITF. Once OR-ed with any other format the value is
+  // indistinguishable from a combination of the real bit flags, so it falls
+  // through to the bitwise handling below (zxing-cpp has a single ITF format).
+  if (mask == 126u || mask == 127u) {
+    return BarcodeFormat::ITF;
+  }
   BarcodeFormats formats = BarcodeFormat::None;
   if (mask & kRawCode128) formats |= BarcodeFormat::Code128;
   if (mask & kRawCode39) formats |= BarcodeFormat::Code39;
@@ -55,9 +65,11 @@ BarcodeFormats RawMaskToZxing(uint32_t mask) {
   if (mask & kRawDataMatrix) formats |= BarcodeFormat::DataMatrix;
   if (mask & kRawEan13) formats |= BarcodeFormat::EAN13;
   if (mask & kRawEan8) formats |= BarcodeFormat::EAN8;
-  // The Dart enum exposes several ITF variants; the lower itf bits (126/127)
-  // also fold onto the 128 bit when serialized, so treat any ITF bit as ITF.
-  if (mask & kRawItf || mask & 126u || mask & 127u) formats |= BarcodeFormat::ITF;
+  // Dedicated ITF bit only (itf / itf14 == 128). Do NOT test 126/127 here:
+  // those are handled above and their bits otherwise collide with the linear
+  // formats, which previously made e.g. a plain EAN-13 request (mask 32) also
+  // enable ITF and produce spurious reads.
+  if (mask & kRawItf) formats |= BarcodeFormat::ITF;
   if (mask & kRawQr) formats |= BarcodeFormat::QRCode;
   if (mask & kRawUpcA) formats |= BarcodeFormat::UPCA;
   if (mask & kRawUpcE) formats |= BarcodeFormat::UPCE;
