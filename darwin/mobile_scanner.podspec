@@ -37,6 +37,7 @@ An universal scanner for Flutter based on the Vision API.
   #        s.source_files = [
   #          'mobile_scanner/Sources/mobile_scanner/**/*.swift',
   #          '../src/ms_zxing.{h,cpp}',
+  #          '../src/ms_unsupported_barcodes.{h,cpp}',
   #          'third_party/zxing-cpp/core/src/**/*.{h,c,cc,cpp}',
   #        ]
   #        s.public_header_files = '../src/ms_zxing.h'
@@ -44,7 +45,7 @@ An universal scanner for Flutter based on the Vision API.
   #        s.pod_target_xcconfig = {
   #          'DEFINES_MODULE' => 'YES',
   #          'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
-  #          'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17',
+  #          'CLANG_CXX_LANGUAGE_STANDARD' => 'c++20',
   #          'HEADER_SEARCH_PATHS' => '"$(PODS_TARGET_SRCROOT)/third_party/zxing-cpp/core/src" "$(PODS_TARGET_SRCROOT)/../src"',
   #          'SWIFT_ACTIVE_COMPILATION_CONDITIONS' => 'MOBILE_SCANNER_ZXING',
   #          'GCC_PREPROCESSOR_DEFINITIONS' => 'ZXING_HAS_DOTCODE=1',

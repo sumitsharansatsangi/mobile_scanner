@@ -221,8 +221,9 @@ extension on BarcodeFormat {
       BarcodeFormat.dataBarExpanded => 13,
       BarcodeFormat.upcA => 14,
       BarcodeFormat.upcE => 15,
-      // DotCode is not supported by the ZXing-js (web) reader.
+      // DotCode and Code 11 are not supported by the ZXing-js (web) reader.
       BarcodeFormat.dotCode ||
+      BarcodeFormat.code11 ||
       BarcodeFormat.unknown ||
       BarcodeFormat.all ||
       _ => null,

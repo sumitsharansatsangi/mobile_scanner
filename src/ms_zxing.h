@@ -75,7 +75,7 @@ typedef struct {
 
 // One decoded barcode.
 typedef struct {
-  // BarcodeFormat.rawValue (matches the Dart enum). 0 if unknown.
+  // BarcodeFormat.rawValue (matches the Dart enum). -1 if unknown.
   int32_t format;
   // UTF-8 decoded text, NUL-terminated. Owned by the result list.
   const char* text;

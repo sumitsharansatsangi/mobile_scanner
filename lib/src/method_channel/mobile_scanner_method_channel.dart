@@ -310,8 +310,9 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     List<BarcodeFormat> formats = const <BarcodeFormat>[],
   }) async {
     // Primary: the native ZXing-C++ engine via FFI. This is the only path on
-    // desktop (Linux/Windows) and also covers the extra formats (DataBar /
-    // MaxiCode / DotCode) on mobile. Returns empty when unavailable.
+    // desktop (Linux/Windows) and also covers the extra native formats
+    // (DataBar / MaxiCode / DotCode / Code 11) on mobile. Returns empty when
+    // unavailable.
     final zxingBarcodes = await analyzeImageWithZxing(path, formats);
     if (zxingBarcodes.isNotEmpty) {
       return BarcodeCapture(barcodes: zxingBarcodes);

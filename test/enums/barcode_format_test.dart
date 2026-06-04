@@ -26,6 +26,7 @@ void main() {
         16384: BarcodeFormat.dataBarExpanded,
         32768: BarcodeFormat.maxiCode,
         65536: BarcodeFormat.dotCode,
+        131072: BarcodeFormat.code11,
       };
 
       for (final entry in values.entries) {
@@ -34,8 +35,9 @@ void main() {
         expect(result, entry.value);
       }
 
-      final expectedRawValues =
-          BarcodeFormat.values.map((e) => e.rawValue).toSet();
+      final expectedRawValues = BarcodeFormat.values
+          .map((e) => e.rawValue)
+          .toSet();
       final actualRawValues = values.keys.toSet();
 
       // Deprecated formats are collapsed into their replacements,
@@ -79,6 +81,7 @@ void main() {
         BarcodeFormat.dataBarExpanded: 16384,
         BarcodeFormat.maxiCode: 32768,
         BarcodeFormat.dotCode: 65536,
+        BarcodeFormat.code11: 131072,
       };
 
       for (final entry in values.entries) {

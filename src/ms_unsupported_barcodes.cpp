@@ -287,28 +287,40 @@ std::optional<DecodeResult> ValidateCode11(std::string_view textWithChecksum) {
     return std::nullopt;
   }
 
-  const bool hasK = textWithChecksum.size() > 11;
-  std::string payload(textWithChecksum);
+  const auto validate = [](std::string_view value,
+                           bool hasK) -> std::optional<std::string> {
+    if (value.size() < (hasK ? 3u : 2u)) return std::nullopt;
 
-  const char actualK = hasK ? payload.back() : '\0';
-  if (hasK) payload.pop_back();
+    std::string payload(value);
+    const char actualK = hasK ? payload.back() : '\0';
+    if (hasK) payload.pop_back();
 
-  const char actualC = payload.back();
-  payload.pop_back();
+    const char actualC = payload.back();
+    payload.pop_back();
 
-  const auto expectedC = Code11CheckCharacter(payload, 10);
-  bool valid = expectedC.has_value() && actualC == *expectedC;
+    const auto expectedC = Code11CheckCharacter(payload, 10);
+    if (!expectedC.has_value() || actualC != *expectedC) return std::nullopt;
 
-  if (hasK) {
-    std::string payloadWithC = payload;
-    payloadWithC.push_back(actualC);
-    const auto expectedK = Code11CheckCharacter(payloadWithC, 9);
-    valid = valid && expectedK.has_value() && actualK == *expectedK;
+    if (hasK) {
+      std::string payloadWithC = payload;
+      payloadWithC.push_back(actualC);
+      const auto expectedK = Code11CheckCharacter(payloadWithC, 9);
+      if (!expectedK.has_value() || actualK != *expectedK) return std::nullopt;
+    }
+
+    return payload;
+  };
+
+  const bool expectedK = textWithChecksum.size() > 11;
+  std::optional<std::string> payload = validate(textWithChecksum, expectedK);
+  if (!payload.has_value()) {
+    payload = validate(textWithChecksum, !expectedK);
   }
+  const bool valid = payload.has_value();
 
   return DecodeResult{
       .format = Format::code11,
-      .text = payload,
+      .text = valid ? *payload : std::string(textWithChecksum),
       .checksumValid = valid,
       .note = valid ? "Code 11 checksum character(s) removed from text."
                     : "Code 11 checksum failed.",

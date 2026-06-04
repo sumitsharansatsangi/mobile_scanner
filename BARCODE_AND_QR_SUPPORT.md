@@ -13,10 +13,10 @@ content categories through `BarcodeType`.
 
 | Platform | Primary engine | Fallback engine | Notes |
 | --- | --- | --- | --- |
-| Android | ZXing-C++ | ML Kit | ZXing-C++ covers extra formats such as GS1 DataBar, MaxiCode, and DotCode. |
-| iOS | ZXing-C++ | Apple Vision | MaxiCode and DotCode require ZXing-C++ support. |
-| macOS | ZXing-C++ | Apple Vision | Same format notes as iOS. |
-| Web | ZXing-js | None | DotCode is not supported on web. |
+| Android | ZXing-C++ | ML Kit | ZXing-C++ covers extra formats such as GS1 DataBar, MaxiCode, DotCode, and Code 11. |
+| iOS | Apple Vision | Optional ZXing-C++ | MaxiCode, DotCode, and Code 11 require the optional `MOBILE_SCANNER_ZXING` build path. |
+| macOS | Apple Vision | Optional ZXing-C++ | Same format notes as iOS. |
+| Web | ZXing-js | None | DotCode and Code 11 are not supported on web. |
 | Linux / Windows | ZXing-C++ | None | Image decoding is supported; live camera preview is not available in this project. |
 
 ## Supported Symbologies
@@ -27,11 +27,12 @@ content categories through `BarcodeType`.
 | Data Matrix | Yes | 2D | Small product labels, electronics, medical devices, industrial marking. | It stores useful data in a very small area and works well for direct part marking. | Compact, strong error correction, good for tiny surfaces. | Less familiar to consumers than QR, not ideal for public URL sharing. |
 | PDF417 | Yes | 2D stacked | Driver licenses, boarding passes, shipping labels, government documents. | It stores larger structured payloads in a printable rectangular barcode. | High capacity, robust for documents, common in ID workflows. | Wide shape needs more label space, not as consumer-friendly as QR. |
 | Aztec | Yes | 2D | Transport tickets, boarding passes, mobile tickets. | It scans well without a quiet zone and is good for compact ticket layouts. | Compact, no quiet zone required, good error correction. | Less common than QR, fewer consumer tools recognize it. |
-| MaxiCode | Yes | 2D | Parcel and logistics sorting, especially shipping labels. | Designed for high-speed package sorting systems. | Fast logistics scanning, fixed-size symbol, good for conveyor environments. | Specialized use, not supported by ML Kit or Apple Vision fallback; relies on ZXing path. |
-| DotCode | Yes, except web | 2D dot pattern | High-speed printing, tobacco/pharma packaging, industrial coding. | Useful where dot-matrix or high-speed production printing is used. | Works with dot-based printing, compact, industrial-friendly. | Not supported on web ZXing-js, not supported by ML Kit or Apple Vision fallback, less common for general apps. |
+| MaxiCode | Yes where ZXing-C++ is active | 2D | Parcel and logistics sorting, especially shipping labels. | Designed for high-speed package sorting systems. | Fast logistics scanning, fixed-size symbol, good for conveyor environments. | Specialized use, not supported by ML Kit or Apple Vision; relies on ZXing path. |
+| DotCode | Yes where ZXing-C++ is active, except web | 2D dot pattern | High-speed printing, tobacco/pharma packaging, industrial coding. | Useful where dot-matrix or high-speed production printing is used. | Works with dot-based printing, compact, industrial-friendly. | Not supported on web ZXing-js, not supported by ML Kit or Apple Vision, less common for general apps. |
 | Code 128 | Yes | 1D | Shipping, inventory, asset tracking, serial numbers. | It encodes dense alphanumeric data and is common in logistics. | High density for 1D, supports full ASCII, widely supported. | Needs a straight scan line, stores less data than 2D codes. |
 | Code 39 | Yes | 1D | Industrial labels, badges, inventory, older systems. | Simple and widely implemented. | Easy to print, broad legacy support. | Low density, larger labels, limited character set unless extended variants are used. |
 | Code 93 | Yes | 1D | Inventory, logistics, compact labels. | Similar to Code 39 but denser and more reliable. | Better density than Code 39, checksum support. | Less common than Code 128. |
+| Code 11 | Yes where the native ZXing-C++ bridge is active | 1D | Telecommunications equipment labels and older industrial systems. | Compact numeric/dash encoding for legacy telecom workflows. | Dense for its small character set; checksum-protected. | Not supported by ML Kit, Apple Vision, or ZXing-js web; native fallback uses sampled scan lines and requires valid checksum characters. |
 | Codabar | Yes | 1D | Libraries, blood banks, legacy medical/logistics systems. | Simple format used by older domain-specific systems. | Easy to print, works with older workflows. | Limited character set, legacy-oriented. |
 | EAN-13 | Yes | 1D | Retail product barcodes worldwide. | Standard product identifier for retail goods. | Universal retail support, compact, reliable. | Numeric only, fixed length, product identity only. |
 | EAN-8 | Yes | 1D | Small retail products. | Shorter version for packages too small for EAN-13. | Compact retail code. | Numeric only, limited namespace. |
@@ -50,13 +51,12 @@ not provide dependable support for them.
 
 Some C++20 helper code for these formats lives in
 `src/ms_unsupported_barcodes.{h,cpp}`. Those helpers decode or validate
-already-normalized symbol streams, but they are not yet wired into the camera
-scanner or Dart `BarcodeFormat` enum.
+already-normalized symbol streams. Code 11 is the exception: its checksum
+helper is now wired into a native sampled-line detector.
 
 | Format | Supported | Why not supported | Typical purpose |
 | --- | --- | --- | --- |
 | MSI / MSI Plessey | Not exposed | Native helper validates decoded digits and checksums; full image detection is not wired into the scanner. | Inventory and warehouse labels in older systems. |
-| Code 11 | Not exposed | Native helper validates decoded text and checksums; full image detection is not wired into the scanner. | Telecommunications equipment labels. |
 | POSTNET | Not exposed | Native helper decodes normalized full/half bars; postal image detection is not wired into the scanner. | USPS postal routing. |
 | PLANET | Not exposed | Native helper decodes normalized full/half bars; postal image detection is not wired into the scanner. | USPS postal tracking, now legacy. |
 | Intelligent Mail Barcode / IMb | No | Postal barcode formats are not supported by the integrated engines. | USPS mail tracking and routing. |
@@ -126,11 +126,11 @@ Avoid QR Code when:
 ## Important Limitations
 
 - Platform support is not identical across every engine. DotCode is not
-  supported on web.
-- MaxiCode and DotCode rely on the ZXing path on Apple platforms, not Apple
-  Vision.
+  supported on web; Code 11 is also unavailable on web.
+- MaxiCode, DotCode, and Code 11 rely on the native bridge; on Apple platforms
+  that path is optional and must be enabled at build time.
 - Android ML Kit does not support GS1 DataBar, GS1 DataBar Expanded, MaxiCode,
-  or DotCode; the project handles those through ZXing-C++.
+  DotCode, or Code 11; the project handles those through native decoding.
 - `BarcodeType` classification can be `unknown` even when the barcode format is
   decoded correctly. In that case, use `rawValue` or `rawDecodedBytes` and parse
   it yourself.

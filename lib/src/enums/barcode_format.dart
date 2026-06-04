@@ -82,7 +82,14 @@ enum BarcodeFormat {
   /// Platform support: decoded by the native ZXing-C++ engine only
   /// (Android/iOS/macOS/desktop). Not supported by ML Kit, Apple Vision, or
   /// the web ZXing-js reader.
-  dotCode(65536);
+  dotCode(65536),
+
+  /// Barcode format constant for Code 11.
+  ///
+  /// Platform support: decoded by mobile_scanner's native linear fallback
+  /// detector on platforms that use the native ZXing-C++ bridge. Not supported
+  /// by Android ML Kit, Apple Vision, or the web ZXing-js reader.
+  code11(131072);
 
   const BarcodeFormat(this.rawValue);
 
@@ -130,6 +137,8 @@ enum BarcodeFormat {
         return BarcodeFormat.maxiCode;
       case 65536:
         return BarcodeFormat.dotCode;
+      case 131072:
+        return BarcodeFormat.code11;
       default:
         throw ArgumentError.value(value, 'value', 'Invalid raw value.');
     }

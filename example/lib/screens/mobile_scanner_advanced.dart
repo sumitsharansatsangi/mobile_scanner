@@ -15,6 +15,7 @@ import 'package:mobile_scanner_example/widgets/dialogs/box_fit_dialog.dart';
 import 'package:mobile_scanner_example/widgets/dialogs/detection_speed_dialog.dart';
 import 'package:mobile_scanner_example/widgets/dialogs/detection_timeout_dialog.dart';
 import 'package:mobile_scanner_example/widgets/dialogs/resolution_dialog.dart';
+import 'package:mobile_scanner_example/widgets/scanned_barcode_dialog.dart';
 import 'package:mobile_scanner_example/widgets/scanned_barcode_label.dart';
 import 'package:mobile_scanner_example/widgets/scanner_error_widget.dart';
 import 'package:mobile_scanner_example/widgets/zoom_scale_slider_widget.dart';
@@ -45,9 +46,9 @@ class MobileScannerAdvanced extends StatefulWidget {
 class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
   MobileScannerController? controller;
 
-  // A scan window does work on web, but not the overlay to preview the scan
-  // window. This is why we disable it here for web examples.
-  bool useScanWindow = !kIsWeb;
+  // Keep the first-run example forgiving. The scan window can still be enabled
+  // from the menu to demonstrate region-restricted detection.
+  bool useScanWindow = false;
 
   bool autoZoom = false;
   bool invertImage = false;
@@ -55,7 +56,7 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
   bool tapToFocus = true;
 
   Size desiredCameraResolution = const Size(1920, 1080);
-  DetectionSpeed detectionSpeed = DetectionSpeed.unrestricted;
+  DetectionSpeed detectionSpeed = DetectionSpeed.noDuplicates;
   int detectionTimeoutMs = 1000;
 
   bool useBarcodeOverlay = true;
@@ -63,6 +64,8 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
   bool enableLifecycle = false;
 
   CameraLensType currentLensType = CameraLensType.normal;
+  StreamSubscription<BarcodeCapture>? _barcodeSubscription;
+  bool _isShowingBarcodeDialog = false;
 
   /// Hides the MobileScanner widget while the MobileScannerController is
   /// rebuilding
@@ -87,22 +90,49 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
   void initState() {
     super.initState();
     controller = initController();
+    _listenForBarcodes();
     unawaited(controller!.start());
   }
 
   @override
   Future<void> dispose() async {
     super.dispose();
+    await _barcodeSubscription?.cancel();
+    _barcodeSubscription = null;
     await controller?.dispose();
     controller = null;
+  }
+
+  void _listenForBarcodes() {
+    _barcodeSubscription = controller?.barcodes.listen(_handleBarcode);
+  }
+
+  Future<void> _handleBarcode(BarcodeCapture capture) async {
+    final Barcode? barcode = capture.barcodes.firstOrNull;
+
+    if (barcode == null || _isShowingBarcodeDialog || !mounted) {
+      return;
+    }
+
+    _isShowingBarcodeDialog = true;
+    unawaited(controller?.stop());
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => ScannedBarcodeDialog(barcode: barcode),
+    );
+
+    _isShowingBarcodeDialog = false;
+    if (mounted) {
+      unawaited(controller?.start());
+    }
   }
 
   Future<void> _showResolutionDialog() async {
     final Size? result = await showDialog<Size>(
       context: context,
-      builder:
-          (context) =>
-              ResolutionDialog(initialResolution: desiredCameraResolution),
+      builder: (context) =>
+          ResolutionDialog(initialResolution: desiredCameraResolution),
     );
 
     if (result != null) {
@@ -128,9 +158,8 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
   Future<void> _showDetectionTimeoutDialog() async {
     final int? result = await showDialog<int>(
       context: context,
-      builder:
-          (context) =>
-              DetectionTimeoutDialog(initialTimeoutMs: detectionTimeoutMs),
+      builder: (context) =>
+          DetectionTimeoutDialog(initialTimeoutMs: detectionTimeoutMs),
     );
 
     if (result != null) {
@@ -156,8 +185,8 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
   Future<void> _showBarcodeFormatDialog() async {
     final List<BarcodeFormat>? result = await showDialog<List<BarcodeFormat>>(
       context: context,
-      builder:
-          (context) => BarcodeFormatDialog(selectedFormats: selectedFormats),
+      builder: (context) =>
+          BarcodeFormatDialog(selectedFormats: selectedFormats),
     );
 
     if (result != null) {
@@ -187,11 +216,14 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
     await Future<void>.delayed(const Duration(milliseconds: 300));
 
     // Dispose of the current controller safely
+    await _barcodeSubscription?.cancel();
+    _barcodeSubscription = null;
     await controller?.dispose();
     controller = null;
 
     // Create a new controller with updated configuration
     controller = initController();
+    _listenForBarcodes();
 
     // Show the scanner again
     setState(() => hideMobileScannerWidget = false);
@@ -212,8 +244,8 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
     if (controller == null) return;
 
     try {
-      final Set<CameraLensType> supportedLenses =
-          await controller!.getSupportedLenses();
+      final Set<CameraLensType> supportedLenses = await controller!
+          .getSupportedLenses();
       if (!mounted) return;
 
       final String lensNames = supportedLenses
@@ -234,19 +266,18 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
       unawaited(
         showDialog<void>(
           context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Supported Lenses'),
-                content: Text(
-                  'Available camera lenses on this device:\n\n$lensNames',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('OK'),
-                  ),
-                ],
+          builder: (context) => AlertDialog(
+            title: const Text('Supported Lenses'),
+            content: Text(
+              'Available camera lenses on this device:\n\n$lensNames',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
               ),
+            ],
+          ),
         ),
       );
     } on Exception catch (e) {
@@ -255,17 +286,16 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
       unawaited(
         showDialog<void>(
           context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Error'),
-                content: Text('Could not retrieve supported lenses:\n$e'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('OK'),
-                  ),
-                ],
+          builder: (context) => AlertDialog(
+            title: const Text('Error'),
+            content: Text('Could not retrieve supported lenses:\n$e'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
               ),
+            ],
+          ),
         ),
       );
     }
@@ -315,191 +345,189 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
               // Rebuild and restart the controller with updated settings
               await _reinitializeController();
             },
-            itemBuilder:
-                (context) => [
-                  if (!kIsWeb && Platform.isAndroid)
-                    PopupMenuItem(
-                      value: _PopupMenuItems.cameraResolution,
-                      child: Text(_PopupMenuItems.cameraResolution.name),
-                    ),
-                  PopupMenuItem(
-                    value: _PopupMenuItems.detectionSpeed,
-                    child: Text(_PopupMenuItems.detectionSpeed.name),
-                  ),
-                  PopupMenuItem(
-                    value: _PopupMenuItems.detectionTimeout,
-                    enabled: detectionSpeed == DetectionSpeed.normal,
-                    child: Text(_PopupMenuItems.detectionTimeout.name),
-                  ),
-                  PopupMenuItem(
-                    value: _PopupMenuItems.boxFit,
-                    child: Text(_PopupMenuItems.boxFit.name),
-                  ),
-                  PopupMenuItem(
-                    value: _PopupMenuItems.formats,
-                    child: Text(_PopupMenuItems.formats.name),
-                  ),
-                  const PopupMenuDivider(),
-                  if (!kIsWeb && Platform.isAndroid)
-                    CheckedPopupMenuItem(
-                      value: _PopupMenuItems.autoZoom,
-                      checked: autoZoom,
-                      child: Text(_PopupMenuItems.autoZoom.name),
-                    ),
-                  if (!kIsWeb && Platform.isAndroid)
-                    CheckedPopupMenuItem(
-                      value: _PopupMenuItems.invertImage,
-                      checked: invertImage,
-                      child: Text(_PopupMenuItems.invertImage.name),
-                    ),
-                  const PopupMenuItem(
-                    value: _PopupMenuItems.showSupportedLenses,
-                    child: Text('Show Supported Lenses'),
-                  ),
-                  CheckedPopupMenuItem(
-                    value: _PopupMenuItems.returnImage,
-                    checked: returnImage,
-                    child: Text(_PopupMenuItems.returnImage.name),
-                  ),
-                  CheckedPopupMenuItem(
-                    value: _PopupMenuItems.useBarcodeOverlay,
-                    checked: useBarcodeOverlay,
-                    child: Text(_PopupMenuItems.useBarcodeOverlay.name),
-                  ),
-                  CheckedPopupMenuItem(
-                    value: _PopupMenuItems.scanWindow,
-                    checked: useScanWindow,
-                    child: Text(_PopupMenuItems.scanWindow.name),
-                  ),
-                ],
+            itemBuilder: (context) => [
+              if (!kIsWeb && Platform.isAndroid)
+                PopupMenuItem(
+                  value: _PopupMenuItems.cameraResolution,
+                  child: Text(_PopupMenuItems.cameraResolution.name),
+                ),
+              PopupMenuItem(
+                value: _PopupMenuItems.detectionSpeed,
+                child: Text(_PopupMenuItems.detectionSpeed.name),
+              ),
+              PopupMenuItem(
+                value: _PopupMenuItems.detectionTimeout,
+                enabled: detectionSpeed == DetectionSpeed.normal,
+                child: Text(_PopupMenuItems.detectionTimeout.name),
+              ),
+              PopupMenuItem(
+                value: _PopupMenuItems.boxFit,
+                child: Text(_PopupMenuItems.boxFit.name),
+              ),
+              PopupMenuItem(
+                value: _PopupMenuItems.formats,
+                child: Text(_PopupMenuItems.formats.name),
+              ),
+              const PopupMenuDivider(),
+              if (!kIsWeb && Platform.isAndroid)
+                CheckedPopupMenuItem(
+                  value: _PopupMenuItems.autoZoom,
+                  checked: autoZoom,
+                  child: Text(_PopupMenuItems.autoZoom.name),
+                ),
+              if (!kIsWeb && Platform.isAndroid)
+                CheckedPopupMenuItem(
+                  value: _PopupMenuItems.invertImage,
+                  checked: invertImage,
+                  child: Text(_PopupMenuItems.invertImage.name),
+                ),
+              const PopupMenuItem(
+                value: _PopupMenuItems.showSupportedLenses,
+                child: Text('Show Supported Lenses'),
+              ),
+              CheckedPopupMenuItem(
+                value: _PopupMenuItems.returnImage,
+                checked: returnImage,
+                child: Text(_PopupMenuItems.returnImage.name),
+              ),
+              CheckedPopupMenuItem(
+                value: _PopupMenuItems.useBarcodeOverlay,
+                checked: useBarcodeOverlay,
+                child: Text(_PopupMenuItems.useBarcodeOverlay.name),
+              ),
+              CheckedPopupMenuItem(
+                value: _PopupMenuItems.scanWindow,
+                checked: useScanWindow,
+                child: Text(_PopupMenuItems.scanWindow.name),
+              ),
+            ],
           ),
         ],
       ),
       backgroundColor: Colors.black,
-      body:
-          controller == null || hideMobileScannerWidget
-              ? const Placeholder()
-              : Stack(
-                children: [
-                  MobileScanner(
-                    // useAppLifecycleState: false, // Only set to false if you want
-                    // to handle lifecycle changes yourself
-                    scanWindow: useScanWindow ? scanWindow : null,
-                    tapToFocus: true,
-                    controller: controller,
-                    errorBuilder: (context, error) {
-                      return ScannerErrorWidget(error: error);
-                    },
-                    fit: boxFit,
+      body: controller == null || hideMobileScannerWidget
+          ? const Placeholder()
+          : Stack(
+              children: [
+                MobileScanner(
+                  // useAppLifecycleState: false, // Only set to false if you want
+                  // to handle lifecycle changes yourself
+                  scanWindow: useScanWindow ? scanWindow : null,
+                  tapToFocus: true,
+                  controller: controller,
+                  errorBuilder: (context, error) {
+                    return ScannerErrorWidget(error: error);
+                  },
+                  fit: boxFit,
+                ),
+                if (useBarcodeOverlay)
+                  // Needed for tapToFocus
+                  IgnorePointer(
+                    child: BarcodeOverlay(
+                      controller: controller!,
+                      boxFit: boxFit,
+                    ),
                   ),
-                  if (useBarcodeOverlay)
-                    // Needed for tapToFocus
-                    IgnorePointer(
-                      child: BarcodeOverlay(
-                        controller: controller!,
-                        boxFit: boxFit,
-                      ),
+                // The scanWindow is not supported on the web.
+                if (useScanWindow)
+                  // Needed for tapToFocus
+                  IgnorePointer(
+                    child: ScanWindowOverlay(
+                      scanWindow: scanWindow,
+                      controller: controller!,
                     ),
-                  // The scanWindow is not supported on the web.
-                  if (useScanWindow)
-                    // Needed for tapToFocus
-                    IgnorePointer(
-                      child: ScanWindowOverlay(
-                        scanWindow: scanWindow,
-                        controller: controller!,
-                      ),
-                    ),
-                  if (returnImage)
-                    // Needed for tapToFocus
-                    IgnorePointer(
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: Card(
-                          clipBehavior: Clip.hardEdge,
-                          shape: RoundedRectangleBorder(
-                            side: const BorderSide(color: Colors.white),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: SizedBox(
-                            width: 100,
-                            height: 100,
-                            child: StreamBuilder<BarcodeCapture>(
-                              stream: controller!.barcodes,
-                              builder: (context, snapshot) {
-                                final BarcodeCapture? barcode = snapshot.data;
+                  ),
+                if (returnImage)
+                  // Needed for tapToFocus
+                  IgnorePointer(
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: Card(
+                        clipBehavior: Clip.hardEdge,
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(color: Colors.white),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: SizedBox(
+                          width: 100,
+                          height: 100,
+                          child: StreamBuilder<BarcodeCapture>(
+                            stream: controller!.barcodes,
+                            builder: (context, snapshot) {
+                              final BarcodeCapture? barcode = snapshot.data;
 
-                                if (barcode == null) {
-                                  return const Center(
+                              if (barcode == null) {
+                                return const Center(
+                                  child: Text(
+                                    'Your scanned barcode will appear here',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                );
+                              }
+
+                              final Uint8List? barcodeImage = barcode.image;
+
+                              if (barcodeImage == null) {
+                                return const Center(
+                                  child: Text('No image for this barcode.'),
+                                );
+                              }
+
+                              return Image.memory(
+                                barcodeImage,
+                                fit: BoxFit.cover,
+                                gaplessPlayback: true,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Center(
                                     child: Text(
-                                      'Your scanned barcode will appear here',
-                                      textAlign: TextAlign.center,
+                                      'Could not decode image bytes. $error',
                                     ),
                                   );
-                                }
-
-                                final Uint8List? barcodeImage = barcode.image;
-
-                                if (barcodeImage == null) {
-                                  return const Center(
-                                    child: Text('No image for this barcode.'),
-                                  );
-                                }
-
-                                return Image.memory(
-                                  barcodeImage,
-                                  fit: BoxFit.cover,
-                                  gaplessPlayback: true,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Center(
-                                      child: Text(
-                                        'Could not decode image bytes. $error',
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                            ),
+                                },
+                              );
+                            },
                           ),
                         ),
                       ),
                     ),
-                  Align(
+                  ),
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
                     alignment: Alignment.bottomCenter,
-                    child: Container(
-                      alignment: Alignment.bottomCenter,
-                      height: 200,
-                      color: const Color.fromRGBO(0, 0, 0, 0.4),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: ScannedBarcodeLabel(
-                              barcodes: controller!.barcodes,
-                            ),
+                    height: 200,
+                    color: const Color.fromRGBO(0, 0, 0, 0.4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: ScannedBarcodeLabel(
+                            barcodes: controller!.barcodes,
                           ),
-                          if (!kIsWeb) ZoomScaleSlider(controller: controller!),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              ToggleFlashlightButton(controller: controller!),
-                              StartStopButton(controller: controller!),
-                              PauseButton(controller: controller!),
-                              SwitchCameraButton(controller: controller!),
-                              if (!kIsWeb)
-                                SwitchLensButton(
-                                  controller: controller!,
-                                  currentLensType: currentLensType,
-                                  onLensTypeChanged: _onLensTypeChanged,
-                                ),
-                              AnalyzeImageButton(controller: controller!),
-                            ],
-                          ),
-                        ],
-                      ),
+                        ),
+                        if (!kIsWeb) ZoomScaleSlider(controller: controller!),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            ToggleFlashlightButton(controller: controller!),
+                            StartStopButton(controller: controller!),
+                            PauseButton(controller: controller!),
+                            SwitchCameraButton(controller: controller!),
+                            if (!kIsWeb)
+                              SwitchLensButton(
+                                controller: controller!,
+                                currentLensType: currentLensType,
+                                onLensTypeChanged: _onLensTypeChanged,
+                              ),
+                            AnalyzeImageButton(controller: controller!),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
     );
   }
 }

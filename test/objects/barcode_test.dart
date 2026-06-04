@@ -57,7 +57,7 @@ void main() {
         const url = UrlBookmark(url: 'https://example.com');
         const wifi = WiFi(ssid: 'TestNetwork');
 
-        const barcode = Barcode(
+        final barcode = Barcode(
           calendarEvent: calendarEvent,
           contactInfo: contactInfo,
           corners: corners,
@@ -67,8 +67,11 @@ void main() {
           format: BarcodeFormat.qrCode,
           geoPoint: geoPoint,
           phone: phone,
+          rawDecodedBytes: DecodedBarcodeBytes(
+            bytes: Uint8List.fromList([84, 101, 115, 116]),
+          ),
           rawValue: 'Test Raw Value',
-          size: Size(200, 200),
+          size: const Size(200, 200),
           sms: sms,
           type: BarcodeType.url,
           url: url,

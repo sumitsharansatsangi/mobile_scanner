@@ -137,7 +137,12 @@ class MobileScanner(
      */
     @ExperimentalGetImage
     val captureOutput = ImageAnalysis.Analyzer { imageProxy ->
-        val mediaImage = imageProxy.image ?: return@Analyzer
+        val mediaImage = imageProxy.image
+        if (mediaImage == null) {
+            imageProxy.close()
+            return@Analyzer
+        }
+
         if (detectionSpeed == DetectionSpeed.NORMAL && scannerTimeout) {
             imageProxy.close()
             return@Analyzer
@@ -162,13 +167,6 @@ class MobileScanner(
             InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
         }
 
-        if (detectionSpeed == DetectionSpeed.NORMAL && scannerTimeout) {
-            imageProxy.close()
-            return@Analyzer
-        } else if (detectionSpeed == DetectionSpeed.NORMAL) {
-            scannerTimeout = true
-        }
-
         // === ZXing-C++ primary fast path ===
         // ML Kit is only consulted after a run of frames ZXing can't read.
         if (zxingAvailable) {
@@ -180,7 +178,11 @@ class MobileScanner(
             val barcodeMap = zxingBarcodes
                 .filter {
                     scanWindow == null || isZxingBarcodeInScanWindow(
-                        scanWindow!!, it.corners, mediaImage.width, mediaImage.height,
+                        scanWindow!!,
+                        it.corners,
+                        mediaImage.width,
+                        mediaImage.height,
+                        imageProxy.imageInfo.rotationDegrees,
                     )
                 }
                 .map { it.data }
@@ -229,6 +231,7 @@ class MobileScanner(
 
                     if (newScannedBarcodes == lastScanned) {
                         // New scanned is duplicate, returning
+                        invertedBitmap?.recycle()
                         imageProxy.close()
                         return@addOnSuccessListener
                     }
@@ -251,6 +254,7 @@ class MobileScanner(
                 }
 
                 if (barcodeMap.isEmpty()) {
+                    invertedBitmap?.recycle()
                     imageProxy.close()
                     return@addOnSuccessListener
                 }
@@ -265,10 +269,15 @@ class MobileScanner(
                     if (portrait) inputImage.height else inputImage.width,
                 )
             }.addOnFailureListener { e ->
+                invertedBitmap?.recycle()
+                imageProxy.close()
                 mobileScannerErrorCallback(
                     e.localizedMessage ?: e.toString()
                 )
             }
+        } ?: run {
+            invertedBitmap?.recycle()
+            imageProxy.close()
         }
 
         scheduleScannerTimeoutReset()
@@ -313,22 +322,23 @@ class MobileScanner(
     /**
      * Scan-window containment test for ZXing results.
      *
-     * NOTE: ZXing corners are in sensor (unrotated) space while [scanWindow] is
-     * normalized in preview space; for non-trivial rotations this mapping may
-     * need refinement and should be validated on-device.
+     * ZXing corners are in the raw sensor buffer coordinate space. The scan
+     * window arrives in the same upright coordinate space used by ML Kit, so it
+     * is mapped back through the frame rotation before containment is checked.
      */
     private fun isZxingBarcodeInScanWindow(
         scanWindow: List<Float>,
         corners: FloatArray,
         imageWidth: Int,
         imageHeight: Int,
+        rotationDegrees: Int,
     ): Boolean {
         return try {
-            val rect = Rect(
-                (scanWindow[0] * imageWidth).roundToInt(),
-                (scanWindow[1] * imageHeight).roundToInt(),
-                (scanWindow[2] * imageWidth).roundToInt(),
-                (scanWindow[3] * imageHeight).roundToInt(),
+            val rect = zxingScanWindowToSensorRect(
+                scanWindow,
+                imageWidth,
+                imageHeight,
+                rotationDegrees,
             )
             var i = 0
             while (i < corners.size - 1) {
@@ -341,6 +351,53 @@ class MobileScanner(
         } catch (_: IllegalArgumentException) {
             false
         }
+    }
+
+    private fun zxingScanWindowToSensorRect(
+        scanWindow: List<Float>,
+        imageWidth: Int,
+        imageHeight: Int,
+        rotationDegrees: Int,
+    ): Rect {
+        val normalizedRotation = ((rotationDegrees % 360) + 360) % 360
+        val uprightWidth = if (normalizedRotation % 180 == 0) imageWidth else imageHeight
+        val uprightHeight = if (normalizedRotation % 180 == 0) imageHeight else imageWidth
+        val left = scanWindow[0] * uprightWidth
+        val top = scanWindow[1] * uprightHeight
+        val right = scanWindow[2] * uprightWidth
+        val bottom = scanWindow[3] * uprightHeight
+
+        val mapped = when (normalizedRotation) {
+            90 -> Rect(
+                top.roundToInt(),
+                (imageHeight - right).roundToInt(),
+                bottom.roundToInt(),
+                (imageHeight - left).roundToInt(),
+            )
+            180 -> Rect(
+                (imageWidth - right).roundToInt(),
+                (imageHeight - bottom).roundToInt(),
+                (imageWidth - left).roundToInt(),
+                (imageHeight - top).roundToInt(),
+            )
+            270 -> Rect(
+                (imageWidth - bottom).roundToInt(),
+                left.roundToInt(),
+                (imageWidth - top).roundToInt(),
+                right.roundToInt(),
+            )
+            else -> Rect(
+                left.roundToInt(),
+                top.roundToInt(),
+                right.roundToInt(),
+                bottom.roundToInt(),
+            )
+        }
+
+        if (!mapped.intersect(0, 0, imageWidth, imageHeight)) {
+            return Rect(0, 0, 0, 0)
+        }
+        return mapped
     }
 
     /**

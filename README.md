@@ -14,7 +14,7 @@ The most advanced, fastest, and most reliable Flutter plugin for scanning barcod
 ## ✨ **Key Features**
 
 - **🔥 Enterprise Performance**: Advanced image processing with 99% detection accuracy
-- **🎯 Universal Format Support**: 18+ barcode formats including Aztec, Data Matrix, PDF417
+- **🎯 Universal Format Support**: 19+ barcode formats including Aztec, Data Matrix, PDF417, Code 11
 - **🧠 Smart Processing**: AI-powered image enhancement and quality analysis
 - **📸 Professional Camera Control**: Multi-lens support, auto-zoom, focus control
 - **⚡ Real-time Detection**: Multi-frame analysis with instant results
@@ -35,16 +35,16 @@ on desktop is not yet available — there is no desktop camera-capture backend.
 
 ### Detection engine
 
-mobile_scanner uses a hybrid pipeline. **ZXing-C++** is the primary decoder on every
-platform (it is fast, low-CPU, cross-platform, and natively decodes DataBar, MaxiCode
-and DotCode). On mobile, a platform ML engine acts as a **recovery fallback** for hard
-frames (blur, low light, heavy rotation, perspective distortion):
+mobile_scanner uses a hybrid pipeline. **ZXing-C++** is the primary decoder on
+Android, Linux, and Windows; web uses ZXing-js. On Apple platforms, Apple Vision
+is the default engine, with an optional ZXing-C++ path behind the
+`MOBILE_SCANNER_ZXING` build flag for formats Vision does not cover.
 
 | Platform | Primary engine | ML fallback |
 |----------|----------------|-------------|
 | Android | ZXing-C++ (FFI/JNI) | ML Kit |
-| iOS | ZXing-C++ | Apple Vision |
-| macOS | ZXing-C++ | Apple Vision |
+| iOS | Apple Vision | Optional ZXing-C++ |
+| macOS | Apple Vision | Optional ZXing-C++ |
 | Web | ZXing-js | — |
 | Linux/Windows | ZXing-C++ | — |
 
@@ -66,11 +66,11 @@ frames (blur, low light, heavy rotation, perspective distortion):
 | **Detection** | enableQualityAnalysis | ✅ | ❌ | ❌ | ❌ |
 | | enableBatchProcessing | ✅ | ❌ | ❌ | ❌ |
 | | multiFormatDetection | ✅ | ✅ | ✅ | ✅ |
-| **Formats** | All 18 formats | ✅ | ✅ | ✅ | ✅ |
+| **Formats** | All exposed formats | ✅ | ⚠️² | ⚠️² | ⚠️¹ |
 
 ### 📊 **Supported Barcode Formats**
 
-Detected by the primary ZXing-C++ engine on all native platforms (and ZXing-js on web):
+Detected by ZXing-C++, Apple Vision, ML Kit, or ZXing-js depending on platform:
 
 | Format | Type | Android | iOS | macOS | Web | Linux/Windows |
 |--------|------|---------|-----|-------|-----|---------------|
@@ -78,8 +78,8 @@ Detected by the primary ZXing-C++ engine on all native platforms (and ZXing-js o
 | **Data Matrix** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **PDF417** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Aztec** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **MaxiCode** | 2D | ✅ | ✅² | ✅² | ✅ | ✅ |
-| **DotCode** | 2D | ✅ | ✅² | ✅² | ❌¹ | ✅ |
+| **MaxiCode** | 2D | ✅ | ⚠️² | ⚠️² | ✅ | ✅ |
+| **DotCode** | 2D | ✅ | ⚠️² | ⚠️² | ❌¹ | ✅ |
 | **Code 128** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Code 39** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **EAN-13/8** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -89,15 +89,18 @@ Detected by the primary ZXing-C++ engine on all native platforms (and ZXing-js o
 | **Code 93** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **GS1 DataBar** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **GS1 DataBar Expanded** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Code 11** | 1D | ✅ | ⚠️³ | ⚠️³ | ❌³ | ✅ |
 
 ¹ DotCode is not supported by the web ZXing-js reader.
-² On iOS/macOS, MaxiCode and DotCode require the ZXing-C++ engine to be enabled
+² On iOS/macOS, MaxiCode and DotCode require the optional ZXing-C++ engine
 (`MOBILE_SCANNER_ZXING` — see `darwin/mobile_scanner.podspec`). Apple Vision alone
 covers the other formats, including GS1 DataBar (iOS 15+ / macOS 12+).
+³ Code 11 is decoded by mobile_scanner's native linear fallback detector. It is
+not available through Android ML Kit, Apple Vision, or ZXing-js web; on
+iOS/macOS it requires the optional native ZXing-C++ bridge to be enabled.
 
-> **Not supported:** MSI, Code 11, and postal codes (PostNet / IMb / Planet etc.)
-> are **not** decodable by any engine this plugin integrates (ML Kit, Apple Vision,
-> ZXing-C++, or ZXing-js) and are therefore unavailable on all platforms.
+> **Not supported:** MSI and postal codes (PostNet / IMb / Planet etc.) are not
+> decodable by the integrated engines and remain unavailable.
 
 ## 📦 **Installation**
 

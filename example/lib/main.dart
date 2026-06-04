@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:mobile_scanner_example/screens/mobile_scanner_advanced.dart';
+import 'package:mobile_scanner_example/widgets/scanned_barcode_dialog.dart';
 
 void main() {
   runApp(
@@ -20,7 +21,12 @@ class MobileScannerSimple extends StatefulWidget {
 }
 
 class _MobileScannerSimpleState extends State<MobileScannerSimple> {
+  final MobileScannerController _controller = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+  );
+
   Barcode? _barcode;
+  bool _isShowingBarcodeDialog = false;
 
   Widget _barcodePreview(Barcode? value) {
     if (value == null) {
@@ -38,12 +44,37 @@ class _MobileScannerSimpleState extends State<MobileScannerSimple> {
     );
   }
 
-  void _handleBarcode(BarcodeCapture barcodes) {
+  Future<void> _handleBarcode(BarcodeCapture barcodes) async {
+    final Barcode? barcode = barcodes.barcodes.firstOrNull;
+
     if (mounted) {
       setState(() {
-        _barcode = barcodes.barcodes.firstOrNull;
+        _barcode = barcode;
       });
     }
+
+    if (barcode == null || _isShowingBarcodeDialog || !mounted) {
+      return;
+    }
+
+    _isShowingBarcodeDialog = true;
+    unawaited(_controller.stop());
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => ScannedBarcodeDialog(barcode: barcode),
+    );
+
+    _isShowingBarcodeDialog = false;
+    if (mounted) {
+      unawaited(_controller.start());
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_controller.dispose());
+    super.dispose();
   }
 
   @override
@@ -53,7 +84,7 @@ class _MobileScannerSimpleState extends State<MobileScannerSimple> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          MobileScanner(onDetect: _handleBarcode),
+          MobileScanner(controller: _controller, onDetect: _handleBarcode),
           Align(
             alignment: Alignment.bottomCenter,
             child: Container(

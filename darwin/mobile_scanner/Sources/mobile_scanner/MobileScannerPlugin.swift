@@ -264,7 +264,7 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
                                     $0.toMap(
                                         imageWidth: currentImage.width,
                                         imageHeight: currentImage.height,
-                                        scanWindow: self?.scanWindow
+                                        scanWindow: self?.scanWindow?.visionRegionOfInterest
                                     )
                                 }),
                             ])
@@ -281,8 +281,8 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
                         barcodeRequest.symbologies = self.symbologies
                     }
 
-                    // Set the region of interest to match scanWindow
-                    if let scanWindow = self.scanWindow {
+                    // Set the region of interest to match scanWindow.
+                    if let scanWindow = self.scanWindow?.visionRegionOfInterest {
                         barcodeRequest.regionOfInterest = scanWindow
                     }
 
@@ -311,7 +311,9 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
         let bufWidth = CVPixelBufferGetWidth(buffer)
         let bufHeight = CVPixelBufferGetHeight(buffer)
 
-        // scanWindow is normalized [0..1]; convert to a pixel crop rect.
+        // scanWindow is normalized [0..1] in Flutter/upright image space;
+        // convert directly to a pixel crop rect for ZXing. Do not use Vision's
+        // flipped region-of-interest coordinates here.
         let cropRect: CGRect? = self.scanWindow.map { sw in
             CGRect(
                 x: sw.minX * CGFloat(bufWidth),
@@ -416,10 +418,10 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
         let bottom = scanWindowData![3]
         
         scanWindow = CGRect(
-            x: left,                  // Normalized x-position (left)
-            y: 1.0 - bottom,          // Flip Y-axis since Vision uses a different coordinate system
-            width: right - left,      // Width (difference between right and left)
-            height: bottom - top      // Height (difference between bottom and top)
+            x: left,
+            y: top,
+            width: right - left,
+            height: bottom - top
         )
         
         result(nil)
@@ -1056,7 +1058,7 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
                 DispatchQueue.main.async {
                     result([
                         "name": "barcode",
-                        "data": barcodes.map({ $0.toMap(imageWidth: Int(ciImage.extent.width), imageHeight: Int(ciImage.extent.height), scanWindow: self.scanWindow) }),
+                        "data": barcodes.map({ $0.toMap(imageWidth: Int(ciImage.extent.width), imageHeight: Int(ciImage.extent.height), scanWindow: self.scanWindow?.visionRegionOfInterest) }),
                     ])
                 }
             })
@@ -1074,6 +1076,10 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
             if !symbologies.isEmpty {
                 // Add the symbologies the user wishes to support.
                 barcodeRequest.symbologies = symbologies
+            }
+
+            if let scanWindow = self.scanWindow?.visionRegionOfInterest {
+                barcodeRequest.regionOfInterest = scanWindow
             }
 
             try imageRequestHandler.perform([barcodeRequest])
@@ -1213,6 +1219,19 @@ extension CGImage {
         }
 
         return mutableData as Data?
+    }
+}
+
+extension CGRect {
+    /// Convert a normalized Flutter/upright scan window to Vision's lower-left
+    /// origin region-of-interest coordinate space.
+    var visionRegionOfInterest: CGRect {
+        return CGRect(
+            x: minX,
+            y: 1.0 - maxY,
+            width: width,
+            height: height
+        )
     }
 }
 
