@@ -24,6 +24,7 @@ enum class BarcodeFormats(val intValue: Int) {
                 0 -> ALL_FORMATS
                 1 -> CODE_128
                 2 -> CODE_39
+                8388608 -> CODE_39
                 4 -> CODE_93
                 8 -> CODABAR
                 16 -> DATA_MATRIX

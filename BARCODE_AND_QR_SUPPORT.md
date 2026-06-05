@@ -13,8 +13,8 @@ content categories through `BarcodeType`.
 
 | Platform | Primary engine | Fallback engine | Notes |
 | --- | --- | --- | --- |
-| Android | ZXing-C++ | ML Kit | ZXing-C++ covers extra formats such as GS1 DataBar, MaxiCode, DotCode, Code 11, MSI/Plessey, and Pharmacode. |
-| iOS | Apple Vision, or ZXing-C++ when enabled | Vision fallback when ZXing is enabled | MaxiCode, DotCode, Code 11, MSI/Plessey, and Pharmacode require the optional `MOBILE_SCANNER_ZXING` build path. |
+| Android | ZXing-C++ | ML Kit | ZXing-C++ covers extra formats such as GS1 DataBar, MaxiCode, DotCode, Code 11, MSI/Plessey, Pharmacode, and Code 32. |
+| iOS | Apple Vision, or ZXing-C++ when enabled | Vision fallback when ZXing is enabled | MaxiCode, DotCode, Code 11, MSI/Plessey, Pharmacode, and distinct Code 32 reporting require the optional `MOBILE_SCANNER_ZXING` build path. |
 | macOS | Apple Vision, or ZXing-C++ when enabled | Vision fallback when ZXing is enabled | Same format notes as iOS. |
 | Web | ZXing-js | None | DotCode, Code 11, MSI/Plessey, and Pharmacode are not supported on web. |
 | Linux / Windows | ZXing-C++ | None | Image decoding is supported; live camera preview is not available in this project. |
@@ -32,6 +32,7 @@ content categories through `BarcodeType`.
 | Code 128 | Yes | 1D | Shipping, inventory, asset tracking, serial numbers. | It encodes dense alphanumeric data and is common in logistics. | High density for 1D, supports full ASCII, widely supported. | Needs a straight scan line, stores less data than 2D codes. |
 | GS1-128 / UCC/EAN-128 | Yes where ZXing-C++ is active | 1D GS1 Code 128 | GS1 application identifiers for cartons, logistics, healthcare, and retail supply-chain labels. | Encodes GS1 data using Code 128 with FNC1 in the first position. | Distinguishes GS1-128 from plain Code 128 on native ZXing platforms. | Physically a Code 128 symbol; ML Kit, Apple Vision, and web may report it as plain Code 128. |
 | Code 39 | Yes | 1D | Industrial labels, badges, inventory, older systems. | Simple and widely implemented. | Easy to print, broad legacy support. | Low density, larger labels, limited character set unless extended variants are used. |
+| Code 32 / Italian Pharmacode | Yes where ZXing-C++ is active, when explicitly requested | 1D Code 39-derived healthcare code | Italian pharmaceutical AIC codes. | Encodes an 8-digit pharma code plus Mod-10 check digit in a compact Code 39-compatible symbol. | Distinguishes Italian Pharmacode from plain Code 39 and returns the human-readable `A`-prefixed value. | Physically encoded as Code 39; ML Kit, Apple Vision, and web may report it as plain Code 39. |
 | Code 93 | Yes | 1D | Inventory, logistics, compact labels. | Similar to Code 39 but denser and more reliable. | Better density than Code 39, checksum support. | Less common than Code 128. |
 | Code 11 | Yes where the native ZXing-C++ bridge is active | 1D | Telecommunications equipment labels and older industrial systems. | Compact numeric/dash encoding for legacy telecom workflows. | Dense for its small character set; checksum-protected when check characters are present. | Not supported by ML Kit, Apple Vision, or ZXing-js web; native fallback uses sampled scan lines. No-checksum Code 11 is decoded only when explicitly requested. |
 | MSI / MSI Plessey | Yes where the native ZXing-C++ bridge is active | 1D | Inventory, warehouse shelves, stock locations, and older retail systems. | Numeric-only legacy format with common checksum variants. | Variable length, simple legacy workflows, Mod-10/Mod-11 checksum support. | Not supported by ML Kit, Apple Vision, or ZXing-js web; native fallback requires a valid Mod-10, Mod-10/10, Mod-11, or Mod-11/10 checksum. |

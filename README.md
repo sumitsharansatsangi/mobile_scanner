@@ -83,6 +83,7 @@ Detected by ZXing-C++, Apple Vision, ML Kit, or ZXing-js depending on platform:
 | **DotCode** | 2D | ✅ | ⚠️² | ⚠️² | ❌¹ | ✅ |
 | **Code 128** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Code 39** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Code 32 / Italian Pharmacode** | 1D | ✅⁵ | ⚠️²⁵ | ⚠️²⁵ | ❌⁵ | ✅⁵ |
 | **EAN-13/8** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **UPC-A/E** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **ITF** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -106,6 +107,9 @@ ZXing-C++ bridge to be enabled.
 ⁴ Pharmacode has no checksum, so the fallback detector only runs when
 `BarcodeFormat.pharmaCode` or `BarcodeFormat.pharmaCodeTwoTrack` is explicitly
 requested.
+⁵ Code 32 is decoded as a distinct `BarcodeFormat.code32` by the native
+ZXing-C++ engine when explicitly requested. Platform scanners may report the
+same physical symbol as plain Code 39.
 
 > **Not supported:** postal codes (PostNet / IMb / Planet etc.) are not
 > decodable by the integrated engines and remain unavailable.

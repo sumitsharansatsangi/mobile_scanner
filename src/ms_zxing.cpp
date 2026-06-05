@@ -51,6 +51,7 @@ constexpr uint32_t kRawPharmaCode = 524288;
 constexpr uint32_t kRawPharmaCodeTwoTrack = 1048576;
 constexpr uint32_t kRawUpcEanExtension = 2097152;
 constexpr uint32_t kRawGs1Code128 = 4194304;
+constexpr uint32_t kRawCode32 = 8388608;
 
 struct FallbackCandidate {
   int32_t format = -1;
@@ -98,6 +99,7 @@ BarcodeFormats RawMaskToZxing(uint32_t mask) {
   if (mask & kRawCode128) formats |= BarcodeFormat::Code128;
   if (mask & kRawGs1Code128) formats |= BarcodeFormat::Code128;
   if (mask & kRawCode39) formats |= BarcodeFormat::Code39;
+  if (mask & kRawCode32) formats |= BarcodeFormat::Code39;
   if (mask & kRawCode93) formats |= BarcodeFormat::Code93;
   if (mask & kRawCodabar) formats |= BarcodeFormat::Codabar;
   if (mask & kRawDataMatrix) formats |= BarcodeFormat::DataMatrix;
@@ -148,6 +150,48 @@ bool ExplicitFormatRequested(uint32_t mask, uint32_t format) {
 bool UpcEanRequested(uint32_t mask) {
   return mask == 0 || (mask & (kRawEan13 | kRawEan8 | kRawUpcA | kRawUpcE |
                                kRawUpcEanExtension)) != 0;
+}
+
+int Code32AlphabetValue(char c) {
+  constexpr std::string_view alphabet = "0123456789BCDFGHJKLMNPQRSTUVWXYZ";
+  const size_t index = alphabet.find(c);
+  return index == std::string_view::npos ? -1 : static_cast<int>(index);
+}
+
+int Code32CheckDigit(std::string_view eightDigits) {
+  int sum = 0;
+  for (size_t i = 0; i < eightDigits.size(); ++i) {
+    int value = eightDigits[i] - '0';
+    if (i % 2 == 1) {
+      value *= 2;
+      value = (value / 10) + (value % 10);
+    }
+    sum += value;
+  }
+  return sum % 10;
+}
+
+std::optional<std::string> DecodeCode32Text(std::string_view encoded) {
+  if (encoded.size() != 6) return std::nullopt;
+
+  uint32_t value = 0;
+  for (char c : encoded) {
+    const int digit = Code32AlphabetValue(c);
+    if (digit < 0) return std::nullopt;
+    value = value * 32u + static_cast<uint32_t>(digit);
+  }
+  if (value > 999999999u) return std::nullopt;
+
+  std::string digits = std::to_string(value);
+  if (digits.size() < 9) {
+    digits.insert(0, 9 - digits.size(), '0');
+  }
+
+  const int expected = Code32CheckDigit(std::string_view(digits).substr(0, 8));
+  const int actual = digits[8] - '0';
+  if (expected != actual) return std::nullopt;
+
+  return "A" + digits;
 }
 
 // Translate a zxing-cpp Barcode back to a Dart rawValue.
@@ -1155,13 +1199,32 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
       if (!barcode.isValid()) continue;
 
       MsZxingResult& r = results[i];
-      r.format = ZxingToRaw(barcode);
+      int32_t rawFormat = ZxingToRaw(barcode);
+      std::string text = barcode.text();
+      bool code32Transformed = false;
+      if (rawFormat == kRawCode39 &&
+          ExplicitFormatRequested(params->format_mask, kRawCode32)) {
+        if (const auto code32Text = DecodeCode32Text(text)) {
+          rawFormat = kRawCode32;
+          text = *code32Text;
+          code32Transformed = true;
+        } else if (!ExplicitFormatRequested(params->format_mask, kRawCode39)) {
+          continue;
+        }
+      }
 
-      const std::string text = barcode.text();
+      r.format = rawFormat;
       r.text = DupString(text);
 
       const ByteArray& bytes = barcode.bytes();
-      if (!bytes.empty()) {
+      if (code32Transformed) {
+        auto* buf = static_cast<uint8_t*>(std::malloc(text.size()));
+        if (buf != nullptr) {
+          std::memcpy(buf, text.data(), text.size());
+          r.bytes = buf;
+          r.bytes_length = static_cast<int32_t>(text.size());
+        }
+      } else if (!bytes.empty()) {
         auto* buf = static_cast<uint8_t*>(std::malloc(bytes.size()));
         if (buf != nullptr) {
           std::memcpy(buf, bytes.data(), bytes.size());

@@ -1463,6 +1463,8 @@ extension VNBarcodeSymbology {
             return VNBarcodeSymbology.code128
         case 2:
             return VNBarcodeSymbology.code39
+        case 8388608:
+            return VNBarcodeSymbology.code39
         case 4:
             return VNBarcodeSymbology.code93
         case 16:

@@ -130,7 +130,15 @@ enum BarcodeFormat {
   /// Platform support: identified by the native ZXing-C++ engine. Requesting
   /// this format scans Code 128 symbols, but platforms without ZXing-C++ may
   /// report matching symbols as plain [code128].
-  gs1Code128(4194304);
+  gs1Code128(4194304),
+
+  /// Barcode format constant for Code 32 / Italian Pharmacode.
+  ///
+  /// Code 32 encodes Italian pharmaceutical AIC codes as Code 39 symbols using
+  /// a compressed base-32 representation. The native ZXing-C++ engine reports
+  /// this format when explicitly requested. Platforms without ZXing-C++ may
+  /// report matching symbols as plain [code39].
+  code32(8388608);
 
   const BarcodeFormat(this.rawValue);
 
@@ -190,6 +198,8 @@ enum BarcodeFormat {
         return BarcodeFormat.upcEanExtension;
       case 4194304:
         return BarcodeFormat.gs1Code128;
+      case 8388608:
+        return BarcodeFormat.code32;
       default:
         throw ArgumentError.value(value, 'value', 'Invalid raw value.');
     }

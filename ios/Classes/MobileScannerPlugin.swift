@@ -344,6 +344,7 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin {
              BarcodeFormat.all.rawValue,
              BarcodeFormat.code128.rawValue,
              BarcodeFormat.code39.rawValue,
+             8388608,
              BarcodeFormat.code93.rawValue,
              BarcodeFormat.codaBar.rawValue,
              BarcodeFormat.dataMatrix.rawValue,
@@ -357,7 +358,14 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin {
              BarcodeFormat.UPCE.rawValue,
              BarcodeFormat.PDF417.rawValue,
              BarcodeFormat.aztec.rawValue:
-            let normalizedRawValue = rawValue == 126 || rawValue == 127 ? BarcodeFormat.itf.rawValue : rawValue
+            let normalizedRawValue: Int
+            if rawValue == 126 || rawValue == 127 {
+                normalizedRawValue = BarcodeFormat.itf.rawValue
+            } else if rawValue == 8388608 {
+                normalizedRawValue = BarcodeFormat.code39.rawValue
+            } else {
+                normalizedRawValue = rawValue
+            }
             return BarcodeFormat(rawValue: normalizedRawValue)
         default:
             return nil

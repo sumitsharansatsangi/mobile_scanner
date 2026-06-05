@@ -222,13 +222,14 @@ extension on BarcodeFormat {
       BarcodeFormat.upcA => 14,
       BarcodeFormat.upcE => 15,
       BarcodeFormat.upcEanExtension => 16,
-      // DotCode, Code 11, MSI/Plessey, and Pharmacode are not supported by the
-      // ZXing-js web reader.
+      // DotCode, Code 11, MSI/Plessey, Pharmacode, and Code 32 are not
+      // supported by the ZXing-js web reader.
       BarcodeFormat.dotCode ||
       BarcodeFormat.code11 ||
       BarcodeFormat.msiPlessey ||
       BarcodeFormat.pharmaCode ||
       BarcodeFormat.pharmaCodeTwoTrack ||
+      BarcodeFormat.code32 ||
       BarcodeFormat.unknown ||
       BarcodeFormat.all ||
       _ => null,
