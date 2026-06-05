@@ -206,7 +206,7 @@ extension on BarcodeFormat {
       BarcodeFormat.codabar => 1,
       BarcodeFormat.code39 => 2,
       BarcodeFormat.code93 => 3,
-      BarcodeFormat.code128 => 4,
+      BarcodeFormat.code128 || BarcodeFormat.gs1Code128 => 4,
       BarcodeFormat.dataMatrix => 5,
       BarcodeFormat.ean8 => 6,
       BarcodeFormat.ean13 => 7,
@@ -221,6 +221,7 @@ extension on BarcodeFormat {
       BarcodeFormat.dataBarExpanded => 13,
       BarcodeFormat.upcA => 14,
       BarcodeFormat.upcE => 15,
+      BarcodeFormat.upcEanExtension => 16,
       // DotCode, Code 11, MSI/Plessey, and Pharmacode are not supported by the
       // ZXing-js web reader.
       BarcodeFormat.dotCode ||

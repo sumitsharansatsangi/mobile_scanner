@@ -115,6 +115,103 @@ void main() {
       ]);
     });
 
+    test('toMap includes Code 39 and QR Code formats together', () {
+      const options = StartOptions(
+        cameraDirection: CameraFacing.back,
+        cameraLensType: CameraLensType.any,
+        cameraResolution: null,
+        detectionSpeed: DetectionSpeed.normal,
+        detectionTimeoutMs: 250,
+        formats: [BarcodeFormat.code39, BarcodeFormat.qrCode],
+        returnImage: false,
+        torchEnabled: false,
+        useNewCameraSelector: false,
+        shouldConsiderInvertedImages: false,
+        invertImage: false,
+        autoZoom: false,
+        initialZoom: null,
+      );
+
+      final map = options.toMap();
+
+      expect(map['formats'], [
+        BarcodeFormat.code39.rawValue,
+        BarcodeFormat.qrCode.rawValue,
+      ]);
+    });
+
+    test(
+      'toMap includes Pharmacode Two-Track format when explicitly provided',
+      () {
+        const options = StartOptions(
+          cameraDirection: CameraFacing.back,
+          cameraLensType: CameraLensType.any,
+          cameraResolution: null,
+          detectionSpeed: DetectionSpeed.normal,
+          detectionTimeoutMs: 250,
+          formats: [BarcodeFormat.pharmaCodeTwoTrack],
+          returnImage: false,
+          torchEnabled: false,
+          useNewCameraSelector: false,
+          shouldConsiderInvertedImages: false,
+          invertImage: false,
+          autoZoom: false,
+          initialZoom: null,
+        );
+
+        final map = options.toMap();
+
+        expect(map['formats'], [BarcodeFormat.pharmaCodeTwoTrack.rawValue]);
+      },
+    );
+
+    test(
+      'toMap includes UPC/EAN extension format when explicitly provided',
+      () {
+        const options = StartOptions(
+          cameraDirection: CameraFacing.back,
+          cameraLensType: CameraLensType.any,
+          cameraResolution: null,
+          detectionSpeed: DetectionSpeed.normal,
+          detectionTimeoutMs: 250,
+          formats: [BarcodeFormat.upcEanExtension],
+          returnImage: false,
+          torchEnabled: false,
+          useNewCameraSelector: false,
+          shouldConsiderInvertedImages: false,
+          invertImage: false,
+          autoZoom: false,
+          initialZoom: null,
+        );
+
+        final map = options.toMap();
+
+        expect(map['formats'], [BarcodeFormat.upcEanExtension.rawValue]);
+      },
+    );
+
+    test('toMap includes GS1-128 format when explicitly provided', () {
+      const options = StartOptions(
+        cameraDirection: CameraFacing.back,
+        cameraLensType: CameraLensType.any,
+        cameraResolution: null,
+        detectionSpeed: DetectionSpeed.normal,
+        detectionTimeoutMs: 250,
+        formats: [BarcodeFormat.gs1Code128],
+        returnImage: false,
+        torchEnabled: false,
+        useNewCameraSelector: false,
+        shouldConsiderInvertedImages: false,
+        invertImage: false,
+        autoZoom: false,
+        initialZoom: null,
+      );
+
+      final map = options.toMap();
+
+      expect(map['formats'], [BarcodeFormat.gs1Code128.rawValue]);
+    });
+
     test('toMap excludes formats when empty', () {
       const options = StartOptions(
         cameraDirection: CameraFacing.back,

@@ -49,6 +49,8 @@ constexpr uint32_t kRawCode11 = 131072;
 constexpr uint32_t kRawMsiPlessey = 262144;
 constexpr uint32_t kRawPharmaCode = 524288;
 constexpr uint32_t kRawPharmaCodeTwoTrack = 1048576;
+constexpr uint32_t kRawUpcEanExtension = 2097152;
+constexpr uint32_t kRawGs1Code128 = 4194304;
 
 struct FallbackCandidate {
   int32_t format = -1;
@@ -94,6 +96,7 @@ BarcodeFormats RawMaskToZxing(uint32_t mask) {
   }
   BarcodeFormats formats = BarcodeFormat::None;
   if (mask & kRawCode128) formats |= BarcodeFormat::Code128;
+  if (mask & kRawGs1Code128) formats |= BarcodeFormat::Code128;
   if (mask & kRawCode39) formats |= BarcodeFormat::Code39;
   if (mask & kRawCode93) formats |= BarcodeFormat::Code93;
   if (mask & kRawCodabar) formats |= BarcodeFormat::Codabar;
@@ -108,6 +111,12 @@ BarcodeFormats RawMaskToZxing(uint32_t mask) {
   if (mask & kRawQr) formats |= BarcodeFormat::QRCode;
   if (mask & kRawUpcA) formats |= BarcodeFormat::UPCA;
   if (mask & kRawUpcE) formats |= BarcodeFormat::UPCE;
+  if (mask & kRawUpcEanExtension) {
+    formats |= BarcodeFormat::EAN13;
+    formats |= BarcodeFormat::EAN8;
+    formats |= BarcodeFormat::UPCA;
+    formats |= BarcodeFormat::UPCE;
+  }
   if (mask & kRawPdf417) formats |= BarcodeFormat::PDF417;
   if (mask & kRawAztec) formats |= BarcodeFormat::Aztec;
   if (mask & kRawDataBar) formats |= BarcodeFormat::DataBar;
@@ -136,8 +145,19 @@ bool ExplicitFormatRequested(uint32_t mask, uint32_t format) {
   return mask != 0 && (mask & format) != 0;
 }
 
-// Translate a zxing-cpp BarcodeFormat back to a Dart rawValue.
-int32_t ZxingToRaw(BarcodeFormat format) {
+bool UpcEanRequested(uint32_t mask) {
+  return mask == 0 || (mask & (kRawEan13 | kRawEan8 | kRawUpcA | kRawUpcE |
+                               kRawUpcEanExtension)) != 0;
+}
+
+// Translate a zxing-cpp Barcode back to a Dart rawValue.
+int32_t ZxingToRaw(const Barcode& barcode) {
+  const BarcodeFormat format = barcode.format();
+  if (format == BarcodeFormat::Code128 &&
+      barcode.symbologyIdentifier() == "]C1") {
+    return kRawGs1Code128;
+  }
+
   switch (format) {
     case BarcodeFormat::Code128: return kRawCode128;
     case BarcodeFormat::Code39: return kRawCode39;
@@ -669,7 +689,9 @@ std::optional<std::string> DecodeMsiModules(std::string modules) {
   const auto validated = mobile_scanner::fallback::ValidateMsiPlesseyAuto(
       digits);
   if (!validated.has_value() || !validated->checksumValid) return std::nullopt;
-  return validated->text;
+  // Preserve the complete encoded value for rawValue/rawBytes. The checksum is
+  // used to reject false positives, but callers can decide whether to strip it.
+  return digits;
 }
 
 std::optional<std::string> DecodeMsiSlice(const std::vector<Run>& runs,
@@ -698,6 +720,7 @@ std::optional<std::string> DecodeMsiSlice(const std::vector<Run>& runs,
 std::optional<FallbackCandidate> DecodeMsiRuns(const std::vector<Run>& runs,
                                                int32_t fixed,
                                                bool vertical) {
+  std::optional<FallbackCandidate> best;
   for (size_t start = 0; start < runs.size(); ++start) {
     if (!runs[start].black) continue;
     for (size_t count = 13; start + count <= runs.size(); count += 2) {
@@ -706,7 +729,7 @@ std::optional<FallbackCandidate> DecodeMsiRuns(const std::vector<Run>& runs,
 
       const int32_t startCoord = runs[start].start;
       const Run& last = runs[start + count - 1];
-      return FallbackCandidate{
+      FallbackCandidate candidate{
           .format = kRawMsiPlessey,
           .text = *text,
           .start = startCoord,
@@ -714,9 +737,15 @@ std::optional<FallbackCandidate> DecodeMsiRuns(const std::vector<Run>& runs,
           .fixed = fixed,
           .vertical = vertical,
       };
+
+      // MSI/Plessey has several checksum variants, so a valid shorter symbol
+      // can appear inside a longer one. Prefer the full decoded payload.
+      if (!best.has_value() || candidate.text.size() > best->text.size()) {
+        best = std::move(candidate);
+      }
     }
   }
-  return std::nullopt;
+  return best;
 }
 
 std::vector<FallbackCandidate> DecodeMsiPlessey(
@@ -850,8 +879,10 @@ std::vector<FallbackCandidate> DecodePharmacodeTwoTrack(
   }
 
   if (candidates.empty()) {
-    const int32_t horizontalSamples = params.try_harder != 0 ? 25 : 15;
-    const int32_t maxSampleGap = params.try_harder != 0 ? 8 : 5;
+    // Pharmacode Two-Track is usually a small packaging mark. Sparse samples
+    // can miss one or both tracks unless the caller provides a tight crop.
+    const int32_t horizontalSamples = params.try_harder != 0 ? 61 : 41;
+    const int32_t maxSampleGap = params.try_harder != 0 ? 20 : 14;
     const std::vector<int32_t> sampleYs =
         SamplePositions(height, horizontalSamples);
     std::vector<std::optional<std::vector<Run>>> sampleRuns;
@@ -896,8 +927,8 @@ std::vector<FallbackCandidate> DecodePharmacodeTwoTrack(
     }
 
     if (candidates.empty()) {
-      const int32_t verticalSamples = params.try_harder != 0 ? 25 : 15;
-      const int32_t maxSampleGap = params.try_harder != 0 ? 8 : 5;
+      const int32_t verticalSamples = params.try_harder != 0 ? 61 : 41;
+      const int32_t maxSampleGap = params.try_harder != 0 ? 20 : 14;
       const std::vector<int32_t> sampleXs =
           SamplePositions(width, verticalSamples);
       std::vector<std::optional<std::vector<Run>>> sampleRuns;
@@ -985,6 +1016,11 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
     options.setTryRotate(params->try_rotate != 0);
     options.setTryInvert(params->try_invert != 0);
     options.setTryDownscale(params->try_downscale != 0);
+    if (ExplicitFormatRequested(params->format_mask, kRawUpcEanExtension)) {
+      options.setEanAddOnSymbol(EanAddOnSymbol::Require);
+    } else if (UpcEanRequested(params->format_mask)) {
+      options.setEanAddOnSymbol(EanAddOnSymbol::Read);
+    }
     const int32_t maxSymbols =
         params->max_symbols > 0 ? params->max_symbols : 16;
     options.setMaxNumberOfSymbols(maxSymbols);
@@ -1032,7 +1068,7 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
       if (!barcode.isValid()) continue;
 
       MsZxingResult& r = results[i];
-      r.format = ZxingToRaw(barcode.format());
+      r.format = ZxingToRaw(barcode);
 
       const std::string text = barcode.text();
       r.text = DupString(text);

@@ -53,7 +53,7 @@ extension type Result(JSObject _) implements JSObject {
       14 => BarcodeFormat.upcA,
       15 => BarcodeFormat.upcE,
       // UPC/EAN extension
-      16 => BarcodeFormat.unknown,
+      16 => BarcodeFormat.upcEanExtension,
       _ => BarcodeFormat.unknown,
     };
   }
@@ -70,10 +70,9 @@ extension type Result(JSObject _) implements JSObject {
       return const [];
     }
 
-    final pointList =
-        points.toDart.map((point) {
-          return Offset(point.x, point.y);
-        }).toList();
+    final pointList = points.toDart.map((point) {
+      return Offset(point.x, point.y);
+    }).toList();
 
     return processBarcodeCorners(pointList);
   }
@@ -152,10 +151,9 @@ extension type Result(JSObject _) implements JSObject {
       corners: corners,
       format: barcodeFormat,
       displayValue: text,
-      rawDecodedBytes:
-          rawBytesData != null
-              ? DecodedBarcodeBytes(bytes: rawBytesData)
-              : null,
+      rawDecodedBytes: rawBytesData != null
+          ? DecodedBarcodeBytes(bytes: rawBytesData)
+          : null,
       rawValue: text,
       size: _computeSize(corners),
       type: BarcodeType.text,

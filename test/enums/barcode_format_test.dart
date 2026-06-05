@@ -30,6 +30,8 @@ void main() {
         262144: BarcodeFormat.msiPlessey,
         524288: BarcodeFormat.pharmaCode,
         1048576: BarcodeFormat.pharmaCodeTwoTrack,
+        2097152: BarcodeFormat.upcEanExtension,
+        4194304: BarcodeFormat.gs1Code128,
       };
 
       for (final entry in values.entries) {
@@ -88,6 +90,8 @@ void main() {
         BarcodeFormat.msiPlessey: 262144,
         BarcodeFormat.pharmaCode: 524288,
         BarcodeFormat.pharmaCodeTwoTrack: 1048576,
+        BarcodeFormat.upcEanExtension: 2097152,
+        BarcodeFormat.gs1Code128: 4194304,
       };
 
       for (final entry in values.entries) {

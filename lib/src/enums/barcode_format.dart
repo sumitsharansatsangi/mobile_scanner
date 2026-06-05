@@ -114,7 +114,23 @@ enum BarcodeFormat {
   /// Pharmacode has no checksum, this detector runs only when explicitly
   /// requested. Not supported by Android ML Kit, Apple Vision, or the web
   /// ZXing-js reader.
-  pharmaCodeTwoTrack(1048576);
+  pharmaCodeTwoTrack(1048576),
+
+  /// Barcode format constant for UPC/EAN 2-digit or 5-digit add-on symbols.
+  ///
+  /// Platform support: decoded by ZXing-C++ for EAN/UPC symbols and by the
+  /// ZXing-js web reader. Native ZXing reports the main EAN/UPC format and
+  /// appends the add-on value to the decoded text, separated by a space.
+  /// Not supported by Android ML Kit or Apple Vision.
+  upcEanExtension(2097152),
+
+  /// Barcode format constant for GS1-128 / UCC/EAN-128.
+  ///
+  /// GS1-128 is encoded using Code 128 with FNC1 in the first position.
+  /// Platform support: identified by the native ZXing-C++ engine. Requesting
+  /// this format scans Code 128 symbols, but platforms without ZXing-C++ may
+  /// report matching symbols as plain [code128].
+  gs1Code128(4194304);
 
   const BarcodeFormat(this.rawValue);
 
@@ -170,6 +186,10 @@ enum BarcodeFormat {
         return BarcodeFormat.pharmaCode;
       case 1048576:
         return BarcodeFormat.pharmaCodeTwoTrack;
+      case 2097152:
+        return BarcodeFormat.upcEanExtension;
+      case 4194304:
+        return BarcodeFormat.gs1Code128;
       default:
         throw ArgumentError.value(value, 'value', 'Invalid raw value.');
     }

@@ -30,6 +30,7 @@ content categories through `BarcodeType`.
 | MaxiCode | Yes where ZXing-C++ is active | 2D | Parcel and logistics sorting, especially shipping labels. | Designed for high-speed package sorting systems. | Fast logistics scanning, fixed-size symbol, good for conveyor environments. | Specialized use, not supported by ML Kit or Apple Vision; relies on ZXing path. |
 | DotCode | Yes where ZXing-C++ is active, except web | 2D dot pattern | High-speed printing, tobacco/pharma packaging, industrial coding. | Useful where dot-matrix or high-speed production printing is used. | Works with dot-based printing, compact, industrial-friendly. | Not supported on web ZXing-js, not supported by ML Kit or Apple Vision, less common for general apps. |
 | Code 128 | Yes | 1D | Shipping, inventory, asset tracking, serial numbers. | It encodes dense alphanumeric data and is common in logistics. | High density for 1D, supports full ASCII, widely supported. | Needs a straight scan line, stores less data than 2D codes. |
+| GS1-128 / UCC/EAN-128 | Yes where ZXing-C++ is active | 1D GS1 Code 128 | GS1 application identifiers for cartons, logistics, healthcare, and retail supply-chain labels. | Encodes GS1 data using Code 128 with FNC1 in the first position. | Distinguishes GS1-128 from plain Code 128 on native ZXing platforms. | Physically a Code 128 symbol; ML Kit, Apple Vision, and web may report it as plain Code 128. |
 | Code 39 | Yes | 1D | Industrial labels, badges, inventory, older systems. | Simple and widely implemented. | Easy to print, broad legacy support. | Low density, larger labels, limited character set unless extended variants are used. |
 | Code 93 | Yes | 1D | Inventory, logistics, compact labels. | Similar to Code 39 but denser and more reliable. | Better density than Code 39, checksum support. | Less common than Code 128. |
 | Code 11 | Yes where the native ZXing-C++ bridge is active | 1D | Telecommunications equipment labels and older industrial systems. | Compact numeric/dash encoding for legacy telecom workflows. | Dense for its small character set; checksum-protected. | Not supported by ML Kit, Apple Vision, or ZXing-js web; native fallback uses sampled scan lines and requires valid checksum characters. |
@@ -41,6 +42,7 @@ content categories through `BarcodeType`.
 | EAN-8 | Yes | 1D | Small retail products. | Shorter version for packages too small for EAN-13. | Compact retail code. | Numeric only, limited namespace. |
 | UPC-A | Yes | 1D | Retail products, mainly North America. | Standard retail barcode for consumer goods. | Very widely supported in retail. | Numeric only, fixed length, product identity only. |
 | UPC-E | Yes | 1D | Small retail products, mainly North America. | Compressed UPC-A for small packaging. | Smaller than UPC-A. | Numeric only, limited to compressible UPC values. |
+| UPC/EAN extension | Yes where ZXing-C++ or ZXing-js is active | 1D add-on | Magazines, books, coupons, and retail items that use EAN-2 or EAN-5 supplements. | Adds issue or price metadata beside an EAN/UPC symbol. | Supports common 2-digit and 5-digit retail add-ons. | Not a standalone product code; native ZXing reports the main EAN/UPC format and appends the add-on value to the decoded text; not supported by ML Kit or Apple Vision. |
 | ITF / ITF-14 | Yes | 1D | Cartons, cases, warehouse packaging. | Reliable for printing on corrugated boxes and outer packaging. | Good for logistics cartons, tolerant of rough printing. | Numeric only, often needs bearer bars, not for rich data. |
 | Interleaved 2 of 5 | Yes, normalized to ITF | 1D | Warehousing, industrial numeric codes. | Legacy numeric-only format for dense 1D labels. | Dense numeric encoding. | Numeric only; this project maps ITF variants to a single ZXing ITF format. |
 | Interleaved 2 of 5 with checksum | Yes, normalized to ITF | 1D | Same as ITF, with checksum expectation in some systems. | Used when the workflow expects a checksum-protected ITF value. | Adds validation in systems that enforce checksum. | ZXing path reports it as the shared ITF format, so the variant is not distinguished in decoded output. |
@@ -129,14 +131,18 @@ Avoid QR Code when:
 - Platform support is not identical across every engine. DotCode is not
   supported on web; Code 11, MSI/Plessey, and Pharmacode are also unavailable
   on web.
-- MaxiCode, DotCode, Code 11, MSI/Plessey, and Pharmacode rely on the native
-  bridge; on Apple platforms that path is optional and must be enabled at build
-  time.
+- MaxiCode, DotCode, GS1-128 identification, Code 11, MSI/Plessey,
+  Pharmacode, and UPC/EAN extension support rely on the native bridge; on Apple
+  platforms that path is optional and must be enabled at build time.
 - Android ML Kit does not support GS1 DataBar, GS1 DataBar Expanded, MaxiCode,
   DotCode, Code 11, MSI/Plessey, or Pharmacode; the project handles those
   through native decoding.
 - Pharmacode has no checksum, so it is decoded only when the caller explicitly
   requests `BarcodeFormat.pharmaCode` or `BarcodeFormat.pharmaCodeTwoTrack`.
+- UPC/EAN add-ons can be required by requesting
+  `BarcodeFormat.upcEanExtension`. On native ZXing platforms, the scan result
+  format remains the main `ean13`, `ean8`, `upcA`, or `upcE` format and the
+  decoded text includes the add-on after a space.
 - `BarcodeType` classification can be `unknown` even when the barcode format is
   decoded correctly. In that case, use `rawValue` or `rawDecodedBytes` and parse
   it yourself.
