@@ -20,8 +20,8 @@ extension String {
             
             let uppercased = trimmed.uppercased()
             
-            // Check for ContactInfo (VCARD) - most specific structured format
-            if uppercased.hasPrefix("BEGIN:VCARD") {
+            // Check for ContactInfo (VCARD/MECARD) - most specific structured format
+            if uppercased.hasPrefix("BEGIN:VCARD") || uppercased.hasPrefix("MECARD:") {
                 return 1 // BarcodeType.contactInfo
             }
         
@@ -159,9 +159,13 @@ extension String {
         ]
     }
 
-    /// Parses vCard QR payloads into the same field names used by Android.
+    /// Parses vCard and MeCard QR payloads into the same field names used by Android.
     func parseContactInfo() -> [String: Any?]? {
         let trimmed = self.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.uppercased().hasPrefix("MECARD:") {
+            return trimmed.parseMeCardContactInfo()
+        }
+
         guard trimmed.uppercased().hasPrefix("BEGIN:VCARD") else {
             return nil
         }
@@ -250,6 +254,60 @@ extension String {
             "organization": organization,
             "phones": phones,
             "title": title,
+            "urls": urls,
+        ]
+    }
+
+    private func parseMeCardContactInfo() -> [String: Any?]? {
+        let fields = String(dropFirst(7)).parseRepeatedSemicolonFields()
+        let rawName = fields["N"]?.first
+        let formattedName = rawName?.replacingOccurrences(of: ",", with: " ").trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        let nameParts = rawName?.split(separator: ",", maxSplits: 1, omittingEmptySubsequences: false).map(String.init) ?? []
+        let firstName: String?
+        let lastName: String?
+        if nameParts.count == 2 {
+            lastName = nameParts[safe: 0]?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+            firstName = nameParts[safe: 1]?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        } else {
+            let pieces = formattedName?.split(separator: " ").map(String.init) ?? []
+            firstName = pieces.first
+            lastName = pieces.dropFirst().joined(separator: " ").nilIfEmpty
+        }
+
+        let organization = fields["ORG"]?.first ?? fields["NOTE"]?.first ?? fields["MEMO"]?.first
+        let phones = (fields["TEL"] ?? []).map { ["number": $0, "type": 0] as [String: Any?] }
+        let emails = (fields["EMAIL"] ?? []).map {
+            ["address": $0, "body": nil, "subject": nil, "type": 0] as [String: Any?]
+        }
+        let addresses = (fields["ADR"] ?? []).map {
+            ["addressLines": [$0], "type": 0] as [String: Any?]
+        }
+        let urls = fields["URL"] ?? []
+
+        guard formattedName != nil ||
+              organization != nil ||
+              !phones.isEmpty ||
+              !emails.isEmpty ||
+              !addresses.isEmpty ||
+              !urls.isEmpty else {
+            return nil
+        }
+
+        return [
+            "addresses": addresses,
+            "emails": emails,
+            "name": [
+                "first": firstName,
+                "formattedName": formattedName,
+                "last": lastName,
+                "middle": nil,
+                "prefix": nil,
+                "pronunciation": fields["SOUND"]?.first ?? fields["NICKNAME"]?.first,
+                "suffix": nil,
+            ],
+            "organization": organization,
+            "phones": phones,
+            "title": nil,
             "urls": urls,
         ]
     }
@@ -487,6 +545,21 @@ extension String {
             let key = field[..<separator].uppercased()
             let value = field[field.index(after: separator)...].unescapedBarcodeField()
             fields[key] = value
+        }
+        return fields
+    }
+
+    private func parseRepeatedSemicolonFields() -> [String: [String]] {
+        var fields: [String: [String]] = [:]
+        for field in splitEscapedFields() {
+            guard let separator = field.firstIndex(of: ":"),
+                  separator != field.startIndex else {
+                continue
+            }
+
+            let key = field[..<separator].uppercased()
+            let value = field[field.index(after: separator)...].unescapedBarcodeField()
+            fields[String(key), default: []].append(value)
         }
         return fields
     }

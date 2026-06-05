@@ -171,6 +171,29 @@ internal class ZxingBarcodeDataTest {
     }
 
     @Test
+    fun data_parsesMeCardContactInfoPayload() {
+        val barcode = barcode(
+            "MECARD:N:John Doe;TEL:0043-7252-72720;EMAIL:email@example.com;" +
+                "ORG:Contoso;URL:https://www.example.com;;",
+        )
+
+        val contactInfo = assertNotNull(barcode.data["contactInfo"] as Map<*, *>?)
+        val name = assertNotNull(contactInfo["name"] as Map<*, *>?)
+        val phones = contactInfo["phones"] as List<*>
+        val emails = contactInfo["emails"] as List<*>
+        val urls = contactInfo["urls"] as List<*>
+
+        assertEquals(1, barcode.data["type"])
+        assertEquals("John Doe", name["formattedName"])
+        assertEquals("John", name["first"])
+        assertEquals("Doe", name["last"])
+        assertEquals("0043-7252-72720", (phones.single() as Map<*, *>)["number"])
+        assertEquals("email@example.com", (emails.single() as Map<*, *>)["address"])
+        assertEquals("Contoso", contactInfo["organization"])
+        assertEquals(listOf("https://www.example.com"), urls)
+    }
+
+    @Test
     fun data_parsesAamvaDriverLicensePayload() {
         val barcode = barcode(
             """

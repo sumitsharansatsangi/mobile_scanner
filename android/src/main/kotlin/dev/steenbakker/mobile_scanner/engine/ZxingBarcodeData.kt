@@ -210,6 +210,9 @@ private data class ParsedPayload(
         }
 
         private fun parseContactInfo(text: String, upper: String): Map<String, Any?>? {
+            if (upper.startsWith("MECARD:")) {
+                return parseMeCardContactInfo(text)
+            }
             if (!upper.startsWith("BEGIN:VCARD")) return null
 
             var formattedName: String? = null
@@ -304,6 +307,68 @@ private data class ParsedPayload(
                 "organization" to organization,
                 "phones" to phones,
                 "title" to title,
+                "urls" to urls,
+            )
+        }
+
+        private fun parseMeCardContactInfo(text: String): Map<String, Any?>? {
+            val fields = parseRepeatedSemicolonFields(text.substringAfter(":", ""))
+            val rawName = fields["N"]?.firstOrNull()
+            val nameParts = rawName
+                ?.split(',', limit = 2)
+                ?.map { it.trim() }
+                ?: emptyList()
+            val formattedName = rawName?.replace(',', ' ')?.trim()?.ifBlank { null }
+            val firstName: String?
+            val lastName: String?
+            if (nameParts.size == 2) {
+                lastName = nameParts[0].ifBlank { null }
+                firstName = nameParts[1].ifBlank { null }
+            } else {
+                val pieces = formattedName?.split(Regex("\\s+")) ?: emptyList()
+                firstName = pieces.firstOrNull()
+                lastName = pieces.drop(1).joinToString(" ").ifBlank { null }
+            }
+
+            val organization = fields["ORG"]?.firstOrNull()
+                ?: fields["NOTE"]?.firstOrNull()
+                ?: fields["MEMO"]?.firstOrNull()
+            val phones = fields["TEL"].orEmpty().map {
+                mapOf("number" to it, "type" to PHONE_UNKNOWN)
+            }
+            val emails = fields["EMAIL"].orEmpty().map {
+                mapOf("address" to it, "body" to null, "subject" to null, "type" to EMAIL_UNKNOWN)
+            }
+            val addresses = fields["ADR"].orEmpty().map {
+                mapOf("addressLines" to listOf(it), "type" to TYPE_UNKNOWN)
+            }
+            val urls = fields["URL"].orEmpty()
+
+            if (formattedName == null &&
+                organization == null &&
+                phones.isEmpty() &&
+                emails.isEmpty() &&
+                addresses.isEmpty() &&
+                urls.isEmpty()
+            ) {
+                return null
+            }
+
+            return mapOf(
+                "addresses" to addresses,
+                "emails" to emails,
+                "name" to mapOf(
+                    "first" to firstName,
+                    "formattedName" to formattedName,
+                    "last" to lastName,
+                    "middle" to null,
+                    "prefix" to null,
+                    "pronunciation" to (fields["SOUND"]?.firstOrNull() ?: fields["NICKNAME"]?.firstOrNull()),
+                    "suffix" to null,
+                ),
+                "organization" to organization,
+                "phones" to phones,
+                "title" to null,
                 "urls" to urls,
             )
         }
@@ -419,6 +484,17 @@ private data class ParsedPayload(
                 if (separator <= 0) continue
                 val key = field.substring(0, separator).uppercase()
                 fields[key] = unescape(field.substring(separator + 1))
+            }
+            return fields
+        }
+
+        private fun parseRepeatedSemicolonFields(value: String): Map<String, List<String>> {
+            val fields = mutableMapOf<String, MutableList<String>>()
+            for (field in splitEscapedFields(value)) {
+                val separator = field.indexOf(':')
+                if (separator <= 0) continue
+                val key = field.substring(0, separator).uppercase()
+                fields.getOrPut(key) { mutableListOf() }.add(unescape(field.substring(separator + 1)))
             }
             return fields
         }
