@@ -1386,7 +1386,8 @@ extension VNBarcodeObservation {
         }
 
         // Detect barcode type from payload string value using heuristics
-        let barcodeType = payloadStringValue?.detectBarcodeType()
+        let barcodeType = displayValue?.detectBarcodeType()
+        let wifi = displayValue?.parseWiFi()
 
         // On macOS, the front camera image is horizontally mirrored relative to
         // Vision's coordinate labels, so topLeft/topRight (and bottomLeft/bottomRight)
@@ -1421,6 +1422,7 @@ extension VNBarcodeObservation {
                 "height": height,
             ],
             "type": barcodeType,
+            "wifi": wifi,
         ] as [String : Any?]
         return data
     }

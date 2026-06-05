@@ -219,7 +219,8 @@ uint8_t LuminanceAt(const MsZxingDecodeParams& params, int32_t x, int32_t y) {
 std::optional<std::vector<Run>> ExtractRuns(const MsZxingDecodeParams& params,
                                             int32_t originX, int32_t originY,
                                             int32_t width, int32_t height,
-                                            int32_t fixed, bool vertical) {
+                                            int32_t fixed, bool vertical,
+                                            bool trimQuiet = true) {
   const int32_t length = vertical ? height : width;
   if (length < 24) return std::nullopt;
 
@@ -253,11 +254,13 @@ std::optional<std::vector<Run>> ExtractRuns(const MsZxingDecodeParams& params,
   runs.push_back(
       Run{.start = start, .width = length - start, .black = currentBlack});
 
-  while (!runs.empty() && !runs.front().black) {
-    runs.erase(runs.begin());
-  }
-  while (!runs.empty() && !runs.back().black) {
-    runs.pop_back();
+  if (trimQuiet) {
+    while (!runs.empty() && !runs.front().black) {
+      runs.erase(runs.begin());
+    }
+    while (!runs.empty() && !runs.back().black) {
+      runs.pop_back();
+    }
   }
   if (runs.empty()) return std::nullopt;
   return runs;
@@ -522,14 +525,61 @@ std::optional<char> DecodeCode11Pattern(std::string_view pattern) {
   return std::nullopt;
 }
 
+std::optional<double> Code11WideThreshold(const std::vector<Run>& runs,
+                                          size_t start, size_t count) {
+  std::vector<int32_t> widths;
+  widths.reserve(count);
+  for (size_t i = start; i < start + count; ++i) {
+    // Inter-character gaps are not part of the Code 11 character pattern and
+    // may be wider than a narrow element depending on the renderer.
+    if ((i - start) % 6 == 5) continue;
+    widths.push_back(runs[i].width);
+  }
+  if (widths.size() < 10) return std::nullopt;
+
+  int32_t minWidth = widths.front();
+  int32_t maxWidth = widths.front();
+  for (const int32_t width : widths) {
+    minWidth = std::min(minWidth, width);
+    maxWidth = std::max(maxWidth, width);
+  }
+  if (minWidth <= 0 || maxWidth < minWidth * 1.45) return std::nullopt;
+
+  double narrow = minWidth;
+  double wide = maxWidth;
+  for (int i = 0; i < 8; ++i) {
+    double narrowSum = 0;
+    double wideSum = 0;
+    int narrowCount = 0;
+    int wideCount = 0;
+    const double threshold = (narrow + wide) / 2.0;
+    for (const int32_t width : widths) {
+      if (width <= threshold) {
+        narrowSum += width;
+        ++narrowCount;
+      } else {
+        wideSum += width;
+        ++wideCount;
+      }
+    }
+    if (narrowCount == 0 || wideCount == 0) return std::nullopt;
+    narrow = narrowSum / narrowCount;
+    wide = wideSum / wideCount;
+  }
+
+  if (wide / narrow < 1.45 || wide / narrow > 4.5) return std::nullopt;
+  return (narrow + wide) / 2.0;
+}
+
 std::optional<std::string> DecodeCode11Slice(const std::vector<Run>& runs,
-                                             size_t start, size_t count) {
+                                             size_t start, size_t count,
+                                             bool allowWithoutChecksum) {
   if (count < 23 || count % 6 != 5 || !runs[start].black ||
       !runs[start + count - 1].black) {
     return std::nullopt;
   }
 
-  const auto threshold = WideThreshold(runs, start, count);
+  const auto threshold = Code11WideThreshold(runs, start, count);
   if (!threshold.has_value()) return std::nullopt;
 
   std::string decoded;
@@ -551,7 +601,7 @@ std::optional<std::string> DecodeCode11Slice(const std::vector<Run>& runs,
 
     if (symbol + 1 < symbolCount) {
       const Run& separator = runs[offset + 5];
-      if (separator.black || separator.width > *threshold) return std::nullopt;
+      if (separator.black) return std::nullopt;
     }
   }
 
@@ -562,21 +612,31 @@ std::optional<std::string> DecodeCode11Slice(const std::vector<Run>& runs,
   const std::string withChecks = decoded.substr(1, decoded.size() - 2);
   const auto validated =
       mobile_scanner::fallback::ValidateCode11(withChecks);
-  if (!validated.has_value() || !validated->checksumValid) return std::nullopt;
-  return validated->text;
+  if (validated.has_value() && validated->checksumValid) {
+    return validated->text;
+  }
+
+  if (allowWithoutChecksum) {
+    if (withChecks.size() < 4) return std::nullopt;
+    return withChecks;
+  }
+
+  return std::nullopt;
 }
 
 std::optional<FallbackCandidate> DecodeCode11Runs(const std::vector<Run>& runs,
                                                   int32_t fixed,
-                                                  bool vertical) {
+                                                  bool vertical,
+                                                  bool allowWithoutChecksum) {
   std::vector<size_t> starts;
   for (size_t i = 0; i < runs.size(); ++i) {
     if (runs[i].black) starts.push_back(i);
   }
 
+  std::optional<FallbackCandidate> best;
   for (const size_t start : starts) {
     for (size_t count = 23; start + count <= runs.size(); count += 6) {
-      auto text = DecodeCode11Slice(runs, start, count);
+      auto text = DecodeCode11Slice(runs, start, count, allowWithoutChecksum);
       if (!text.has_value()) {
         std::vector<Run> reversed(runs.begin() + start,
                                   runs.begin() + start + count);
@@ -586,13 +646,14 @@ std::optional<FallbackCandidate> DecodeCode11Runs(const std::vector<Run>& runs,
           run.start = cursor;
           cursor += run.width;
         }
-        text = DecodeCode11Slice(reversed, 0, reversed.size());
+        text = DecodeCode11Slice(reversed, 0, reversed.size(),
+                                 allowWithoutChecksum);
       }
       if (!text.has_value()) continue;
 
       const int32_t startCoord = runs[start].start;
       const Run& last = runs[start + count - 1];
-      return FallbackCandidate{
+      FallbackCandidate candidate{
           .format = kRawCode11,
           .text = *text,
           .start = startCoord,
@@ -600,9 +661,13 @@ std::optional<FallbackCandidate> DecodeCode11Runs(const std::vector<Run>& runs,
           .fixed = fixed,
           .vertical = vertical,
       };
+
+      if (!best.has_value() || candidate.text.size() > best->text.size()) {
+        best = std::move(candidate);
+      }
     }
   }
-  return std::nullopt;
+  return best;
 }
 
 std::vector<FallbackCandidate> DecodeCode11(const MsZxingDecodeParams& params) {
@@ -618,14 +683,18 @@ std::vector<FallbackCandidate> DecodeCode11(const MsZxingDecodeParams& params) {
                                                       : params.height;
 
   std::vector<FallbackCandidate> candidates;
-  const int32_t horizontalSamples = params.try_harder != 0 ? 25 : 9;
+  const bool allowWithoutChecksum =
+      ExplicitFormatRequested(params.format_mask, kRawCode11);
+  const int32_t horizontalSamples =
+      params.try_harder != 0 ? 81 : (allowWithoutChecksum ? 61 : 9);
   for (int32_t sample = 0; sample < horizontalSamples; ++sample) {
     const int32_t y =
         ((sample + 1) * height) / (horizontalSamples + 1);
     const auto runs = ExtractRuns(params, originX, originY, width, height, y,
                                   false);
     if (!runs.has_value()) continue;
-    auto candidate = DecodeCode11Runs(*runs, originY + y, false);
+    auto candidate =
+        DecodeCode11Runs(*runs, originY + y, false, allowWithoutChecksum);
     if (!candidate.has_value()) continue;
     candidate->start += originX;
     candidate->end += originX;
@@ -634,14 +703,16 @@ std::vector<FallbackCandidate> DecodeCode11(const MsZxingDecodeParams& params) {
   }
 
   if (params.try_rotate != 0) {
-    const int32_t verticalSamples = params.try_harder != 0 ? 25 : 9;
+    const int32_t verticalSamples =
+        params.try_harder != 0 ? 81 : (allowWithoutChecksum ? 61 : 9);
     for (int32_t sample = 0; sample < verticalSamples; ++sample) {
       const int32_t x =
           ((sample + 1) * width) / (verticalSamples + 1);
       const auto runs = ExtractRuns(params, originX, originY, width, height, x,
                                     true);
       if (!runs.has_value()) continue;
-      auto candidate = DecodeCode11Runs(*runs, originX + x, true);
+      auto candidate =
+          DecodeCode11Runs(*runs, originX + x, true, allowWithoutChecksum);
       if (!candidate.has_value()) continue;
       candidate->start += originY;
       candidate->end += originY;
@@ -699,9 +770,25 @@ std::optional<std::string> DecodeMsiSlice(const std::vector<Run>& runs,
   if (count < 13 || !runs[start].black || !runs[start + count - 1].black) {
     return std::nullopt;
   }
+  if (start == 0 || start + count >= runs.size()) {
+    return std::nullopt;
+  }
+  if (runs[start - 1].black || runs[start + count].black) {
+    return std::nullopt;
+  }
 
   const auto threshold = WideThreshold(runs, start, count);
   if (!threshold.has_value()) return std::nullopt;
+
+  int32_t narrowWidth = runs[start].width;
+  for (size_t i = start; i < start + count; ++i) {
+    narrowWidth = std::min(narrowWidth, runs[i].width);
+  }
+  const int32_t minQuietWidth = narrowWidth * 6;
+  if (runs[start - 1].width < minQuietWidth ||
+      runs[start + count].width < minQuietWidth) {
+    return std::nullopt;
+  }
 
   std::string modules;
   modules.reserve(count * 2);
@@ -766,7 +853,7 @@ std::vector<FallbackCandidate> DecodeMsiPlessey(
   for (int32_t sample = 0; sample < horizontalSamples; ++sample) {
     const int32_t y = ((sample + 1) * height) / (horizontalSamples + 1);
     const auto runs =
-        ExtractRuns(params, originX, originY, width, height, y, false);
+        ExtractRuns(params, originX, originY, width, height, y, false, false);
     if (!runs.has_value()) continue;
     auto candidate = DecodeMsiRuns(*runs, originY + y, false);
     if (!candidate.has_value()) continue;
@@ -781,7 +868,7 @@ std::vector<FallbackCandidate> DecodeMsiPlessey(
     for (int32_t sample = 0; sample < verticalSamples; ++sample) {
       const int32_t x = ((sample + 1) * width) / (verticalSamples + 1);
       const auto runs =
-          ExtractRuns(params, originX, originY, width, height, x, true);
+          ExtractRuns(params, originX, originY, width, height, x, true, false);
       if (!runs.has_value()) continue;
       auto candidate = DecodeMsiRuns(*runs, originX + x, true);
       if (!candidate.has_value()) continue;

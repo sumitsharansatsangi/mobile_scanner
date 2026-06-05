@@ -129,16 +129,34 @@ enum ZxingScannerDarwin {
 
             // Reuse the heuristic value-type detector used for the Vision path.
             let barcodeType = displayValue?.detectBarcodeType() ?? 0
+            let calendarEvent = displayValue?.parseCalendarEvent()
+            let contactInfo = displayValue?.parseContactInfo()
+            let driverLicense = displayValue?.parseDriverLicense()
+            let email = displayValue?.parseEmail()
+            let geoPoint = displayValue?.parseGeoPoint()
+            let phone = displayValue?.parsePhone()
+            let sms = displayValue?.parseSMS()
+            let url = displayValue?.parseURL()
+            let wifi = displayValue?.parseWiFi()
 
             output.append([
+                "calendarEvent": calendarEvent,
+                "contactInfo": contactInfo,
                 "corners": corners,
+                "driverLicense": driverLicense,
                 "format": Int(result.format),
+                "email": email,
+                "geoPoint": geoPoint,
+                "phone": phone,
                 "rawBytes": rawBytes,
                 "rawPayloadData": nil,
                 "rawValue": displayValue,
                 "displayValue": displayValue,
                 "size": ["width": sizeWidth, "height": sizeHeight],
+                "sms": sms,
                 "type": barcodeType,
+                "url": url,
+                "wifi": wifi,
             ])
         }
 
