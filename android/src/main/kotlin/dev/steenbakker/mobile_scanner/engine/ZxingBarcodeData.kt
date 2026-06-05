@@ -309,7 +309,7 @@ private data class ParsedPayload(
         }
 
         private fun parseCalendarEvent(text: String, upper: String): Map<String, Any?>? {
-            if (!upper.startsWith("BEGIN:VCALENDAR") && !upper.startsWith("BEGIN:VEVENT")) {
+            if (!upper.contains("BEGIN:VCALENDAR") && !upper.contains("BEGIN:VEVENT")) {
                 return null
             }
 

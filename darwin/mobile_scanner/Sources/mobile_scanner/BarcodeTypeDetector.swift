@@ -25,8 +25,8 @@ extension String {
                 return 1 // BarcodeType.contactInfo
             }
         
-            // Check for CalendarEvent (VCALENDAR) - iCalendar format
-            if uppercased.hasPrefix("BEGIN:VCALENDAR") {
+            // Check for CalendarEvent (VCALENDAR/VEVENT) - iCalendar format
+            if uppercased.contains("BEGIN:VCALENDAR") || uppercased.contains("BEGIN:VEVENT") {
                 return 11 // BarcodeType.calendarEvent
             }
             
@@ -119,7 +119,7 @@ extension String {
     func parseCalendarEvent() -> [String: Any?]? {
         let trimmed = self.trimmingCharacters(in: .whitespacesAndNewlines)
         let uppercased = trimmed.uppercased()
-        guard uppercased.hasPrefix("BEGIN:VCALENDAR") || uppercased.hasPrefix("BEGIN:VEVENT") else {
+        guard uppercased.contains("BEGIN:VCALENDAR") || uppercased.contains("BEGIN:VEVENT") else {
             return nil
         }
 

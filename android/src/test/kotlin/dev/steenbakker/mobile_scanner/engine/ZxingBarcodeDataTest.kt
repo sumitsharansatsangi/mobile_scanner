@@ -99,6 +99,29 @@ internal class ZxingBarcodeDataTest {
     }
 
     @Test
+    fun data_parsesCalendarEventPayloadAfterLeadingTitle() {
+        val barcode = barcode(
+            """
+            My Event
+            BEGIN:VEVENT
+            SUMMARY:My Event
+            DESCRIPTION:Description
+            LOCATION:Location
+            DTSTART:20260605T081711
+            END:VEVENT
+            """.trimIndent(),
+        )
+
+        val event = assertNotNull(barcode.data["calendarEvent"] as Map<*, *>?)
+
+        assertEquals(11, barcode.data["type"])
+        assertEquals("My Event", event["summary"])
+        assertEquals("Description", event["description"])
+        assertEquals("Location", event["location"])
+        assertEquals("2026-06-05T08:17:11", event["start"])
+    }
+
+    @Test
     fun data_parsesVcardContactInfoPayload() {
         val barcode = barcode(
             """

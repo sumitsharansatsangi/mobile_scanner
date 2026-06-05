@@ -1387,6 +1387,14 @@ extension VNBarcodeObservation {
 
         // Detect barcode type from payload string value using heuristics
         let barcodeType = displayValue?.detectBarcodeType()
+        let calendarEvent = displayValue?.parseCalendarEvent()
+        let contactInfo = displayValue?.parseContactInfo()
+        let driverLicense = displayValue?.parseDriverLicense()
+        let email = displayValue?.parseEmail()
+        let geoPoint = displayValue?.parseGeoPoint()
+        let phone = displayValue?.parsePhone()
+        let sms = displayValue?.parseSMS()
+        let url = displayValue?.parseURL()
         let wifi = displayValue?.parseWiFi()
 
         // On macOS, the front camera image is horizontally mirrored relative to
@@ -1410,9 +1418,15 @@ extension VNBarcodeObservation {
         ]
 #endif
         let data = [
+            "calendarEvent": calendarEvent,
+            "contactInfo": contactInfo,
             // Clockwise, starting from the top-left corner.
             "corners": corners,
+            "driverLicense": driverLicense,
+            "email": email,
             "format": symbology.toInt ?? -1,
+            "geoPoint": geoPoint,
+            "phone": phone,
             "rawBytes": rawBytes,
             "rawPayloadData": rawPayloadData,
             "rawValue": payloadStringValue,
@@ -1421,7 +1435,9 @@ extension VNBarcodeObservation {
                 "width": width,
                 "height": height,
             ],
+            "sms": sms,
             "type": barcodeType,
+            "url": url,
             "wifi": wifi,
         ] as [String : Any?]
         return data
