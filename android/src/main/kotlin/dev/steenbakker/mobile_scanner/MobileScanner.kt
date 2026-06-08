@@ -104,8 +104,9 @@ class MobileScanner(
     private var zxingFormatMask: Int = 0
 
     /// Number of consecutive frames ZXing must find nothing in before the
-    /// ML Kit recovery path is invoked. Keeps ML Kit off the hot path for
-    /// ordinary frames while still recovering hard-to-read barcodes.
+    /// ML Kit recovery path is invoked when enhanced recovery is disabled.
+    /// With enhanceImageQuality enabled, miss frames are retried more deeply and
+    /// then handed to ML Kit immediately so the engine transition is invisible.
     private var zxingFallbackThreshold: Int = 3
     private var consecutiveZxingMisses: Int = 0
 
@@ -174,7 +175,10 @@ class MobileScanner(
             val reportWidth = if (portrait) inputImage.width else inputImage.height
             val reportHeight = if (portrait) inputImage.height else inputImage.width
 
-            val zxingBarcodes = tryZxingDecode(mediaImage)
+            val zxingBarcodes = tryZxingDecode(
+                mediaImage,
+                imageProxy.imageInfo.rotationDegrees,
+            )
             val barcodeMap = zxingBarcodes
                 .filter {
                     scanWindow == null || isZxingBarcodeInScanWindow(
@@ -210,9 +214,12 @@ class MobileScanner(
                 return@Analyzer
             }
 
-            // ZXing read nothing this frame.
+            // ZXing read nothing this frame. In enhanced mode, this exact frame
+            // has already received a deeper ZXing pass, so let ML Kit recover it
+            // immediately instead of making the user wait for several misses.
             consecutiveZxingMisses++
-            if (consecutiveZxingMisses < zxingFallbackThreshold) {
+            val fallbackThreshold = if (enhanceImageQuality) 1 else zxingFallbackThreshold
+            if (consecutiveZxingMisses < fallbackThreshold) {
                 invertedBitmap?.recycle()
                 imageProxy.close()
                 scheduleScannerTimeoutReset()
@@ -301,21 +308,70 @@ class MobileScanner(
      * to ML Kit.
      */
     @ExperimentalGetImage
-    private fun tryZxingDecode(mediaImage: Image): List<dev.steenbakker.mobile_scanner.engine.ZxingBarcode> {
+    private fun tryZxingDecode(
+        mediaImage: Image,
+        rotationDegrees: Int,
+    ): List<dev.steenbakker.mobile_scanner.engine.ZxingBarcode> {
         return try {
             val yPlane = mediaImage.planes[0]
+            val cropRect = zxingCropRectOrNull(
+                mediaImage.width,
+                mediaImage.height,
+                rotationDegrees,
+            )
+            val fastResults = zxingEngine.decodeLuma(
+                luma = yPlane.buffer,
+                width = mediaImage.width,
+                height = mediaImage.height,
+                rowStride = yPlane.rowStride,
+                formatMask = zxingFormatMask,
+                cropLeft = cropRect?.left ?: 0,
+                cropTop = cropRect?.top ?: 0,
+                cropWidth = cropRect?.width() ?: 0,
+                cropHeight = cropRect?.height() ?: 0,
+                tryHarder = false,
+                tryRotate = true,
+                tryInvert = shouldConsiderInvertedImages || invertImage,
+            )
+            if (fastResults.isNotEmpty() || !enhanceImageQuality) {
+                return fastResults
+            }
+
             zxingEngine.decodeLuma(
                 luma = yPlane.buffer,
                 width = mediaImage.width,
                 height = mediaImage.height,
                 rowStride = yPlane.rowStride,
                 formatMask = zxingFormatMask,
-                tryHarder = false,
+                cropLeft = cropRect?.left ?: 0,
+                cropTop = cropRect?.top ?: 0,
+                cropWidth = cropRect?.width() ?: 0,
+                cropHeight = cropRect?.height() ?: 0,
+                tryHarder = true,
                 tryRotate = true,
-                tryInvert = shouldConsiderInvertedImages || invertImage,
+                tryInvert = true,
+                tryDownscale = true,
             )
         } catch (_: Throwable) {
             emptyList()
+        }
+    }
+
+    private fun zxingCropRectOrNull(
+        imageWidth: Int,
+        imageHeight: Int,
+        rotationDegrees: Int,
+    ): Rect? {
+        val window = scanWindow ?: return null
+        return try {
+            zxingScanWindowToSensorRect(
+                window,
+                imageWidth,
+                imageHeight,
+                rotationDegrees,
+            ).takeIf { !it.isEmpty }
+        } catch (_: IllegalArgumentException) {
+            null
         }
     }
 

@@ -33,6 +33,7 @@ class ZxingEngine {
         tryHarder: Boolean = false,
         tryRotate: Boolean = true,
         tryInvert: Boolean = false,
+        tryDownscale: Boolean = false,
         maxSymbols: Int = 0,
     ): List<ZxingBarcode> {
         if (!luma.isDirect) {
@@ -41,7 +42,7 @@ class ZxingEngine {
         val results = nativeDecodeLuma(
             luma, width, height, rowStride, formatMask,
             cropLeft, cropTop, cropWidth, cropHeight,
-            tryHarder, tryRotate, tryInvert, maxSymbols,
+            tryHarder, tryRotate, tryInvert, tryDownscale, maxSymbols,
         )
         return results?.toList() ?: emptyList()
     }
@@ -59,6 +60,7 @@ class ZxingEngine {
         tryHarder: Boolean,
         tryRotate: Boolean,
         tryInvert: Boolean,
+        tryDownscale: Boolean,
         maxSymbols: Int,
     ): Array<ZxingBarcode>?
 

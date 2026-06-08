@@ -53,9 +53,12 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
     var zxingFormatMask: UInt32 = 0
 
     /// Number of consecutive frames ZXing must find nothing in before Apple
-    /// Vision is consulted as a recovery fallback.
+    /// Vision is consulted as a recovery fallback when enhanced recovery is
+    /// disabled. With enhanced recovery enabled, miss frames are retried more
+    /// deeply and then handed to Vision immediately.
     var zxingFallbackThreshold: Int = 3
     private var consecutiveZxingMisses: Int = 0
+    private var enhanceImageQuality: Bool = true
 
     var position = AVCaptureDevice.Position.back
     
@@ -329,8 +332,20 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
             crop: cropRect,
             tryHarder: false
         )
+        let recoveredResults: [[String: Any?]]
+        if results.isEmpty && self.enhanceImageQuality {
+            recoveredResults = ZxingScannerDarwin.decode(
+                pixelBuffer: buffer,
+                formatMask: self.zxingFormatMask,
+                crop: cropRect,
+                tryHarder: true,
+                tryInvert: true
+            )
+        } else {
+            recoveredResults = results
+        }
 
-        if !results.isEmpty {
+        if !recoveredResults.isEmpty {
             self.consecutiveZxingMisses = 0
 
             var bytes: FlutterStandardTypedData? = nil
@@ -360,7 +375,7 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
                 self.sink?([
                     "name": "barcode",
                     "image": imageData,
-                    "data": results,
+                    "data": recoveredResults,
                 ])
             }
             return true
@@ -368,7 +383,8 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
 
         // ZXing found nothing this frame.
         self.consecutiveZxingMisses += 1
-        if self.consecutiveZxingMisses < self.zxingFallbackThreshold {
+        let fallbackThreshold = self.enhanceImageQuality ? 1 : self.zxingFallbackThreshold
+        if self.consecutiveZxingMisses < fallbackThreshold {
             self.imagesCurrentlyBeingProcessed = false
             return true
         }
@@ -534,6 +550,7 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
         visionFormatFilterRequested = argReader.hasFormatFilter()
         zxingFormatMask = argReader.toFormatMask()
         consecutiveZxingMisses = 0
+        enhanceImageQuality = argReader.bool(key: "enhanceImageQuality") ?? true
         MobileScannerPlugin.returnImage = argReader.bool(key: "returnImage") ?? false
 
         timeoutSeconds = Double(timeoutMs) / 1000.0

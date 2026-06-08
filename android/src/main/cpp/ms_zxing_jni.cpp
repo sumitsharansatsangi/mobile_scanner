@@ -73,7 +73,7 @@ Java_dev_steenbakker_mobile_1scanner_engine_ZxingEngine_nativeDecodeLuma(
     JNIEnv* env, jobject /*thiz*/, jobject luma, jint width, jint height,
     jint rowStride, jint formatMask, jint cropLeft, jint cropTop,
     jint cropWidth, jint cropHeight, jboolean tryHarder, jboolean tryRotate,
-    jboolean tryInvert, jint maxSymbols) {
+    jboolean tryInvert, jboolean tryDownscale, jint maxSymbols) {
   if (!ensureBarcodeClass(env)) return nullptr;
 
   auto* data = static_cast<const uint8_t*>(env->GetDirectBufferAddress(luma));
@@ -94,7 +94,7 @@ Java_dev_steenbakker_mobile_1scanner_engine_ZxingEngine_nativeDecodeLuma(
   params.try_harder = tryHarder ? 1 : 0;
   params.try_rotate = tryRotate ? 1 : 0;
   params.try_invert = tryInvert ? 1 : 0;
-  params.try_downscale = 0;
+  params.try_downscale = tryDownscale ? 1 : 0;
   params.max_symbols = maxSymbols;
 
   MsZxingResultList* list = ms_zxing_decode(&params);

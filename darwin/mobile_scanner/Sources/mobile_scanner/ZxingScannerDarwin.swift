@@ -36,7 +36,8 @@ enum ZxingScannerDarwin {
         pixelBuffer: CVPixelBuffer,
         formatMask: UInt32,
         crop: CGRect? = nil,
-        tryHarder: Bool = false
+        tryHarder: Bool = false,
+        tryInvert: Bool = false
     ) -> [[String: Any?]] {
         CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
@@ -82,7 +83,7 @@ enum ZxingScannerDarwin {
         }
         params.try_harder = tryHarder ? 1 : 0
         params.try_rotate = 1
-        params.try_invert = 0
+        params.try_invert = tryInvert ? 1 : 0
         params.try_downscale = tryHarder ? 1 : 0
         params.max_symbols = 0
 
