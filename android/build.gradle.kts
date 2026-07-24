@@ -50,7 +50,7 @@ extensions.configure<LibraryExtension>("android") {
 
     // Pin the NDK used to build the ZXing-C++ engine. 30.x is required for the
     // 16 KB page-size support flag set in the shared CMakeLists.
-    ndkVersion = "30.0.14904198"
+    ndkVersion = "30.0.15729638"
 
     // Points at the Android CMake wrapper which pulls in ../../src/CMakeLists.txt.
     externalNativeBuild {
