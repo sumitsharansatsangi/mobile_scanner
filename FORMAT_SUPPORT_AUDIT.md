@@ -126,9 +126,15 @@ barcode formats; applications can request lists of public formats.
 
 - 443 Flutter tests passed with native fixtures enabled, including all 20 native
   formats and mapping coverage for all 41 WASM readable names.
+- The updated Apple vendored C++ bridge also compiled and linked on Linux;
+  this does not validate Swift or Xcode.
 - Native CTest passed: sized ABI bounds/strict formats plus actual Android JNI
   code running on a JVM with Unicode, raw bytes and metadata assertions.
-- Chrome conversion/backend regressions cover new selectors, GS1 and EAN add-ons.
+- Eight Chrome conversion/backend regressions passed for backend selection,
+  GS1, EAN add-ons and variant metadata.
+- 59 Android JVM tests passed; Flutter analysis reported no issues.
+- Android ARM64 release APK built successfully with application R8 enabled;
+  the new metadata accessor and both native libraries are packaged.
 - A separate local run of the real pinned WASM binary decoded QR Model 1,
   Micro QR, rMQR, DX film edge, GS1-128 and EAN supplements. The 41-name mapping
   check is not a claim of 41 independent real-image WASM fixture tests.

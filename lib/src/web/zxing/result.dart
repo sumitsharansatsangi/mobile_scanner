@@ -41,10 +41,7 @@ extension type Result(JSObject _) implements JSObject {
       1 => BarcodeFormat.codabar,
       2 => BarcodeFormat.code39,
       3 => BarcodeFormat.code93,
-      4 =>
-        text?.startsWith(']C1') ?? false
-            ? BarcodeFormat.gs1Code128
-            : BarcodeFormat.code128,
+      4 => _isGs1Code128 ? BarcodeFormat.gs1Code128 : BarcodeFormat.code128,
       5 => BarcodeFormat.dataMatrix,
       6 => BarcodeFormat.ean8,
       7 => BarcodeFormat.ean13,
@@ -64,6 +61,16 @@ extension type Result(JSObject _) implements JSObject {
       17 => BarcodeFormat.microQrCode,
       _ => BarcodeFormat.unknown,
     };
+  }
+
+  bool get _isGs1Code128 {
+    // The pinned JS reader returns Code 128 codewords as rawBytes. Verify
+    // the first FNC1 rather than mistaking a literal "]C1" payload for GS1.
+    final codes = rawBytes;
+    return codes != null &&
+        codes.length >= 2 &&
+        codes[1] == 102 &&
+        (text?.startsWith(']C1') ?? false);
   }
 
   /// Get the raw bytes of the result.

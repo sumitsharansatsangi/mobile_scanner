@@ -114,10 +114,25 @@ void main() {
   });
   test('legacy GS1 and EAN supplement conversion preserves identity', () {
     final gs1 = legacy.Result(
-      {'barcodeFormat': 4, 'text': ']C1168901'}.jsify()! as JSObject,
+      {
+            'barcodeFormat': 4,
+            'text': ']C1168901',
+            'rawBytes': Uint8List.fromList([105, 102, 16, 89, 1]),
+          }.jsify()!
+          as JSObject,
     ).toBarcode;
     expect(gs1.format, BarcodeFormat.gs1Code128);
     expect(gs1.rawValue, '168901');
+    final literal = legacy.Result(
+      {
+            'barcodeFormat': 4,
+            'text': ']C1 is literal text',
+            'rawBytes': Uint8List.fromList([104, 61, 35, 17]),
+          }.jsify()!
+          as JSObject,
+    ).toBarcode;
+    expect(literal.format, BarcodeFormat.code128);
+    expect(literal.rawValue, ']C1 is literal text');
     final metadata = JSMap<JSNumber, JSAny>()..set(7.toJS, '51299'.toJS);
     final object =
         {

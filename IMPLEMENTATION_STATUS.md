@@ -92,3 +92,12 @@ engine-specific limits. This includes the 126/127 mask collision, DX film edge,
 web Telepen/PZN/Code32, GS1/EAN supplements, metadata and Android Unicode fixes.
 The native engine version remains 2.3.0; newer WASM-only readers are explicitly
 identified rather than claimed on Android or Apple platforms.
+
+
+Format-audit verification: 443 Flutter tests with native images, 59 Android JVM
+tests, eight Chrome regressions and two native/JNI CTests passed. Static analysis
+reported no issues. The full inventory and the narrower real-WASM image checks
+are distinguished in the audit report.
+
+The format-audit Android ARM64 release build also passed with application R8
+active. The current APK includes the native format fixes and JNI metadata bridge.
