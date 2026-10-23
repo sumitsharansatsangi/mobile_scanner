@@ -1,4 +1,3 @@
-import com.android.build.api.dsl.LibraryExtension
 import com.android.Version
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
@@ -27,7 +26,7 @@ repositories {
     mavenCentral()
 }
 
-extensions.configure<LibraryExtension>("android") {
+android {
     namespace = "dev.steenbakker.mobile_scanner"
 
     compileSdk = 37
@@ -163,11 +162,12 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
 
-    testImplementation(kotlin("test"))
+    testImplementation(kotlin("test-junit"))
     testImplementation("org.mockito:mockito-core:5.23.0")
     testImplementation("org.robolectric:robolectric:4.16.1")
     testImplementation("junit:junit:4.13.2")
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine:6.1.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.1.3")
     testImplementation("androidx.test:core:1.6.1")
     testImplementation("androidx.test.ext:junit:1.2.1")
 }

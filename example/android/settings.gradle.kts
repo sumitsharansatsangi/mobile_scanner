@@ -1,17 +1,12 @@
 pluginManagement {
-    val flutterSdkPath = kotlin.run<String> {
-        val properties = java.util.Properties()
-        val localPropertiesFile = java.io.File(rootDir, "local.properties")
-
-        if (localPropertiesFile.exists()) {
-            localPropertiesFile.inputStream().use { stream ->
-                properties.load(stream)
-            }
+    val flutterSdkPath =
+        run {
+            val properties = java.util.Properties()
+            file("local.properties").inputStream().use { properties.load(it) }
+            val flutterSdkPath = properties.getProperty("flutter.sdk")
+            require(flutterSdkPath != null) { "flutter.sdk not set in local.properties" }
+            flutterSdkPath
         }
-
-        properties.getProperty("flutter.sdk")
-            ?: error("flutter.sdk not set in local.properties")
-    }
 
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
@@ -24,10 +19,18 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-
-    // AGP 9+
     id("com.android.application") version "9.4.1" apply false
     id("org.jetbrains.kotlin.android") version "2.4.21" apply false
+}
+
+// Replaces the `allprojects { repositories { } }` block that used to live in
+// build.gradle, which AGP 9 no longer allows.
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://storage.googleapis.com/download.flutter.io")
+    }
 }
 
 include(":app")

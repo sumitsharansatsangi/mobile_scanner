@@ -43,7 +43,7 @@ import dev.steenbakker.mobile_scanner.engine.data
 import dev.steenbakker.mobile_scanner.objects.DetectionSpeed
 import dev.steenbakker.mobile_scanner.objects.MobileScannerErrorCodes
 import dev.steenbakker.mobile_scanner.objects.MobileScannerStartParameters
-import dev.steenbakker.mobile_scanner.utils.invertBitmapColors
+import dev.steenbakker.mobile_scanner.utils.invertBitmapColors as createInvertedBitmap
 import dev.steenbakker.mobile_scanner.utils.rotateBitmap
 import dev.steenbakker.mobile_scanner.utils.serialize
 import io.flutter.view.TextureRegistry
@@ -182,7 +182,7 @@ class MobileScanner(
             if (invertImage) {
                 val bitmap = imageProxy.toBitmap()
                 try {
-                    invertedBitmap = invertBitmapColors(bitmap)
+                    invertedBitmap = createInvertedBitmap(bitmap)
                 } finally {
                     bitmap.recycle()
                 }
@@ -520,7 +520,7 @@ class MobileScanner(
 
                 // Revert inverted image colors for the returned image (MLKit already scanned the inverted version)
                 if (invertImage) {
-                    val revertedBitmap = invertBitmapColors(outputBitmap)
+                    val revertedBitmap = createInvertedBitmap(outputBitmap)
                     outputBitmap.recycle()
                     outputBitmap = revertedBitmap
                 }

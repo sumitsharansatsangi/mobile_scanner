@@ -18,7 +18,11 @@ this release-based integration.
   dependency, and the fork's dependency and SDK constraints are preserved.
 - The fork's release workflow is retained. Upstream's repository-specific
   publishing and release automation is excluded. CI uses Flutter 3.47 and
-  Java 21 to match the fork's requirements.
+  Java 21 to match the fork's requirements. The Android example uses AGP 9
+  built-in Kotlin, with Java/Kotlin targets both set to 21 and Jetifier
+  disabled. The legacy AGP DSL remains enabled for Flutter 3.47 compatibility.
+  Explicit JVM targets avoid Kotlin inheriting JVM 25 from the host JDK while
+  Java compilation targets JVM 21.
 
 ## Combined behavior
 
@@ -28,6 +32,8 @@ this release-based integration.
 - Android adopts upstream orientation, pause/restart, initialization failure,
   ProGuard, and frame release fixes. Both native ZXing and ML Kit paths share
   guarded frame cleanup, including asynchronous returned-image conversion.
+  Consumer keep rules also preserve the custom engine's JNI class, constructor,
+  and native method names during release shrinking.
 - Apple adopts capture queue, buffer lifetime, and engine shutdown fixes while
   retaining the fork's payload parsing and optional native decoder.
 - Disposing an inactive controller does not stop the active controller. It also
@@ -71,7 +77,14 @@ physical devices before shipping.
 
 - Flutter 3.47.7 / Dart 3.13.5: static analysis passes with no issues.
 - Library tests: 395 passed. Example tests: 11 passed.
+- Android plugin compilation and 56 unit tests pass (9 scanner/frame-release,
+  36 lens selection, and 11 structured barcode tests). The JUnit adapter and
+  launcher are declared explicitly for the updated Kotlin/Gradle setup.
+- Web example Release build succeeds with the local scanner plugin registered.
 - Native C++ Release build succeeds against pinned ZXing-C++ v2.3.0.
+- Android debug APK assembly succeeds with `--target-platform android-arm64`.
+  Both `libms_zxing.so` and `libms_zxing_jni.so` are packaged for ARM64. The
+  plugin native build also compiles successfully for armeabi-v7a, x86, and x86_64.
 - Native fixture checks decode ZXing's `microqrcode-1/1.png` and
   `databarltd-1/00.png` through the C ABI with the fork's new IDs, both with
   explicit filters and with default detection. A QR-only filter excludes both.

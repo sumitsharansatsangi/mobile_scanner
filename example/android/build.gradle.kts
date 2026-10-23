@@ -1,11 +1,3 @@
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven("https://storage.googleapis.com/download.flutter.io")
-    }
-}
-
 rootProject.layout.buildDirectory.set(file("../build"))
 
 subprojects {

@@ -8,3 +8,11 @@
     public static **[] values();
     public static ** valueOf(java.lang.String);
 }
+
+# The custom ZXing JNI bridge looks up this class and constructor by name.
+-keep class dev.steenbakker.mobile_scanner.engine.ZxingBarcode { *; }
+
+# JNI exported function names include the engine class and native method names.
+-keep class dev.steenbakker.mobile_scanner.engine.ZxingEngine {
+    native <methods>;
+}

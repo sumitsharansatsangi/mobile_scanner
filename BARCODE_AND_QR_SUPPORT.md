@@ -16,8 +16,13 @@ content categories through `BarcodeType`.
 | Android | ZXing-C++ | ML Kit | ZXing-C++ covers extra formats such as GS1 DataBar, MaxiCode, DotCode, Code 11, MSI/Plessey, Pharmacode, and Code 32. |
 | iOS | Apple Vision, or ZXing-C++ when enabled | Vision fallback when ZXing is enabled | MaxiCode, DotCode, Code 11, MSI/Plessey, Pharmacode, and distinct Code 32 reporting require the optional `MOBILE_SCANNER_ZXING` build path. |
 | macOS | Apple Vision, or ZXing-C++ when enabled | Vision fallback when ZXing is enabled | Same format notes as iOS. |
-| Web | ZXing-js | None | DotCode, Code 11, MSI/Plessey, and Pharmacode are not supported on web. |
+| Web | Native BarcodeDetector when available | ZXing-WASM; ZXing-js can be selected explicitly | Available formats depend on the selected backend. Native-only fallback formats such as Code 11, MSI/Plessey, and Pharmacode remain unavailable on web. |
 | Linux / Windows | ZXing-C++ | None | Image decoding is supported; live camera preview is not available in this project. |
+
+Micro QR Code is available through the native ZXing-C++ and web ZXing backends.
+GS1 DataBar Limited is available through native ZXing-C++, ZXing-WASM, and
+Apple Vision on iOS 15+/macOS 12+. See [upstream integration](UPSTREAM_INTEGRATION.md)
+for the format IDs used by this fork.
 
 ## Supported Symbologies
 
