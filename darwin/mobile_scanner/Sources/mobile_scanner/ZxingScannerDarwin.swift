@@ -140,12 +140,31 @@ enum ZxingScannerDarwin {
             let url = displayValue?.parseURL()
             let wifi = displayValue?.parseWiFi()
 
+            var metadata: [String: Any?]? = nil
+            if let pointer = ms_zxing_result_metadata(listPtr, Int32(i)) {
+                let details = pointer.pointee
+                func string(_ value: UnsafePointer<CChar>?) -> String? {
+                    return value.map { String(cString: $0) }
+                }
+                metadata = [
+                    "formatName": string(details.format_name),
+                    "symbologyIdentifier": string(details.symbology_identifier),
+                    "version": string(details.version),
+                    "errorCorrectionLevel": string(details.error_correction_level),
+                    "sequenceId": string(details.sequence_id),
+                    "sequenceSize": Int(details.sequence_size),
+                    "sequenceIndex": Int(details.sequence_index),
+                    "isInverted": details.is_inverted != 0,
+                    "isMirrored": details.is_mirrored != 0,
+                ]
+            }
             output.append([
                 "calendarEvent": calendarEvent,
                 "contactInfo": contactInfo,
                 "corners": corners,
                 "driverLicense": driverLicense,
                 "format": Int(result.format),
+                "metadata": metadata,
                 "email": email,
                 "geoPoint": geoPoint,
                 "phone": phone,

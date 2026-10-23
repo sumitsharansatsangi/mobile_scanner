@@ -1,5 +1,8 @@
 # Barcode and QR Code Support
 
+The [format audit](FORMAT_SUPPORT_AUDIT.md) is the complete engine-version inventory
+and records the latest mapping fixes and remaining limitations.
+
 This document explains which barcode formats this project supports, which ones
 it does not support, where each format is normally used, and the main pros and
 cons of each format.

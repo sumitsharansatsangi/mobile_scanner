@@ -19,4 +19,7 @@ class ZxingBarcode(
     @JvmField val text: String?,
     @JvmField val rawBytes: ByteArray?,
     @JvmField val corners: FloatArray,
-)
+) {
+    /** Additional decoder details assigned by JNI; optional for older engines. */
+    @JvmField var metadata: Map<String, Any?>? = null
+}

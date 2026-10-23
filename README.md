@@ -94,8 +94,8 @@ This returns:
 ### Detection engine
 
 mobile_scanner uses a hybrid pipeline. **ZXing-C++** is the primary decoder on
-Android, Linux, and Windows; web selects the native BarcodeDetector API when
-available for every requested format and otherwise uses ZXing-WASM, with
+Android, Linux, and Windows; web uses ZXing-WASM for all-format requests and
+selects the native BarcodeDetector API for explicit lists it fully supports, with
 ZXing-js available as an option. CocoaPods and SwiftPM now compile the pinned
 ZXing-C++ engine on iOS/macOS, with Apple Vision as the recovery decoder.
 Apple builds require validation on Xcode; see [implementation status](IMPLEMENTATION_STATUS.md).
@@ -105,7 +105,7 @@ Apple builds require validation on Xcode; see [implementation status](IMPLEMENTA
 | Android | ZXing-C++ (FFI/JNI) | ML Kit |
 | iOS | ZXing-C++ (Apple build validation pending) | Apple Vision |
 | macOS | ZXing-C++ (Apple build validation pending) | Apple Vision |
-| Web | ZXing-js | — |
+| Web | ZXing-WASM / native BarcodeDetector | — |
 | Linux/Windows | ZXing-C++ | — |
 
 ### 🎯 **Advanced Features Matrix**
@@ -130,12 +130,17 @@ Apple builds require validation on Xcode; see [implementation status](IMPLEMENTA
 
 ### 📊 **Supported Barcode Formats**
 
-Detected by ZXing-C++, Apple Vision, ML Kit, or ZXing-js depending on platform:
+See the complete [format audit](FORMAT_SUPPORT_AUDIT.md), including engine limits
+and exact variant metadata. Availability below depends on the platform decoder:
 
 | Format | Type | Android | iOS | macOS | Web | Linux/Windows |
 |--------|------|---------|-----|-------|-----|---------------|
 | **QR Code** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **rMQR (Rectangular Micro QR)** | 2D | ✅ | ⚠️² | ⚠️² | ✅ (WASM) | ✅ |
+| **Micro QR** | 2D | ✅ | ⚠️² | ⚠️² | ✅ | ✅ |
+| **DX film edge** | 1D | ✅ | ⚠️² | ⚠️² | ✅ (WASM) | ✅ |
+| **Telepen / PZN** | 1D | ❌ | ❌ | ❌ | ✅ (WASM) | ❌ |
+| **DataBar Limited** | 1D | ✅ | ⚠️² | ⚠️² | ✅ (WASM) | ✅ |
 | **Data Matrix** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **PDF417** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Aztec** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -143,7 +148,7 @@ Detected by ZXing-C++, Apple Vision, ML Kit, or ZXing-js depending on platform:
 | **DotCode** | 2D | ❌¹ | ❌¹ | ❌¹ | ❌¹ | ❌¹ |
 | **Code 128** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Code 39** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Code 32 / Italian Pharmacode** | 1D | ✅⁵ | ⚠️²⁵ | ⚠️²⁵ | ❌⁵ | ✅⁵ |
+| **Code 32 / Italian Pharmacode** | 1D | ✅⁵ | ⚠️²⁵ | ⚠️²⁵ | ✅ (WASM) | ✅⁵ |
 | **EAN-13/8** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **UPC-A/E** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **ITF** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -240,8 +245,9 @@ via `MobileScannerPlatform.instance.setWebBarcodeReader(reader)` before starting
 
 ##### Auto (default)
 
-Uses the native `BarcodeDetector` API when the browser supports it, and falls back to
-`zxing-wasm` otherwise. This is the recommended setting for most apps.
+Uses `zxing-wasm` when no format restriction is supplied or `all` is requested.
+For an explicit format list, uses the native `BarcodeDetector` API only when it
+supports every requested format; otherwise uses WASM.
 
 ##### Native BarcodeDetector
 
@@ -295,16 +301,21 @@ provided for backward compatibility and comparison purposes only.
 | `microQrCode`        | :x:                      | :heavy_check_mark: | :heavy_check_mark: |
 | `dataBar` ⁴          | :x:                      | :heavy_check_mark: | :heavy_check_mark: |
 | `dataBarExpanded` ⁴  | :x:                      | :heavy_check_mark: | :heavy_check_mark: |
+| `rmQrCode`         | :x:                      | :heavy_check_mark: | :x:                |
+| `dxFilmEdge`        | :x:                      | :heavy_check_mark: | :x:                |
+| `telepen`, `pzn`, `code32` | :x:                 | :heavy_check_mark: | :x:                |
+| `gs1Code128`        | :x:                      | :heavy_check_mark: | :heavy_check_mark: |
+| `upcEanExtension`   | :x:                      | :heavy_check_mark: | :heavy_check_mark: |
 | `dataBarLimited` ⁴   | :x:                      | :heavy_check_mark: | :x:                |
 
 ¹ The BarcodeDetector API defines all formats listed, but the formats that are actually
 detected vary per browser and operating system. Use
 [`BarcodeDetector.getSupportedFormats()`](https://developer.mozilla.org/en-US/docs/Web/API/BarcodeDetector/getSupportedFormats_static)
 to query the current browser. In `WebBarcodeReader.auto` mode, mobile_scanner falls back to
-zxing-wasm when the browser reports no supported formats at all.
+zxing-wasm for unrestricted requests or whenever any requested format is unavailable.
 
-² The `itf2of5` and `itf2of5WithChecksum` variants are decoded as plain ITF on all web
-backends; no length or checksum validation is applied. The `itf14` variant is supported as a
+² ITF aliases share the ordinary ITF decoder. Checksum-only requests validate
+Mod10 against the returned numeric value. The `itf14` variant is supported as a
 distinct format by zxing-wasm, and decoded as plain ITF by the other backends.
 
 ³ The upstream [zxing-js library](https://github.com/zxing-js/library#supported-formats) marks
@@ -312,8 +323,8 @@ Aztec as "needs testing" and PDF417 as "not production ready".
 
 ⁴ GS1 DataBar (RSS-14) is also supported on iOS 15+ and macOS 12+ via Apple Vision.
 
-zxing-wasm supports additional formats (such as rMQR Code), but only the formats listed above
-are exposed through `BarcodeFormat`.
+The [complete format audit](FORMAT_SUPPORT_AUDIT.md) lists all 41 readable WASM
+names and how their subvariants map to public formats and `Barcode.metadata`.
 
 #### Providing a mirror for the barcode scanning library
 

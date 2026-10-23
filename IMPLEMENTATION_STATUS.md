@@ -82,3 +82,13 @@ Android ARM64 release APK built successfully with application R8 enabled.
 The release mapping retains the JNI class names, and the APK includes both
 libms_zxing.so and libms_zxing_jni.so. Android live-camera testing still needs a
 physical device. Build artifact: example/build/app/outputs/flutter-apk/app-release.apk.
+
+
+## Complete format audit
+
+See [FORMAT_SUPPORT_AUDIT.md](FORMAT_SUPPORT_AUDIT.md) for all 20 native formats,
+all 41 WASM readable names, completed mapping/filter fixes, real fixtures and
+engine-specific limits. This includes the 126/127 mask collision, DX film edge,
+web Telepen/PZN/Code32, GS1/EAN supplements, metadata and Android Unicode fixes.
+The native engine version remains 2.3.0; newer WASM-only readers are explicitly
+identified rather than claimed on Android or Apple platforms.

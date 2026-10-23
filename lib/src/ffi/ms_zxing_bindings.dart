@@ -96,6 +96,32 @@ final class MsZxingResultList extends ffi.Struct {
   external int count;
 }
 
+/// Optional metadata, accessed without changing the original result stride.
+final class MsZxingResultMetadata extends ffi.Struct {
+  external ffi.Pointer<ffi.Char> formatName;
+  external ffi.Pointer<ffi.Char> symbologyIdentifier;
+  external ffi.Pointer<ffi.Char> version;
+  external ffi.Pointer<ffi.Char> errorCorrectionLevel;
+  external ffi.Pointer<ffi.Char> sequenceId;
+  @ffi.Int32()
+  external int sequenceSize;
+  @ffi.Int32()
+  external int sequenceIndex;
+  @ffi.Int32()
+  external int isInverted;
+  @ffi.Int32()
+  external int isMirrored;
+}
+
+typedef MsZxingMetadataNative = ffi.Pointer<MsZxingResultMetadata> Function(
+  ffi.Pointer<MsZxingResultList>,
+  ffi.Int32,
+);
+typedef MsZxingMetadataDart = ffi.Pointer<MsZxingResultMetadata> Function(
+  ffi.Pointer<MsZxingResultList>,
+  int,
+);
+
 // Native function typedefs ---------------------------------------------------
 
 typedef MsZxingDecodeNative = ffi.Pointer<MsZxingResultList> Function(
@@ -122,7 +148,12 @@ typedef MsZxingVersionDart = ffi.Pointer<ffi.Char> Function();
 final class MsZxingBindings {
   /// Looks up the `ms_zxing_*` symbols in [library].
   MsZxingBindings(ffi.DynamicLibrary library)
-    : decode = library.lookupFunction<MsZxingDecodeNative, MsZxingDecodeDart>(
+    : metadata = library.providesSymbol('ms_zxing_result_metadata')
+          ? library.lookupFunction<MsZxingMetadataNative, MsZxingMetadataDart>(
+              'ms_zxing_result_metadata',
+            )
+          : null,
+      decode = library.lookupFunction<MsZxingDecodeNative, MsZxingDecodeDart>(
         'ms_zxing_decode_sized',
       ),
       freeResults = library.lookupFunction<MsZxingFreeNative, MsZxingFreeDart>(
@@ -133,6 +164,7 @@ final class MsZxingBindings {
             'ms_zxing_version',
           );
 
+  final MsZxingMetadataDart? metadata;
   final MsZxingDecodeDart decode;
   final MsZxingFreeDart freeResults;
   final MsZxingVersionDart version;

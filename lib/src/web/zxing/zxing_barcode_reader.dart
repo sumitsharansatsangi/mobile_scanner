@@ -73,23 +73,35 @@ final class ZXingBarcodeReader extends BarcodeReader {
   List<BarcodeFormat> _requestedFormats = const [];
 
   JSMap? _createReaderHints(List<BarcodeFormat> formats) {
-    if (formats.isEmpty || formats.contains(BarcodeFormat.all)) {
-      return null;
-    }
+    final detectAll = formats.isEmpty || formats.contains(BarcodeFormat.all);
+    // ASSUME_GS1 makes FNC1 visible as an AIM prefix and ASCII GS separators.
+    final hints = JSMap()..set(8.toJS, true.toJS);
+    if (detectAll) return hints;
 
     final zxingFormats = <int>[
       for (final BarcodeFormat format in formats)
-        if (format.toJSCode != null) format.toJSCode!,
+        if (format == BarcodeFormat.eanUpc ||
+            format == BarcodeFormat.upcEanExtension) ...[
+          6,
+          7,
+          14,
+          15,
+        ] else if (format.toJSCode != null)
+          format.toJSCode!,
     ];
 
-    final hints = JSMap()
-      // Set the formats hint.
-      // See https://github.com/zxing-js/library/blob/master/src/core/DecodeHintType.ts#L45
-      ..set(
-        2.toJS,
-        zxingFormats.map((format) => format.toJS).toList().toJS,
-      );
+    // Set the formats hint.
+    // See https://github.com/zxing-js/library/blob/master/src/core/DecodeHintType.ts#L45
+    hints.set(
+      2.toJS,
+      zxingFormats.map((format) => format.toJS).toList().toJS,
+    );
 
+    if (formats.contains(BarcodeFormat.upcEanExtension)) {
+      // ALLOWED_EAN_EXTENSIONS requires a real supplement, not a standalone
+      // pseudo-reader for the UPC_EAN_EXTENSION result enum.
+      hints.set(11.toJS, [2.toJS, 5.toJS].toJS);
+    }
     return hints;
   }
 
@@ -249,7 +261,7 @@ extension on BarcodeFormat {
       BarcodeFormat.dataMatrix => 5,
       BarcodeFormat.ean8 => 6,
       BarcodeFormat.ean13 => 7,
-      // ITF 2 of 5 is not supported by ZXing.
+      // Legacy ITF aliases share the same decoder.
       BarcodeFormat.itf2of5 || BarcodeFormat.itf2of5WithChecksum => 8,
       BarcodeFormat.itf || BarcodeFormat.itf14 => 8,
       BarcodeFormat.maxiCode => 9,

@@ -119,7 +119,7 @@ final class ZxingDecoder {
       try {
         final imageSize = Size(width.toDouble(), height.toDouble());
         return _readResults(
-              listPtr.ref,
+              listPtr,
               imageSize,
             )
             .where(
@@ -167,7 +167,11 @@ final class ZxingDecoder {
     return format.rawValue;
   }
 
-  static List<Barcode> _readResults(MsZxingResultList list, Size imageSize) {
+  List<Barcode> _readResults(
+    ffi.Pointer<MsZxingResultList> listPointer,
+    Size imageSize,
+  ) {
+    final list = listPointer.ref;
     final barcodes = <Barcode>[];
     for (var i = 0; i < list.count; i++) {
       final result = list.results[i];
@@ -189,8 +193,26 @@ final class ZxingDecoder {
           Offset(result.corners[c].x, result.corners[c].y),
       ];
 
+      final metadataPointer = _bindings.metadata?.call(listPointer, i);
+      final metadata = metadataPointer == null || metadataPointer == ffi.nullptr
+          ? null
+          : metadataPointer.ref;
+      String? string(ffi.Pointer<ffi.Char> pointer) =>
+          pointer == ffi.nullptr ? null : pointer.cast<Utf8>().toDartString();
       barcodes.add(
         Barcode.fromNative({
+          if (metadata != null)
+            'metadata': {
+              'formatName': string(metadata.formatName),
+              'symbologyIdentifier': string(metadata.symbologyIdentifier),
+              'version': string(metadata.version),
+              'errorCorrectionLevel': string(metadata.errorCorrectionLevel),
+              'sequenceId': string(metadata.sequenceId),
+              'sequenceSize': metadata.sequenceSize,
+              'sequenceIndex': metadata.sequenceIndex,
+              'isInverted': metadata.isInverted != 0,
+              'isMirrored': metadata.isMirrored != 0,
+            },
           'format': result.format,
           'rawValue': text,
           'displayValue': text,

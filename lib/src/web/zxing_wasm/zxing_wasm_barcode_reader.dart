@@ -45,10 +45,12 @@ final class ZXingWasmBarcodeReader extends PollingBarcodeReader {
   web.CanvasRenderingContext2D? _ctx;
 
   List<BarcodeFormat> _formats = const [];
+  bool _tryInvert = false;
 
   @override
   Future<void> prepareDecoder(StartOptions options) async {
     _formats = List.of(options.formats);
+    _tryInvert = options.shouldConsiderInvertedImages || options.invertImage;
 
     // Off-screen canvas used to extract ImageData from each video frame.
     // willReadFrequently: true tells the browser to optimise for repeated
@@ -118,7 +120,10 @@ final class ZXingWasmBarcodeReader extends PollingBarcodeReader {
           formats: formatStrs.toJS,
           tryHarder: true,
           tryRotate: true,
-          tryInvert: false,
+          tryInvert: _tryInvert,
+          eanAddOnSymbol: _formats.contains(BarcodeFormat.upcEanExtension)
+              ? 'Require'
+              : 'Read',
         );
       }
 
@@ -130,7 +135,10 @@ final class ZXingWasmBarcodeReader extends PollingBarcodeReader {
     return ZXingWasmReaderOptions(
       tryHarder: true,
       tryRotate: true,
-      tryInvert: false,
+      tryInvert: _tryInvert,
+      eanAddOnSymbol: _formats.contains(BarcodeFormat.upcEanExtension)
+          ? 'Require'
+          : 'Read',
     );
   }
 }

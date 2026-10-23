@@ -53,6 +53,32 @@ void main() {
       );
     },
   );
+  test('ITF checksum-only requests validate Mod10', () {
+    for (final actual in [
+      BarcodeFormat.itf14,
+      BarcodeFormat.itf2of5,
+      BarcodeFormat.itf2of5WithChecksum,
+    ]) {
+      expect(
+        matchesBarcodeFormat(actual, [
+          BarcodeFormat.itf2of5WithChecksum,
+        ], rawValue: '12345670'),
+        isTrue,
+      );
+      expect(
+        matchesBarcodeFormat(actual, [
+          BarcodeFormat.itf2of5WithChecksum,
+        ], rawValue: '12345671'),
+        isFalse,
+      );
+    }
+    expect(
+      matchesBarcodeFormat(BarcodeFormat.itf14, [
+        BarcodeFormat.itf2of5,
+      ], rawValue: '12345671'),
+      isTrue,
+    );
+  });
   test('UPC/EAN extension requires an actual add-on in the result', () {
     expect(
       matchesBarcodeFormat(BarcodeFormat.ean13, [

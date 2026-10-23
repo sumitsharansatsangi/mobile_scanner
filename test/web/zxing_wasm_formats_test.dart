@@ -33,8 +33,8 @@ void main() {
       expect('AztecRune'.toBarcodeFormat, BarcodeFormat.aztec);
       expect('Code39Std'.toBarcodeFormat, BarcodeFormat.code39);
       expect('Code39Ext'.toBarcodeFormat, BarcodeFormat.code39);
-      expect('Code32'.toBarcodeFormat, BarcodeFormat.code39);
-      expect('PZN'.toBarcodeFormat, BarcodeFormat.code39);
+      expect('Code32'.toBarcodeFormat, BarcodeFormat.code32);
+      expect('PZN'.toBarcodeFormat, BarcodeFormat.pzn);
       expect('ISBN'.toBarcodeFormat, BarcodeFormat.ean13);
       expect('CompactPDF417'.toBarcodeFormat, BarcodeFormat.pdf417);
       expect('MicroPDF417'.toBarcodeFormat, BarcodeFormat.pdf417);
@@ -62,7 +62,7 @@ void main() {
       expect('None'.toBarcodeFormat, BarcodeFormat.unknown);
       expect(''.toBarcodeFormat, BarcodeFormat.unknown);
       expect('qrcode'.toBarcodeFormat, BarcodeFormat.unknown);
-      expect('Telepen'.toBarcodeFormat, BarcodeFormat.unknown);
+      expect('NotAFormat'.toBarcodeFormat, BarcodeFormat.unknown);
     });
   });
 

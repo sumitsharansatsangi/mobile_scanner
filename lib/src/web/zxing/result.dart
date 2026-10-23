@@ -4,6 +4,8 @@ import 'dart:ui';
 
 import 'package:mobile_scanner/src/enums/barcode_format.dart';
 import 'package:mobile_scanner/src/objects/barcode.dart';
+import 'package:mobile_scanner/src/utils/ean_add_on.dart';
+import 'package:mobile_scanner/src/web/javascript_map.dart';
 import 'package:mobile_scanner/src/web/web_barcode_utils.dart';
 import 'package:mobile_scanner/src/web/zxing/result_point.dart';
 
@@ -24,6 +26,9 @@ extension type Result(JSObject _) implements JSObject {
   @JS('resultPoints')
   external JSArray<ResultPoint>? get _resultPoints;
 
+  /// Decoder metadata indexed by the pinned library's ResultMetadataType.
+  external JSMap<JSNumber, JSAny>? get resultMetadata;
+
   /// Get the timestamp of the result.
   external int? get timestamp;
 
@@ -36,7 +41,10 @@ extension type Result(JSObject _) implements JSObject {
       1 => BarcodeFormat.codabar,
       2 => BarcodeFormat.code39,
       3 => BarcodeFormat.code93,
-      4 => BarcodeFormat.code128,
+      4 =>
+        text?.startsWith(']C1') ?? false
+            ? BarcodeFormat.gs1Code128
+            : BarcodeFormat.code128,
       5 => BarcodeFormat.dataMatrix,
       6 => BarcodeFormat.ean8,
       7 => BarcodeFormat.ean13,
@@ -136,13 +144,18 @@ extension type Result(JSObject _) implements JSObject {
     final rawBytesData = rawBytes;
 
     final size = _computeSize(corners);
+    final gs1 = barcodeFormat == BarcodeFormat.gs1Code128;
+    final value = gs1 ? text?.substring(3) : text;
+    final addon = resultMetadata?.get(7.toJS).dartify() as String?;
+    final displayValue = normalizeEanAddOnText(value, addon, barcodeFormat);
     return Barcode.fromNative({
       'corners': [
         for (final p in corners) {'x': p.dx, 'y': p.dy},
       ],
       'format': barcodeFormat.rawValue,
-      'displayValue': text,
-      'rawValue': text,
+      'displayValue': displayValue,
+      'rawValue': displayValue,
+      if (gs1) 'metadata': {'symbologyIdentifier': ']C1'},
       'rawBytes': rawBytesData,
       'size': {'width': size.width, 'height': size.height},
     });

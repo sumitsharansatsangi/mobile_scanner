@@ -13,11 +13,9 @@ extension ZXingWasmFormatStringToBarcodeFormat on String {
   BarcodeFormat get toBarcodeFormat => switch (this) {
     'Aztec' || 'AztecCode' || 'AztecRune' => BarcodeFormat.aztec,
     'Codabar' => BarcodeFormat.codabar,
-    'Code39' ||
-    'Code39Std' ||
-    'Code39Ext' ||
-    'Code32' ||
-    'PZN' => BarcodeFormat.code39,
+    'Code39' || 'Code39Std' || 'Code39Ext' => BarcodeFormat.code39,
+    'Code32' => BarcodeFormat.code32,
+    'PZN' => BarcodeFormat.pzn,
     'Code93' => BarcodeFormat.code93,
     'Code128' => BarcodeFormat.code128,
     'DataBar' ||
@@ -29,6 +27,8 @@ extension ZXingWasmFormatStringToBarcodeFormat on String {
     'DataBarExpStk' => BarcodeFormat.dataBarExpanded,
     'DataBarLtd' || 'DataBarLimited' => BarcodeFormat.dataBarLimited,
     'DataMatrix' => BarcodeFormat.dataMatrix,
+    'EANUPC' => BarcodeFormat.eanUpc,
+    'EAN2' || 'EAN5' => BarcodeFormat.upcEanExtension,
     'EAN8' || 'EAN-8' => BarcodeFormat.ean8,
     'EAN13' || 'ISBN' || 'EAN-13' => BarcodeFormat.ean13,
     'ITF' => BarcodeFormat.itf,
@@ -38,6 +38,9 @@ extension ZXingWasmFormatStringToBarcodeFormat on String {
     'QRCode' || 'QRCodeModel1' || 'QRCodeModel2' => BarcodeFormat.qrCode,
     'MicroQRCode' => BarcodeFormat.microQrCode,
     'RMQRCode' || 'rMQRCode' => BarcodeFormat.rmQrCode,
+    'DXFilmEdge' => BarcodeFormat.dxFilmEdge,
+    'OtherBarcode' => BarcodeFormat.otherBarcode,
+    'Telepen' || 'TelepenAlpha' || 'TelepenNumeric' => BarcodeFormat.telepen,
     'UPCA' || 'UPC-A' => BarcodeFormat.upcA,
     'UPCE' || 'UPC-E' => BarcodeFormat.upcE,
     _ => BarcodeFormat.unknown,
@@ -53,8 +56,14 @@ extension BarcodeFormatToZXingWasmString on BarcodeFormat {
     BarcodeFormat.aztec => 'Aztec',
     BarcodeFormat.codabar => 'Codabar',
     BarcodeFormat.code39 => 'Code39',
+    BarcodeFormat.code32 => 'Code32',
+    BarcodeFormat.pzn => 'PZN',
+    BarcodeFormat.telepen => 'Telepen',
+    BarcodeFormat.dxFilmEdge => 'DXFilmEdge',
+    BarcodeFormat.otherBarcode => 'OtherBarcode',
+    BarcodeFormat.eanUpc || BarcodeFormat.upcEanExtension => 'EANUPC',
     BarcodeFormat.code93 => 'Code93',
-    BarcodeFormat.code128 => 'Code128',
+    BarcodeFormat.code128 || BarcodeFormat.gs1Code128 => 'Code128',
     BarcodeFormat.dataBar => 'DataBar',
     BarcodeFormat.dataBarExpanded => 'DataBarExp',
     BarcodeFormat.dataBarLimited => 'DataBarLtd',

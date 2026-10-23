@@ -7,6 +7,7 @@ import 'dart:ui';
 import 'package:mobile_scanner/src/enums/barcode_format.dart';
 import 'package:mobile_scanner/src/enums/barcode_type.dart';
 import 'package:mobile_scanner/src/objects/barcode_bytes.dart';
+import 'package:mobile_scanner/src/objects/barcode_metadata.dart';
 import 'package:mobile_scanner/src/objects/calendar_event.dart';
 import 'package:mobile_scanner/src/objects/contact_info.dart';
 import 'package:mobile_scanner/src/objects/driver_license.dart';
@@ -30,6 +31,7 @@ class Barcode {
     this.email,
     this.format = BarcodeFormat.unknown,
     this.geoPoint,
+    this.metadata,
     this.phone,
     this.rawDecodedBytes,
     this.rawValue,
@@ -56,6 +58,7 @@ class Barcode {
             entry.key: entry.value,
       };
     }
+    final metadata = data['metadata'] as Map<Object?, Object?>?;
     final calendarEvent = data['calendarEvent'] as Map<Object?, Object?>?;
     final contactInfo = data['contactInfo'] as Map<Object?, Object?>?;
     final corners = data['corners'] as List<Object?>?;
@@ -87,6 +90,7 @@ class Barcode {
     }
 
     return Barcode(
+      metadata: metadata == null ? null : BarcodeMetadata.fromNative(metadata),
       calendarEvent: calendarEvent == null
           ? null
           : CalendarEvent.fromNative(calendarEvent),
@@ -167,6 +171,9 @@ class Barcode {
 
   /// The format of the barcode.
   final BarcodeFormat format;
+
+  /// Engine-specific format, error correction and structured-append details.
+  final BarcodeMetadata? metadata;
 
   /// The geographic point that is embedded in the barcode.
   final GeoPoint? geoPoint;

@@ -7,6 +7,9 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:mobile_scanner/src/web/barcode_detector/barcode_detector_reader.dart';
+import 'package:mobile_scanner/src/web/barcode_reader_factory.dart';
+import 'package:mobile_scanner/src/web/javascript_map.dart';
+import 'package:mobile_scanner/src/web/zxing/result.dart' as legacy;
 import 'package:mobile_scanner/src/web/zxing_wasm/zxing_wasm_barcode_reader.dart';
 import 'package:mobile_scanner/src/web/zxing_wasm/zxing_wasm_result.dart';
 import 'package:web/web.dart' as web;
@@ -30,6 +33,100 @@ void main() {
     """
           .toJS,
     );
+  });
+  test(
+    'auto all-formats uses WASM; explicit supported formats use native',
+    () async {
+      for (final formats in [
+        <BarcodeFormat>[],
+        [BarcodeFormat.all],
+        [BarcodeFormat.rmQrCode],
+        [BarcodeFormat.telepen],
+      ]) {
+        final selected = await createWebBarcodeReader(
+          WebBarcodeReader.auto,
+          formats,
+        );
+        expect(selected.backend, WebBarcodeReader.zxingWasm);
+      }
+      expect(
+        (await createWebBarcodeReader(WebBarcodeReader.auto, [
+          BarcodeFormat.qrCode,
+        ])).backend,
+        WebBarcodeReader.barcodeDetector,
+      );
+    },
+  );
+  test('WASM variants and GS1 retain their identities and metadata', () {
+    for (final (variant, expected) in [
+      ('QRCodeModel1', BarcodeFormat.qrCode),
+      ('MicroPDF417', BarcodeFormat.pdf417),
+      ('AztecRune', BarcodeFormat.aztec),
+      ('PZN', BarcodeFormat.pzn),
+      ('Code32', BarcodeFormat.code32),
+      ('TelepenNumeric', BarcodeFormat.telepen),
+      ('DXFilmEdge', BarcodeFormat.dxFilmEdge),
+      ('Code128', BarcodeFormat.gs1Code128),
+    ]) {
+      final result = ZXingWasmReadResult(
+        {
+              'format': variant,
+              'text': 'test',
+              'symbologyIdentifier': ']C1',
+              'version': '1',
+              'ecLevel': 'L',
+              'isInverted': true,
+              'isMirrored': false,
+              'sequenceSize': -1,
+              'sequenceIndex': -1,
+              'sequenceId': '',
+              'position': <String, Object?>{},
+            }.jsify()!
+            as JSObject,
+      ).toBarcode;
+      expect(result.format, expected);
+      expect(result.metadata?.formatName, variant);
+      expect(result.metadata?.isInverted, isTrue);
+      expect(result.metadata?.sequenceIndex, isNull);
+    }
+  });
+  test('WASM EAN supplements retain a separator and Model1 stays distinct', () {
+    final result = ZXingWasmReadResult(
+      {
+            'format': 'EAN13',
+            'text': '978073520044951299',
+            'extra': '{"EanAddOn":"51299"}',
+            'position': <String, Object?>{},
+          }.jsify()!
+          as JSObject,
+    ).toBarcode;
+    expect(result.rawValue, '9780735200449 51299');
+    final model1 = ZXingWasmReadResult(
+      {
+            'format': 'QRCode',
+            'text': 'QR Code Model 1 ',
+            'symbologyIdentifier': ']Q0',
+            'position': <String, Object?>{},
+          }.jsify()!
+          as JSObject,
+    ).toBarcode;
+    expect(model1.metadata?.formatName, 'QRCodeModel1');
+  });
+  test('legacy GS1 and EAN supplement conversion preserves identity', () {
+    final gs1 = legacy.Result(
+      {'barcodeFormat': 4, 'text': ']C1168901'}.jsify()! as JSObject,
+    ).toBarcode;
+    expect(gs1.format, BarcodeFormat.gs1Code128);
+    expect(gs1.rawValue, '168901');
+    final metadata = JSMap<JSNumber, JSAny>()..set(7.toJS, '51299'.toJS);
+    final object =
+        {
+              'barcodeFormat': 7,
+              'text': '9780735200449',
+              'resultMetadata': metadata,
+            }.jsify()!
+            as JSObject;
+    expect(legacy.Result(object).toBarcode.rawValue, '9780735200449 51299');
   });
   test('native auto selection requires every requested format', () async {
     expect(

@@ -1,0 +1,182 @@
+[
+  {
+    "native": "Aztec",
+    "enum": "aztec",
+    "raw": 4096,
+    "fixture": "test/fixtures/formats/aztec.png",
+    "text": "This is an example Aztec symbol for Wikipedia.",
+    "formatName": "Aztec",
+    "source": "aztec-1/#128.png"
+  },
+  {
+    "native": "Codabar",
+    "enum": "codabar",
+    "raw": 8,
+    "fixture": "test/fixtures/formats/codabar.png",
+    "text": "A1234567890A",
+    "formatName": "Codabar",
+    "source": "codabar-1/01.png"
+  },
+  {
+    "native": "Code39",
+    "enum": "code39",
+    "raw": 2,
+    "fixture": "test/fixtures/formats/code39.png",
+    "text": "TEST-SHEET",
+    "formatName": "Code39",
+    "source": "code39-1/1.png"
+  },
+  {
+    "native": "Code93",
+    "enum": "code93",
+    "raw": 4,
+    "fixture": "test/fixtures/formats/code93.png",
+    "text": "1234567890",
+    "formatName": "Code93",
+    "source": "code93-1/1.png"
+  },
+  {
+    "native": "Code128",
+    "enum": "code128",
+    "raw": 1,
+    "fixture": "test/fixtures/formats/code128.png",
+    "text": "Code 128",
+    "formatName": "Code128",
+    "source": "code128-1/2.png"
+  },
+  {
+    "native": "DataBar",
+    "enum": "dataBar",
+    "raw": 8192,
+    "fixture": "test/fixtures/formats/dataBar.png",
+    "text": "04412345678909",
+    "formatName": "DataBar",
+    "source": "rss14-1/1.png"
+  },
+  {
+    "native": "DataBarExpanded",
+    "enum": "dataBarExpanded",
+    "raw": 16384,
+    "fixture": "test/fixtures/formats/dataBarExpanded.png",
+    "text": "(01)00000000000000",
+    "formatName": "DataBarExpanded",
+    "source": "rssexpanded-1/#384.png"
+  },
+  {
+    "native": "DataMatrix",
+    "enum": "dataMatrix",
+    "raw": 16,
+    "fixture": "test/fixtures/formats/dataMatrix.png",
+    "text": "Data Matrix Code",
+    "formatName": "DataMatrix",
+    "source": "datamatrix-1/#378.png"
+  },
+  {
+    "native": "EAN8",
+    "enum": "ean8",
+    "raw": 64,
+    "fixture": "test/fixtures/formats/ean8.png",
+    "text": "48512343",
+    "formatName": "EAN-8",
+    "source": "ean8-1/1.png"
+  },
+  {
+    "native": "EAN13",
+    "enum": "ean13",
+    "raw": 32,
+    "fixture": "test/fixtures/formats/ean13.png",
+    "text": "8886316200561",
+    "formatName": "EAN-13",
+    "source": "ean13-1/#526.jpg"
+  },
+  {
+    "native": "ITF",
+    "enum": "itf14",
+    "raw": 128,
+    "fixture": "test/fixtures/formats/itf14.png",
+    "text": "0000091897",
+    "formatName": "ITF",
+    "source": "itf-1/#220.png"
+  },
+  {
+    "native": "MaxiCode",
+    "enum": "maxiCode",
+    "raw": 32768,
+    "fixture": "test/fixtures/formats/maxiCode.png",
+    "text": "[)>␞01␝96123450000␝222␝111␝MODE2",
+    "formatName": "MaxiCode",
+    "source": "maxicode-1/MODE2.png"
+  },
+  {
+    "native": "PDF417",
+    "enum": "pdf417",
+    "raw": 2048,
+    "fixture": "test/fixtures/formats/pdf417.png",
+    "text": "This is PDF417",
+    "formatName": "PDF417",
+    "source": "pdf417-1/01.png"
+  },
+  {
+    "native": "QRCode",
+    "enum": "qrCode",
+    "raw": 256,
+    "fixture": "test/fixtures/formats/qrCode.png",
+    "text": "MEBKM:URL:http\\://en.wikipedia.org/wiki/Main_Page;;",
+    "formatName": "QRCodeModel2",
+    "source": "qrcode-1/1.png"
+  },
+  {
+    "native": "UPCA",
+    "enum": "upcA",
+    "raw": 512,
+    "fixture": "test/fixtures/formats/upcA.png",
+    "text": "781735802045",
+    "formatName": "UPC-A",
+    "source": "upca-1/12.png"
+  },
+  {
+    "native": "UPCE",
+    "enum": "upcE",
+    "raw": 1024,
+    "fixture": "test/fixtures/formats/upcE.png",
+    "text": "01234565",
+    "formatName": "UPC-E",
+    "source": "upce-1/1.png"
+  },
+  {
+    "native": "MicroQRCode",
+    "enum": "microQrCode",
+    "raw": 16777216,
+    "fixture": "test/fixtures/formats/microQrCode.png",
+    "text": "Wikipedia",
+    "formatName": "MicroQRCode",
+    "source": "microqrcode-1/1.png"
+  },
+  {
+    "native": "RMQRCode",
+    "enum": "rmQrCode",
+    "raw": 67108864,
+    "fixture": "test/fixtures/formats/rmQrCode.png",
+    "text": "3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081",
+    "formatName": "rMQRCode",
+    "source": "rmqrcode-1/R17x139.png"
+  },
+  {
+    "native": "DXFilmEdge",
+    "enum": "dxFilmEdge",
+    "raw": 134217728,
+    "fixture": "test/fixtures/formats/dxFilmEdge.png",
+    "text": "80-11/23",
+    "formatName": "DXFilmEdge",
+    "source": "dxfilmedge-1/2.png"
+  },
+  {
+    "native": "DataBarLimited",
+    "enum": "dataBarLimited",
+    "raw": 33554432,
+    "fixture": "test/fixtures/formats/dataBarLimited.png",
+    "text": "0100000000000000",
+    "formatName": "DataBarLimited",
+    "source": "databarltd-1/00.png"
+  }
+]

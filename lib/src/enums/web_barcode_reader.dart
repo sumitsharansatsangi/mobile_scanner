@@ -2,10 +2,9 @@
 enum WebBarcodeReader {
   /// Automatically select the best available reader.
   ///
-  /// Uses the native [BarcodeDetector API](https://developer.mozilla.org/en-US/docs/Web/API/BarcodeDetector)
-  /// when available (Chrome, Edge, Safari 17+), and falls back to
-  /// `zxing-wasm` (zxing-cpp compiled to WebAssembly) for browsers that do
-  /// not support it (e.g. Firefox).
+  /// Uses zxing-wasm when all formats are requested. For an explicit format
+  /// list, uses the native BarcodeDetector API if it supports every requested
+  /// format, otherwise uses zxing-wasm.
   auto,
 
   /// Force the native BarcodeDetector API.

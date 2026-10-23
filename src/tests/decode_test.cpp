@@ -22,6 +22,12 @@ int main(int argc, char** argv) {
   auto* result = ms_zxing_decode_sized(&params, image.size());
   if (!result || result->count != 1 || !result->results[0].text ||
       std::string(result->results[0].text).find("MECARD:") != 0) return 3;
+  const auto* metadata = ms_zxing_result_metadata(result, 0);
+  if (!metadata || !metadata->format_name ||
+      std::string(metadata->format_name) != "QRCodeModel2" ||
+      ms_zxing_result_metadata(result, -1) ||
+      ms_zxing_result_metadata(result, 1) ||
+      ms_zxing_result_metadata(nullptr, 0)) return 14;
   ms_zxing_free_results(result);
   if (std::filesystem::exists("thresholds_new.pnm") ||
       std::filesystem::exists("thresholds.pnm") ||

@@ -10,6 +10,7 @@ enum class BarcodeFormats(val intValue: Int) {
     DATA_MATRIX(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_DATA_MATRIX),
     EAN_13(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_EAN_13),
     EAN_8(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_EAN_8),
+    EAN_UPC(1632),
     ITF(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_ITF),
     QR_CODE(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_QR_CODE),
     UPC_A(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_UPC_A),
@@ -30,6 +31,7 @@ enum class BarcodeFormats(val intValue: Int) {
                 16 -> DATA_MATRIX
                 32 -> EAN_13
                 64 -> EAN_8
+                1632 -> EAN_UPC
                 126, 127, 128 -> ITF
                 256 -> QR_CODE
                 512 -> UPC_A

@@ -32,10 +32,59 @@ bool ensureBarcodeClass(JNIEnv* env) {
   return g_barcode_ctor != nullptr;
 }
 
-jobject toJavaBarcode(JNIEnv* env, const MsZxingResult& r) {
+// NewStringUTF expects modified UTF-8 and corrupts four-byte Unicode (emoji).
+// The String byte-array constructor decodes standard UTF-8 from ZXing correctly.
+jstring fromUtf8(JNIEnv* env, const char* text) {
+  if (text == nullptr) return nullptr;
+  const auto length = static_cast<jsize>(std::strlen(text));
+  jbyteArray bytes = env->NewByteArray(length);
+  if (bytes == nullptr) return nullptr;
+  env->SetByteArrayRegion(bytes, 0, length, reinterpret_cast<const jbyte*>(text));
+  jclass stringClass = env->FindClass("java/lang/String");
+  jmethodID constructor = env->GetMethodID(stringClass, "<init>", "([BLjava/lang/String;)V");
+  jstring encoding = env->NewStringUTF("UTF-8");
+  auto result = static_cast<jstring>(env->NewObject(stringClass, constructor, bytes, encoding));
+  env->DeleteLocalRef(encoding);
+  env->DeleteLocalRef(stringClass);
+  env->DeleteLocalRef(bytes);
+  return result;
+}
+
+jobject toJavaMetadata(JNIEnv* env, const MsZxingResultMetadata* metadata) {
+  if (metadata == nullptr) return nullptr;
+  jclass mapClass = env->FindClass("java/util/HashMap");
+  jobject map = env->NewObject(mapClass, env->GetMethodID(mapClass, "<init>", "()V"));
+  jmethodID put = env->GetMethodID(mapClass, "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+  auto set = [&](const char* name, jobject value) {
+    jstring key = env->NewStringUTF(name);
+    jobject previous = env->CallObjectMethod(map, put, key, value);
+    if (previous != nullptr) env->DeleteLocalRef(previous);
+    env->DeleteLocalRef(key);
+    if (value != nullptr) env->DeleteLocalRef(value);
+  };
+  set("formatName", fromUtf8(env, metadata->format_name));
+  set("symbologyIdentifier", fromUtf8(env, metadata->symbology_identifier));
+  set("version", fromUtf8(env, metadata->version));
+  set("errorCorrectionLevel", fromUtf8(env, metadata->error_correction_level));
+  set("sequenceId", fromUtf8(env, metadata->sequence_id));
+  jclass integer = env->FindClass("java/lang/Integer");
+  jmethodID integerValue = env->GetStaticMethodID(integer, "valueOf", "(I)Ljava/lang/Integer;");
+  set("sequenceSize", env->CallStaticObjectMethod(integer, integerValue, metadata->sequence_size));
+  set("sequenceIndex", env->CallStaticObjectMethod(integer, integerValue, metadata->sequence_index));
+  jclass boolean = env->FindClass("java/lang/Boolean");
+  jmethodID booleanValue = env->GetStaticMethodID(boolean, "valueOf", "(Z)Ljava/lang/Boolean;");
+  set("isInverted", env->CallStaticObjectMethod(boolean, booleanValue, metadata->is_inverted != 0 ? JNI_TRUE : JNI_FALSE));
+  set("isMirrored", env->CallStaticObjectMethod(boolean, booleanValue, metadata->is_mirrored != 0 ? JNI_TRUE : JNI_FALSE));
+  env->DeleteLocalRef(boolean);
+  env->DeleteLocalRef(integer);
+  env->DeleteLocalRef(mapClass);
+  return map;
+}
+
+jobject toJavaBarcode(JNIEnv* env, const MsZxingResult& r, const MsZxingResultMetadata* metadata) {
   jstring text = nullptr;
   if (r.text != nullptr) {
-    text = env->NewStringUTF(r.text);
+    text = fromUtf8(env, r.text);
   }
 
   jbyteArray bytes = nullptr;
@@ -60,6 +109,12 @@ jobject toJavaBarcode(JNIEnv* env, const MsZxingResult& r) {
   jobject obj = env->NewObject(g_barcode_class, g_barcode_ctor, r.format, text,
                                bytes, corners);
 
+  if (obj != nullptr && metadata != nullptr) {
+    jobject details = toJavaMetadata(env, metadata);
+    jfieldID field = env->GetFieldID(g_barcode_class, "metadata", "Ljava/util/Map;");
+    env->SetObjectField(obj, field, details);
+    if (details != nullptr) env->DeleteLocalRef(details);
+  }
   if (text != nullptr) env->DeleteLocalRef(text);
   if (bytes != nullptr) env->DeleteLocalRef(bytes);
   if (corners != nullptr) env->DeleteLocalRef(corners);
@@ -104,7 +159,7 @@ Java_dev_steenbakker_mobile_1scanner_engine_ZxingEngine_nativeDecodeLuma(
       env->NewObjectArray(list->count, g_barcode_class, nullptr);
   if (array != nullptr) {
     for (int32_t i = 0; i < list->count; ++i) {
-      jobject barcode = toJavaBarcode(env, list->results[i]);
+      jobject barcode = toJavaBarcode(env, list->results[i], ms_zxing_result_metadata(list, i));
       if (barcode != nullptr) {
         env->SetObjectArrayElement(array, i, barcode);
         env->DeleteLocalRef(barcode);

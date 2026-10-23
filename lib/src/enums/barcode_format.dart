@@ -149,7 +149,25 @@ enum BarcodeFormat {
   ///
   /// Supported by the native ZXing-C++ engine and the web ZXing-WASM reader.
   /// Select this format explicitly when scanning rectangular Micro QR symbols.
-  rmQrCode(67108864);
+  rmQrCode(67108864),
+
+  /// DX film-edge barcode, supported by native ZXing-C++ and ZXing-WASM.
+  dxFilmEdge(134217728),
+
+  /// Telepen (alphabetic or numeric), supported by ZXing-WASM.
+  /// The pinned native ZXing-C++ 2.3.0 engine does not implement Telepen.
+  telepen(268435456),
+
+  /// German pharmaceutical PZN, supported as a distinct format by ZXing-WASM.
+  /// Native ZXing-C++ 2.3.0 reports its underlying Code 39 symbol as [code39].
+  pzn(536870912),
+
+  /// The engine's other-barcode family, currently containing [dxFilmEdge].
+  otherBarcode(1073741824),
+
+  /// The EAN/UPC family: EAN-8, EAN-13, UPC-A and UPC-E.
+  /// This value is their combined mask, rather than a new format bit.
+  eanUpc(1632);
 
   const BarcodeFormat(this.rawValue);
 
@@ -217,6 +235,16 @@ enum BarcodeFormat {
         return BarcodeFormat.dataBarLimited;
       case 67108864:
         return BarcodeFormat.rmQrCode;
+      case 134217728:
+        return BarcodeFormat.dxFilmEdge;
+      case 268435456:
+        return BarcodeFormat.telepen;
+      case 536870912:
+        return BarcodeFormat.pzn;
+      case 1073741824:
+        return BarcodeFormat.otherBarcode;
+      case 1632:
+        return BarcodeFormat.eanUpc;
       default:
         throw ArgumentError.value(value, 'value', 'Invalid raw value.');
     }

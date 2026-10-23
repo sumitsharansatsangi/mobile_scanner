@@ -2,9 +2,21 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_scanner/src/enums/barcode_format.dart';
 import 'package:mobile_scanner/src/web/web_library_versions.dart';
+import 'package:mobile_scanner/src/web/zxing_wasm/zxing_wasm_formats.dart';
 
 void main() {
+  test('every readable format in pinned WASM 3.1.3 is mapped', () {
+    final names = jsonDecode(
+      File('test/fixtures/formats/wasm_readable_formats.json')
+          .readAsStringSync(),
+    ) as List;
+    expect(names, hasLength(41));
+    for (final name in names.cast<String>()) {
+      expect(name.toBarcodeFormat, isNot(BarcodeFormat.unknown), reason: name);
+    }
+  });
   test('pinned web library versions match package.json', () {
     // The package.json at the repository root mirrors the pinned versions,
     // so that Dependabot can detect and propose updates. When Dependabot

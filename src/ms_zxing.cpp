@@ -55,6 +55,8 @@ constexpr uint32_t kRawCode32 = 8388608;
 constexpr uint32_t kRawMicroQr = 16777216;
 constexpr uint32_t kRawDataBarLimited = 33554432;
 constexpr uint32_t kRawRmQr = 67108864;
+constexpr uint32_t kRawDxFilmEdge = 134217728;
+constexpr uint32_t kRawOtherBarcode = 1073741824;
 
 struct FallbackCandidate {
   int32_t format = -1;
@@ -88,16 +90,8 @@ BarcodeFormats RawMaskToZxing(uint32_t mask) {
   if (mask == 0) {
     return BarcodeFormat::Any;
   }
-  // BarcodeFormat.itf2of5 (126) and itf2of5WithChecksum (127) are NOT
-  // power-of-two flags: 126 == code39|code93|codabar|dataMatrix|ean13|ean8 and
-  // 127 adds code128. So they can only be interpreted unambiguously when they
-  // arrive on their own (the common case of asking for just ITF). Map those
-  // exact values straight to ITF. Once OR-ed with any other format the value is
-  // indistinguishable from a combination of the real bit flags, so it falls
-  // through to the bitwise handling below (zxing-cpp has a single ITF format).
-  if (mask == 126u || mask == 127u) {
-    return BarcodeFormat::ITF;
-  }
+  // ITF aliases are normalized to bit 128 by Dart/Kotlin/Swift before this
+  // boundary. Values 126/127 here are valid combinations of other format bits.
   BarcodeFormats formats = BarcodeFormat::None;
   if (mask & kRawCode128) formats |= BarcodeFormat::Code128;
   if (mask & kRawGs1Code128) formats |= BarcodeFormat::Code128;
@@ -108,14 +102,12 @@ BarcodeFormats RawMaskToZxing(uint32_t mask) {
   if (mask & kRawDataMatrix) formats |= BarcodeFormat::DataMatrix;
   if (mask & kRawEan13) formats |= BarcodeFormat::EAN13;
   if (mask & kRawEan8) formats |= BarcodeFormat::EAN8;
-  // Dedicated ITF bit only (itf / itf14 == 128). Do NOT test 126/127 here:
-  // those are handled above and their bits otherwise collide with the linear
-  // formats, which previously made e.g. a plain EAN-13 request (mask 32) also
-  // enable ITF and produce spurious reads.
+  // Dedicated ITF bit only. Legacy aliases 126/127 are not bit flags.
   if (mask & kRawItf) formats |= BarcodeFormat::ITF;
   if (mask & kRawQr) formats |= BarcodeFormat::QRCode;
   if (mask & kRawMicroQr) formats |= BarcodeFormat::MicroQRCode;
   if (mask & kRawRmQr) formats |= BarcodeFormat::RMQRCode;
+  if (mask & (kRawDxFilmEdge | kRawOtherBarcode)) formats |= BarcodeFormat::DXFilmEdge;
   if (mask & kRawDataBarLimited) formats |= BarcodeFormat::DataBarLimited;
   if (mask & kRawUpcA) formats |= BarcodeFormat::UPCA;
   if (mask & kRawUpcE) formats |= BarcodeFormat::UPCE;
@@ -220,6 +212,7 @@ int32_t ZxingToRaw(const Barcode& barcode) {
     case BarcodeFormat::QRCode: return kRawQr;
     case BarcodeFormat::MicroQRCode: return kRawMicroQr;
     case BarcodeFormat::RMQRCode: return kRawRmQr;
+    case BarcodeFormat::DXFilmEdge: return kRawDxFilmEdge;
     case BarcodeFormat::DataBarLimited: return kRawDataBarLimited;
     case BarcodeFormat::UPCA: return kRawUpcA;
     case BarcodeFormat::UPCE: return kRawUpcE;
@@ -1118,6 +1111,29 @@ char* DupString(const std::string& s) {
   return out;
 }
 
+// The public list is the first member, keeping the original ABI intact.
+struct ResultStorage {
+  MsZxingResultList list;
+  MsZxingResultMetadata* metadata;
+  int32_t capacity;
+};
+
+void AssignMetadata(MsZxingResultMetadata& metadata, const Barcode& barcode) {
+  auto name = ToString(barcode.format());
+  if (barcode.format() == BarcodeFormat::QRCode) {
+    name = barcode.symbologyIdentifier() == "]Q0" ? "QRCodeModel1" : "QRCodeModel2";
+  }
+  metadata.format_name = DupString(name);
+  metadata.symbology_identifier = DupString(barcode.symbologyIdentifier());
+  metadata.version = DupString(barcode.version());
+  metadata.error_correction_level = DupString(barcode.ecLevel());
+  metadata.sequence_id = DupString(barcode.sequenceId());
+  metadata.sequence_size = barcode.sequenceSize();
+  metadata.sequence_index = barcode.sequenceIndex();
+  metadata.is_inverted = barcode.isInverted() ? 1 : 0;
+  metadata.is_mirrored = barcode.isMirrored() ? 1 : 0;
+}
+
 }  // namespace
 
 extern "C" {
@@ -1138,11 +1154,9 @@ MsZxingResultList* ms_zxing_decode_sized(const MsZxingDecodeParams* params,
 }
 
 MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
-  auto* list = static_cast<MsZxingResultList*>(
-      std::calloc(1, sizeof(MsZxingResultList)));
-  if (list == nullptr) return nullptr;
-  list->results = nullptr;
-  list->count = 0;
+  auto* storage = static_cast<ResultStorage*>(std::calloc(1, sizeof(ResultStorage)));
+  if (storage == nullptr) return nullptr;
+  auto* list = &storage->list;
 
   if (params == nullptr || params->data == nullptr || params->width <= 0 ||
       params->height <= 0) {
@@ -1193,7 +1207,7 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
       options.setEanAddOnSymbol(EanAddOnSymbol::Read);
     }
     const int32_t maxSymbols =
-        params->max_symbols > 0 ? params->max_symbols : 16;
+        params->max_symbols > 0 ? params->max_symbols : 255;
     options.setMaxNumberOfSymbols(maxSymbols);
 
     // ZXing interprets None as its default (all). Skip it when only custom or
@@ -1236,6 +1250,18 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
       return list;  // OOM: return empty rather than crash
     }
 
+    storage->metadata = static_cast<MsZxingResultMetadata*>(
+        std::calloc(resultCapacity, sizeof(MsZxingResultMetadata)));
+    if (storage->metadata == nullptr) {
+      std::free(results);
+      return list;
+    }
+    list->results = results;
+    storage->capacity = static_cast<int32_t>(resultCapacity);
+    for (size_t n = 0; n < resultCapacity; ++n) {
+      storage->metadata[n].sequence_size = -1;
+      storage->metadata[n].sequence_index = -1;
+    }
     int32_t i = 0;
     for (const auto& barcode : barcodes) {
       if (i >= maxSymbols) break;
@@ -1244,6 +1270,10 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
       MsZxingResult& r = results[i];
       int32_t rawFormat = ZxingToRaw(barcode);
       std::string text = barcode.text();
+      // A GS1-only request must not produce plain Code 128 results.
+      if (params->format_mask != 0 && rawFormat == kRawCode128 &&
+          (params->format_mask & kRawGs1Code128) != 0 &&
+          (params->format_mask & kRawCode128) == 0) continue;
       bool code32Transformed = false;
       if (rawFormat == kRawCode39 &&
           ExplicitFormatRequested(params->format_mask, kRawCode32)) {
@@ -1257,6 +1287,11 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
       }
 
       r.format = rawFormat;
+      AssignMetadata(storage->metadata[i], barcode);
+      if (code32Transformed) {
+        std::free(const_cast<char*>(storage->metadata[i].format_name));
+        storage->metadata[i].format_name = DupString("Code32");
+      }
       r.text = DupString(text);
 
       const ByteArray& bytes = barcode.bytes();
@@ -1294,6 +1329,10 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
       if (i >= maxSymbols || i >= static_cast<int32_t>(resultCapacity)) break;
       MsZxingResult& r = results[i];
       r.format = candidate.format;
+      storage->metadata[i].format_name = DupString(
+          candidate.format == kRawCode11 ? "Code11" :
+          candidate.format == kRawMsiPlessey ? "MSIPlessey" :
+          candidate.format == kRawPharmaCode ? "Pharmacode" : "PharmacodeTwoTrack");
       r.text = DupString(candidate.text);
 
       if (!candidate.text.empty()) {
@@ -1335,16 +1374,35 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
   return list;
 }
 
+const MsZxingResultMetadata* ms_zxing_result_metadata(
+    const MsZxingResultList* list, int32_t index) {
+  if (list == nullptr || index < 0 || index >= list->count) return nullptr;
+  const auto* storage = reinterpret_cast<const ResultStorage*>(list);
+  return storage->metadata == nullptr ? nullptr : &storage->metadata[index];
+}
+
 void ms_zxing_free_results(MsZxingResultList* list) {
   if (list == nullptr) return;
+  auto* storage = reinterpret_cast<ResultStorage*>(list);
   if (list->results != nullptr) {
-    for (int32_t i = 0; i < list->count; ++i) {
+    for (int32_t i = 0; i < storage->capacity; ++i) {
       std::free(const_cast<char*>(list->results[i].text));
       std::free(const_cast<uint8_t*>(list->results[i].bytes));
     }
     std::free(list->results);
   }
-  std::free(list);
+  if (storage->metadata != nullptr) {
+    for (int32_t i = 0; i < storage->capacity; ++i) {
+      const auto& metadata = storage->metadata[i];
+      std::free(const_cast<char*>(metadata.format_name));
+      std::free(const_cast<char*>(metadata.symbology_identifier));
+      std::free(const_cast<char*>(metadata.version));
+      std::free(const_cast<char*>(metadata.error_correction_level));
+      std::free(const_cast<char*>(metadata.sequence_id));
+    }
+    std::free(storage->metadata);
+  }
+  std::free(storage);
 }
 
 const char* ms_zxing_version(void) {

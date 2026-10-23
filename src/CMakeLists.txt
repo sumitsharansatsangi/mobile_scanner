@@ -97,3 +97,33 @@ if(MS_ZXING_BUILD_TESTS)
     "${CMAKE_CURRENT_LIST_DIR}/../test/fixtures/mecard.pgm"
     "${CMAKE_CURRENT_LIST_DIR}/../test/fixtures/rmqr.pgm")
 endif()
+
+option(MS_ZXING_BUILD_JNI_TESTS "Exercise Android JNI on a host JVM" OFF)
+if(MS_ZXING_BUILD_JNI_TESTS AND NOT ANDROID)
+  enable_testing()
+  find_package(Java REQUIRED COMPONENTS Development Runtime)
+  # An Android NDK jni.h can also be used on Linux hosts whose JBR installation
+  # contains javac but omits the development headers.
+  set(MS_ZXING_JNI_INCLUDE_DIR "" CACHE PATH "Optional directory containing jni.h")
+  if(MS_ZXING_JNI_INCLUDE_DIR)
+    set(JNI_INCLUDE_DIRS "${MS_ZXING_JNI_INCLUDE_DIR}")
+  else()
+    find_package(JNI REQUIRED)
+  endif()
+  add_library(ms_zxing_jni_test SHARED "${CMAKE_CURRENT_LIST_DIR}/../android/src/main/cpp/ms_zxing_jni.cpp")
+  target_include_directories(ms_zxing_jni_test PRIVATE ${JNI_INCLUDE_DIRS})
+  target_link_libraries(ms_zxing_jni_test PRIVATE ms_zxing)
+  set(_java_package "${CMAKE_CURRENT_LIST_DIR}/tests/java/dev/steenbakker/mobile_scanner/engine")
+  set(_java_classes "${CMAKE_CURRENT_BINARY_DIR}/jni-test-classes")
+  add_custom_command(OUTPUT "${_java_classes}/.compiled"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${_java_classes}"
+    COMMAND ${Java_JAVAC_EXECUTABLE} -encoding UTF-8 -d "${_java_classes}"
+      "${_java_package}/ZxingBarcode.java" "${_java_package}/ZxingEngine.java"
+    COMMAND ${CMAKE_COMMAND} -E touch "${_java_classes}/.compiled"
+    DEPENDS "${_java_package}/ZxingBarcode.java" "${_java_package}/ZxingEngine.java")
+  add_custom_target(ms_zxing_jni_classes ALL DEPENDS "${_java_classes}/.compiled")
+  add_test(NAME ms_zxing_jni_test COMMAND ${Java_JAVA_EXECUTABLE}
+    -Djava.awt.headless=true -cp "${_java_classes}"
+    dev.steenbakker.mobile_scanner.engine.ZxingEngine
+    "$<TARGET_FILE:ms_zxing_jni_test>" "${CMAKE_CURRENT_LIST_DIR}/../test/fixtures/qr_unicode.png")
+endif()

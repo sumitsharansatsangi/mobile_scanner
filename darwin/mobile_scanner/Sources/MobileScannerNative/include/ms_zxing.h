@@ -53,6 +53,7 @@ typedef struct {
   // OR-ed BarcodeFormat.rawValue bits to search for; 0 = every broadly safe
   // supported format. Checksum-less fallback formats such as Pharmacode require
   // an explicit format bit to avoid false positives.
+  // Normalize legacy ITF enum aliases 126/127 to bit 128 before OR-ing.
   uint32_t format_mask;
 
   // Optional crop rectangle in pixels, used to restrict scanning to a scan
@@ -98,6 +99,24 @@ typedef struct {
   MsZxingResult* results;
   int32_t count;
 } MsZxingResultList;
+
+// Optional per-symbol metadata. Strings are owned by the result list.
+// Existing result/list layouts remain unchanged for binary compatibility.
+typedef struct {
+  const char* format_name;
+  const char* symbology_identifier;
+  const char* version;
+  const char* error_correction_level;
+  const char* sequence_id;
+  int32_t sequence_size;
+  int32_t sequence_index;
+  int32_t is_inverted;
+  int32_t is_mirrored;
+} MsZxingResultMetadata;
+
+// Returns null for an invalid index. Valid until ms_zxing_free_results(list).
+MS_ZXING_API const MsZxingResultMetadata* ms_zxing_result_metadata(
+    const MsZxingResultList* list, int32_t index);
 
 // Decode barcodes from a single image buffer described by [params].
 //

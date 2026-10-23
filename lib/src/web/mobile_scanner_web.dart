@@ -15,14 +15,12 @@ import 'package:mobile_scanner/src/mobile_scanner_platform_interface.dart';
 import 'package:mobile_scanner/src/mobile_scanner_view_attributes.dart';
 import 'package:mobile_scanner/src/objects/barcode_capture.dart';
 import 'package:mobile_scanner/src/objects/start_options.dart';
-import 'package:mobile_scanner/src/web/barcode_detector/barcode_detector_reader.dart';
 import 'package:mobile_scanner/src/web/barcode_reader.dart';
+import 'package:mobile_scanner/src/web/barcode_reader_factory.dart';
 import 'package:mobile_scanner/src/web/media_track_constraints_delegate.dart';
 import 'package:mobile_scanner/src/web/media_track_extension.dart';
 import 'package:mobile_scanner/src/web/preferred_device_storage.dart';
 import 'package:mobile_scanner/src/web/web_camera_utility.dart';
-import 'package:mobile_scanner/src/web/zxing/zxing_barcode_reader.dart';
-import 'package:mobile_scanner/src/web/zxing_wasm/zxing_wasm_barcode_reader.dart';
 import 'package:web/web.dart';
 
 /// A web implementation of the MobileScannerPlatform of the MobileScanner
@@ -463,28 +461,12 @@ class MobileScannerWeb extends MobileScannerPlatform {
       await stop();
     }
 
-    // Select the barcode reader based on the preferred backend.
-    switch (_preferredWebReader) {
-      case WebBarcodeReader.barcodeDetector:
-        _barcodeReader = BarcodeDetectorReader();
-        _activeWebReader = _preferredWebReader;
-      case WebBarcodeReader.zxingWasm:
-        _barcodeReader = ZXingWasmBarcodeReader();
-        _activeWebReader = _preferredWebReader;
-      case WebBarcodeReader.zxingJs:
-        _barcodeReader = ZXingBarcodeReader();
-        _activeWebReader = _preferredWebReader;
-      case WebBarcodeReader.auto:
-        // Use the native BarcodeDetector API when available (Chrome/Edge/Safari
-        // 17+), fall back to zxing-wasm for Firefox and older browsers.
-        if (await BarcodeDetectorReader.isSupported(startOptions.formats)) {
-          _barcodeReader = BarcodeDetectorReader();
-          _activeWebReader = WebBarcodeReader.barcodeDetector;
-        } else {
-          _barcodeReader = ZXingWasmBarcodeReader();
-          _activeWebReader = WebBarcodeReader.zxingWasm;
-        }
-    }
+    final selection = await createWebBarcodeReader(
+      _preferredWebReader,
+      startOptions.formats,
+    );
+    _barcodeReader = selection.reader;
+    _activeWebReader = selection.backend;
 
     await _barcodeReader?.maybeLoadLibrary(
       alternateScriptUrl: _alternateScriptUrl,

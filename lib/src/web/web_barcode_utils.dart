@@ -92,6 +92,7 @@ Barcode mirrorBarcodeX(Barcode barcode, double videoWidth) {
     wifi: barcode.wifi,
     corners: reordered,
     format: barcode.format,
+    metadata: barcode.metadata,
     displayValue: barcode.displayValue,
     rawDecodedBytes: barcode.rawDecodedBytes,
     rawValue: barcode.rawValue,

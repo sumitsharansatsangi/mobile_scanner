@@ -38,6 +38,7 @@ val ZxingBarcode.data: Map<String, Any?>
             "driverLicense" to parsed.driverLicense,
             "email" to parsed.email,
             "format" to format,
+            "metadata" to metadata,
             "geoPoint" to parsed.geoPoint,
             "phone" to parsed.phone,
             "rawBytes" to rawBytes,

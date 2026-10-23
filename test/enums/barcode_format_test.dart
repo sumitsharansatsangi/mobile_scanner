@@ -36,6 +36,11 @@ void main() {
         16777216: BarcodeFormat.microQrCode,
         33554432: BarcodeFormat.dataBarLimited,
         67108864: BarcodeFormat.rmQrCode,
+        134217728: BarcodeFormat.dxFilmEdge,
+        268435456: BarcodeFormat.telepen,
+        536870912: BarcodeFormat.pzn,
+        1073741824: BarcodeFormat.otherBarcode,
+        1632: BarcodeFormat.eanUpc,
       };
 
       for (final entry in values.entries) {
@@ -100,6 +105,11 @@ void main() {
         BarcodeFormat.microQrCode: 16777216,
         BarcodeFormat.dataBarLimited: 33554432,
         BarcodeFormat.rmQrCode: 67108864,
+        BarcodeFormat.dxFilmEdge: 134217728,
+        BarcodeFormat.telepen: 268435456,
+        BarcodeFormat.pzn: 536870912,
+        BarcodeFormat.otherBarcode: 1073741824,
+        BarcodeFormat.eanUpc: 1632,
       };
 
       for (final entry in values.entries) {
