@@ -45,4 +45,39 @@ void main() {
       isEmpty,
     );
   }, skip: !enabled);
+  test(
+    'real rMQR fixtures retain their format and honor explicit format filters',
+    () async {
+      for (final name in [
+        'rmqr',
+        'rmqr_large',
+        'rmqr_inverted',
+        'rmqr_rotated',
+      ]) {
+        final captures = await analyzeImageWithZxing(
+          'test/fixtures/$name.png',
+          [BarcodeFormat.rmQrCode],
+        );
+        expect(captures, hasLength(1), reason: name);
+        expect(captures.single.format, BarcodeFormat.rmQrCode);
+        expect(captures.single.rawValue, isNotEmpty);
+        expect(captures.single.corners, hasLength(4));
+        final all = await analyzeImageWithZxing('test/fixtures/$name.png', []);
+        expect(all.single.format, BarcodeFormat.rmQrCode);
+        expect(
+          await analyzeImageWithZxing('test/fixtures/$name.png', [
+            BarcodeFormat.code11,
+          ]),
+          isEmpty,
+        );
+        expect(
+          await analyzeImageWithZxing('test/fixtures/$name.png', [
+            BarcodeFormat.qrCode,
+          ]),
+          isEmpty,
+        );
+      }
+    },
+    skip: !enabled,
+  );
 }

@@ -73,5 +73,8 @@ Future<List<Barcode>> _decodePixels(
     pixelFormat: MsZxingPixelFormat.rgba,
     formats: formats,
     tryHarder: true,
+    tryRotate: true,
+    tryInvert: true,
+    tryDownscale: true,
   ),
 );

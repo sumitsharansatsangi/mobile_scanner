@@ -7,7 +7,7 @@
 #include <string>
 
 int main(int argc, char** argv) {
-  if (argc != 2) return 1;
+  if (argc != 3) return 1;
   std::ifstream input(argv[1], std::ios::binary);
   std::string magic;
   int width = 0, height = 0, maxValue = 0;
@@ -51,6 +51,23 @@ int main(int argc, char** argv) {
   if (!empty(image.size())) return 9;
   params.format_mask = 131072; // custom Code11 only, not QR
   if (!empty(image.size())) return 10;
+  std::ifstream rmqrInput(argv[2], std::ios::binary);
+  rmqrInput >> magic >> width >> height >> maxValue;
+  rmqrInput.get();
+  if (magic != "P5" || maxValue != 255 || !rmqrInput) return 12;
+  const std::vector<uint8_t> rmqr((std::istreambuf_iterator<char>(rmqrInput)), {});
+  params.data = rmqr.data(); params.width = width; params.height = height;
+  for (const uint32_t mask : {67108864u, 0u, 256u, 131072u}) {
+    params.format_mask = mask;
+    auto* decoded = ms_zxing_decode_sized(&params, rmqr.size());
+    const bool expected = mask == 67108864u || mask == 0u;
+    const bool valid = decoded && (expected
+        ? decoded->count == 1 && decoded->results[0].format == 67108864 &&
+          decoded->results[0].text != nullptr && std::string(decoded->results[0].text) == ",,"
+        : decoded->count == 0);
+    ms_zxing_free_results(decoded);
+    if (!valid) return 13;
+  }
   std::cout << "Sized ABI, crop bounds and strict format regressions passed\n";
   return 0;
 }

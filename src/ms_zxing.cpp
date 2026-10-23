@@ -54,6 +54,7 @@ constexpr uint32_t kRawGs1Code128 = 4194304;
 constexpr uint32_t kRawCode32 = 8388608;
 constexpr uint32_t kRawMicroQr = 16777216;
 constexpr uint32_t kRawDataBarLimited = 33554432;
+constexpr uint32_t kRawRmQr = 67108864;
 
 struct FallbackCandidate {
   int32_t format = -1;
@@ -114,6 +115,7 @@ BarcodeFormats RawMaskToZxing(uint32_t mask) {
   if (mask & kRawItf) formats |= BarcodeFormat::ITF;
   if (mask & kRawQr) formats |= BarcodeFormat::QRCode;
   if (mask & kRawMicroQr) formats |= BarcodeFormat::MicroQRCode;
+  if (mask & kRawRmQr) formats |= BarcodeFormat::RMQRCode;
   if (mask & kRawDataBarLimited) formats |= BarcodeFormat::DataBarLimited;
   if (mask & kRawUpcA) formats |= BarcodeFormat::UPCA;
   if (mask & kRawUpcE) formats |= BarcodeFormat::UPCE;
@@ -217,6 +219,7 @@ int32_t ZxingToRaw(const Barcode& barcode) {
     case BarcodeFormat::ITF: return kRawItf;
     case BarcodeFormat::QRCode: return kRawQr;
     case BarcodeFormat::MicroQRCode: return kRawMicroQr;
+    case BarcodeFormat::RMQRCode: return kRawRmQr;
     case BarcodeFormat::DataBarLimited: return kRawDataBarLimited;
     case BarcodeFormat::UPCA: return kRawUpcA;
     case BarcodeFormat::UPCE: return kRawUpcE;

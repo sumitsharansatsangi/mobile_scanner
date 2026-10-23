@@ -22,6 +22,8 @@ void main() {
       expect('PDF417'.toBarcodeFormat, BarcodeFormat.pdf417);
       expect('QRCode'.toBarcodeFormat, BarcodeFormat.qrCode);
       expect('MicroQRCode'.toBarcodeFormat, BarcodeFormat.microQrCode);
+      expect('RMQRCode'.toBarcodeFormat, BarcodeFormat.rmQrCode);
+      expect('rMQRCode'.toBarcodeFormat, BarcodeFormat.rmQrCode);
       expect('UPCA'.toBarcodeFormat, BarcodeFormat.upcA);
       expect('UPCE'.toBarcodeFormat, BarcodeFormat.upcE);
     });

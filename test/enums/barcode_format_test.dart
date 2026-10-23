@@ -35,6 +35,7 @@ void main() {
         8388608: BarcodeFormat.code32,
         16777216: BarcodeFormat.microQrCode,
         33554432: BarcodeFormat.dataBarLimited,
+        67108864: BarcodeFormat.rmQrCode,
       };
 
       for (final entry in values.entries) {
@@ -98,6 +99,7 @@ void main() {
         BarcodeFormat.code32: 8388608,
         BarcodeFormat.microQrCode: 16777216,
         BarcodeFormat.dataBarLimited: 33554432,
+        BarcodeFormat.rmQrCode: 67108864,
       };
 
       for (final entry in values.entries) {

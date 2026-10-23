@@ -59,3 +59,26 @@ operating systems. File decoding does not supply those capabilities.
 
 Debug native builds also disable upstream image-dump diagnostics with NDEBUG,
 preventing binarizer threshold images from being written to the app directory.
+
+## rMQR follow-up
+
+The pinned engine already decoded rectangular Micro QR symbols, but the bridge
+mapped their format to unknown and could not request them explicitly. The C ABI
+and Dart enum now expose `BarcodeFormat.rmQrCode` (67108864), and the WASM mapping
+accepts canonical and legacy rMQR names. Native image tests cover small and large
+real small, large, inverted and rotated rMQR fixtures, default/all detection
+and isolation from standard QR and
+Code 11 requests. Android live-camera validation still requires a device.
+
+The rMQR follow-up passed 21 focused Flutter/FFI mapping tests and the native
+C ABI fixture regression. The analyzer remained clean.
+
+The release APK check also exposed library-level shrinking that removed the
+Flutter plugin entry class before application registration. The library now
+ships its classes to the consuming application's shrinker; consumer JNI rules
+remain in effect. The example application's release still uses R8.
+
+Android ARM64 release APK built successfully with application R8 enabled.
+The release mapping retains the JNI class names, and the APK includes both
+libms_zxing.so and libms_zxing_jni.so. Android live-camera testing still needs a
+physical device. Build artifact: example/build/app/outputs/flutter-apk/app-release.apk.

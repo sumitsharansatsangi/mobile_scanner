@@ -85,7 +85,8 @@ android {
         }
 
         getByName("release") {
-            isMinifyEnabled = true
+            // Keep plugin entry points available to the consuming app's R8 run.
+            isMinifyEnabled = false
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

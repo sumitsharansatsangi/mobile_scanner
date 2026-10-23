@@ -143,7 +143,13 @@ enum BarcodeFormat {
   microQrCode(16777216),
 
   /// Barcode format constant for GS1 DataBar Limited.
-  dataBarLimited(33554432);
+  dataBarLimited(33554432),
+
+  /// Rectangular Micro QR Code (rMQR, ISO/IEC 23941).
+  ///
+  /// Supported by the native ZXing-C++ engine and the web ZXing-WASM reader.
+  /// Select this format explicitly when scanning rectangular Micro QR symbols.
+  rmQrCode(67108864);
 
   const BarcodeFormat(this.rawValue);
 
@@ -209,6 +215,8 @@ enum BarcodeFormat {
         return BarcodeFormat.microQrCode;
       case 33554432:
         return BarcodeFormat.dataBarLimited;
+      case 67108864:
+        return BarcodeFormat.rmQrCode;
       default:
         throw ArgumentError.value(value, 'value', 'Invalid raw value.');
     }

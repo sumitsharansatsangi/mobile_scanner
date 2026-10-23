@@ -94,5 +94,6 @@ if(MS_ZXING_BUILD_TESTS)
   add_executable(ms_zxing_decode_test "${CMAKE_CURRENT_LIST_DIR}/tests/decode_test.cpp")
   target_link_libraries(ms_zxing_decode_test PRIVATE ms_zxing)
   add_test(NAME ms_zxing_decode_test COMMAND ms_zxing_decode_test
-    "${CMAKE_CURRENT_LIST_DIR}/../test/fixtures/mecard.pgm")
+    "${CMAKE_CURRENT_LIST_DIR}/../test/fixtures/mecard.pgm"
+    "${CMAKE_CURRENT_LIST_DIR}/../test/fixtures/rmqr.pgm")
 endif()

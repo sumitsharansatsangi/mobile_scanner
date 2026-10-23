@@ -135,6 +135,7 @@ Detected by ZXing-C++, Apple Vision, ML Kit, or ZXing-js depending on platform:
 | Format | Type | Android | iOS | macOS | Web | Linux/Windows |
 |--------|------|---------|-----|-------|-----|---------------|
 | **QR Code** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **rMQR (Rectangular Micro QR)** | 2D | ✅ | ⚠️² | ⚠️² | ✅ (WASM) | ✅ |
 | **Data Matrix** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **PDF417** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Aztec** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -761,3 +762,17 @@ on worker isolates. On Android, live captures include `capture.imageQuality`
 with normalized brightness, contrast and horizontal sharpness statistics. Quality
 analysis does not require `returnImage`; it measures frames with detections.
 Linux/Windows live camera capture is not implemented.
+
+### Rectangular Micro QR (rMQR)
+
+```dart
+final scanner = MobileScannerController(
+  formats: [BarcodeFormat.rmQrCode],
+);
+```
+
+On native platforms, the default empty format list also detects rMQR. For a
+QR-family scanner, request
+`qrCode`, `microQrCode` and `rmQrCode` together. Android uses ZXing-C++ for rMQR;
+ML Kit does not provide its recovery path. Web uses ZXing-WASM. Native browser
+BarcodeDetector and the legacy ZXing-js reader do not implement rMQR.
