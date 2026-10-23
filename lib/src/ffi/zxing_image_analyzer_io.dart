@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:mobile_scanner/src/enums/barcode_format.dart';
@@ -20,26 +22,34 @@ Future<List<Barcode>> analyzeImageWithZxing(
   try {
     final bytes = await File(path).readAsBytes();
     final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
+    late final ui.FrameInfo frame;
+    try {
+      frame = await codec.getNextFrame();
+    } finally {
+      codec.dispose();
+    }
     final image = frame.image;
-
-    // rawRgba is toByteData's default format; passing it would be redundant.
-    final byteData = await image.toByteData();
     final width = image.width;
     final height = image.height;
-    image.dispose();
+    final ByteData? byteData;
+    try {
+      byteData = await image.toByteData();
+    } finally {
+      image.dispose();
+    }
 
     if (byteData == null) {
       return const <Barcode>[];
     }
 
-    return ZxingDecoder.instance.decode(
-      byteData.buffer.asUint8List(),
-      width: width,
-      height: height,
-      pixelFormat: MsZxingPixelFormat.rgba,
-      formats: formats,
-      tryHarder: true,
+    return await _decodePixels(
+      byteData.buffer.asUint8List(
+        byteData.offsetInBytes,
+        byteData.lengthInBytes,
+      ),
+      width,
+      height,
+      formats,
     );
   } on Object {
     // Any failure (missing native lib, decode error, unsupported file) falls
@@ -47,3 +57,21 @@ Future<List<Barcode>> analyzeImageWithZxing(
     return const <Barcode>[];
   }
 }
+
+// Keep the isolate closure separate from image/codec handles, which cannot be
+// sent to another isolate. Native scanning does not block the UI isolate.
+Future<List<Barcode>> _decodePixels(
+  Uint8List pixels,
+  int width,
+  int height,
+  List<BarcodeFormat> formats,
+) => Isolate.run(
+  () => ZxingDecoder.instance.decode(
+    pixels,
+    width: width,
+    height: height,
+    pixelFormat: MsZxingPixelFormat.rgba,
+    formats: formats,
+    tryHarder: true,
+  ),
+);

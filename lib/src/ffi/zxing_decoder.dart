@@ -6,8 +6,9 @@ import 'dart:ui' show Offset, Rect, Size;
 import 'package:ffi/ffi.dart';
 import 'package:mobile_scanner/src/enums/barcode_format.dart';
 import 'package:mobile_scanner/src/ffi/ms_zxing_bindings.dart';
+import 'package:mobile_scanner/src/ffi/zxing_image_validation.dart';
 import 'package:mobile_scanner/src/objects/barcode.dart';
-import 'package:mobile_scanner/src/objects/barcode_bytes.dart';
+import 'package:mobile_scanner/src/utils/barcode_format_filter.dart';
 
 /// Decodes barcodes by calling the native ZXing-C++ engine through dart:ffi.
 ///
@@ -73,6 +74,20 @@ final class ZxingDecoder {
     bool tryDownscale = false,
     int maxSymbols = 0,
   }) {
+    validateZxingImage(
+      data,
+      width: width,
+      height: height,
+      rowStride: rowStride,
+      pixelFormat: pixelFormat,
+      crop: crop,
+      maxSymbols: maxSymbols,
+    );
+    if (formats.isNotEmpty &&
+        !formats.contains(BarcodeFormat.all) &&
+        formats.every((f) => f == BarcodeFormat.unknown)) {
+      return const [];
+    }
     final dataPtr = calloc<ffi.Uint8>(data.length);
     final paramsPtr = calloc<MsZxingDecodeParams>();
     try {
@@ -95,7 +110,7 @@ final class ZxingDecoder {
         ..tryDownscale = tryDownscale ? 1 : 0
         ..maxSymbols = maxSymbols;
 
-      final listPtr = _bindings.decode(paramsPtr);
+      final listPtr = _bindings.decode(paramsPtr, data.length);
 
       if (listPtr == ffi.nullptr) {
         return const <Barcode>[];
@@ -103,7 +118,15 @@ final class ZxingDecoder {
 
       try {
         final imageSize = Size(width.toDouble(), height.toDouble());
-        return _readResults(listPtr.ref, imageSize);
+        return _readResults(
+              listPtr.ref,
+              imageSize,
+            )
+            .where(
+              (b) =>
+                  matchesBarcodeFormat(b.format, formats, rawValue: b.rawValue),
+            )
+            .toList();
       } finally {
         _bindings.freeResults(listPtr);
       }
@@ -153,13 +176,11 @@ final class ZxingDecoder {
           ? null
           : result.text.cast<Utf8>().toDartString();
 
-      BarcodeBytes? rawBytes;
+      Uint8List? rawBytes;
       if (result.bytes != ffi.nullptr && result.bytesLength > 0) {
         // Copy out of native memory before the list is freed.
-        rawBytes = DecodedBarcodeBytes(
-          bytes: Uint8List.fromList(
-            result.bytes.asTypedList(result.bytesLength),
-          ),
+        rawBytes = Uint8List.fromList(
+          result.bytes.asTypedList(result.bytesLength),
         );
       }
 
@@ -169,14 +190,16 @@ final class ZxingDecoder {
       ];
 
       barcodes.add(
-        Barcode(
-          format: BarcodeFormat.fromRawValue(result.format),
-          rawValue: text,
-          displayValue: text,
-          rawDecodedBytes: rawBytes,
-          corners: corners,
-          size: imageSize,
-        ),
+        Barcode.fromNative({
+          'format': result.format,
+          'rawValue': text,
+          'displayValue': text,
+          'rawBytes': rawBytes,
+          'corners': [
+            for (final p in corners) {'x': p.dx, 'y': p.dy},
+          ],
+          'size': {'width': imageSize.width, 'height': imageSize.height},
+        }),
       );
     }
     return barcodes;

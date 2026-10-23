@@ -7,6 +7,7 @@ import 'package:mobile_scanner/src/enums/barcode_format.dart';
 import 'package:mobile_scanner/src/mobile_scanner_exception.dart';
 import 'package:mobile_scanner/src/objects/barcode_capture.dart';
 import 'package:mobile_scanner/src/objects/start_options.dart';
+import 'package:mobile_scanner/src/utils/barcode_format_filter.dart';
 import 'package:mobile_scanner/src/web/barcode_reader.dart';
 import 'package:mobile_scanner/src/web/javascript_map.dart';
 import 'package:mobile_scanner/src/web/media_track_constraints_delegate.dart';
@@ -68,6 +69,8 @@ final class ZXingBarcodeReader extends BarcodeReader {
 
   @override
   String get scriptUrl => 'https://unpkg.com/@zxing/library@$zxingJsVersion';
+
+  List<BarcodeFormat> _requestedFormats = const [];
 
   JSMap? _createReaderHints(List<BarcodeFormat> formats) {
     if (formats.isEmpty || formats.contains(BarcodeFormat.all)) {
@@ -142,6 +145,13 @@ final class ZXingBarcodeReader extends BarcodeReader {
 
             if (result != null) {
               var barcode = result.toBarcode;
+              if (!matchesBarcodeFormat(
+                barcode.format,
+                _requestedFormats,
+                rawValue: barcode.rawValue,
+              )) {
+                return;
+              }
 
               // Check the scan window using raw camera coordinates (before
               // mirroring), because the scan window percentages are also in
@@ -188,6 +198,7 @@ final class ZXingBarcodeReader extends BarcodeReader {
     required web.HTMLVideoElement videoElement,
     required web.MediaStream videoStream,
   }) async {
+    _requestedFormats = List.of(options.formats);
     final detectionTimeoutMs = options.detectionTimeoutMs;
     final formats = <BarcodeFormat>[
       for (final BarcodeFormat format in options.formats)

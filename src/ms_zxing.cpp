@@ -1119,6 +1119,21 @@ char* DupString(const std::string& s) {
 
 extern "C" {
 
+MsZxingResultList* ms_zxing_decode_sized(const MsZxingDecodeParams* params,
+                                        uint64_t data_length) {
+  if (params != nullptr && params->width > 0 && params->height > 0 &&
+      params->pixel_format >= MS_ZXING_PIXEL_LUM &&
+      params->pixel_format <= MS_ZXING_PIXEL_BGRA) {
+    const uint64_t rowBytes = static_cast<uint64_t>(params->width) * BytesPerPixel(params->pixel_format);
+    const uint64_t stride = params->row_stride == 0 ? rowBytes : params->row_stride;
+    const uint64_t required = (static_cast<uint64_t>(params->height) - 1) * stride + rowBytes;
+    if (params->row_stride >= 0 && stride >= rowBytes && data_length >= required) {
+      return ms_zxing_decode(params);
+    }
+  }
+  return ms_zxing_decode(nullptr);
+}
+
 MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
   auto* list = static_cast<MsZxingResultList*>(
       std::calloc(1, sizeof(MsZxingResultList)));
@@ -1129,6 +1144,22 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
   if (params == nullptr || params->data == nullptr || params->width <= 0 ||
       params->height <= 0) {
     return list;  // empty list
+  }
+
+  const int32_t bpp = BytesPerPixel(params->pixel_format);
+  const int64_t rowBytes = static_cast<int64_t>(params->width) * bpp;
+  const bool cropPresent = params->crop_left != 0 || params->crop_top != 0 ||
+      params->crop_width != 0 || params->crop_height != 0;
+  if (params->pixel_format < MS_ZXING_PIXEL_LUM ||
+      params->pixel_format > MS_ZXING_PIXEL_BGRA ||
+      rowBytes > INT32_MAX || params->row_stride < 0 ||
+      (params->row_stride != 0 && params->row_stride < rowBytes) ||
+      params->max_symbols < 0 || params->max_symbols > 255 ||
+      (cropPresent && (params->crop_left < 0 || params->crop_top < 0 ||
+       params->crop_width <= 0 || params->crop_height <= 0 ||
+       static_cast<int64_t>(params->crop_left) + params->crop_width > params->width ||
+       static_cast<int64_t>(params->crop_top) + params->crop_height > params->height))) {
+    return list;
   }
 
   try {
@@ -1162,7 +1193,10 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
         params->max_symbols > 0 ? params->max_symbols : 16;
     options.setMaxNumberOfSymbols(maxSymbols);
 
-    const Barcodes barcodes = ReadBarcodes(image, options);
+    // ZXing interprets None as its default (all). Skip it when only custom or
+    // unavailable formats were requested; custom fallback readers still run.
+    const Barcodes barcodes = RawMaskToZxing(params->format_mask) == BarcodeFormat::None
+        ? Barcodes{} : ReadBarcodes(image, options);
     std::vector<FallbackCandidate> fallbackCandidates;
     if (Code11Requested(params->format_mask)) {
       const auto code11Candidates = DecodeCode11(*params);

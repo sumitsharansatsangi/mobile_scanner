@@ -43,6 +43,8 @@ add_library(ms_zxing SHARED
   "${CMAKE_CURRENT_LIST_DIR}/ms_fallback_barcodes.cpp"
 )
 
+target_compile_definitions(ms_zxing PRIVATE MS_ZXING_BUILD=1)
+
 target_include_directories(ms_zxing PUBLIC "${CMAKE_CURRENT_LIST_DIR}")
 target_include_directories(ms_zxing PRIVATE ${zxing-cpp_SOURCE_DIR}/core/src)
 target_link_libraries(ms_zxing PRIVATE ZXing::ZXing)
@@ -79,3 +81,12 @@ set_target_properties(ms_zxing PROPERTIES
   CXX_VISIBILITY_PRESET hidden
   VISIBILITY_INLINES_HIDDEN ON
 )
+
+option(MS_ZXING_BUILD_TESTS "Build native ABI regressions" OFF)
+if(MS_ZXING_BUILD_TESTS)
+  enable_testing()
+  add_executable(ms_zxing_decode_test "${CMAKE_CURRENT_LIST_DIR}/tests/decode_test.cpp")
+  target_link_libraries(ms_zxing_decode_test PRIVATE ms_zxing)
+  add_test(NAME ms_zxing_decode_test COMMAND ms_zxing_decode_test
+    "${CMAKE_CURRENT_LIST_DIR}/../test/fixtures/mecard.pgm")
+endif()

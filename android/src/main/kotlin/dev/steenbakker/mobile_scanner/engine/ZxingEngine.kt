@@ -40,7 +40,7 @@ class ZxingEngine {
             return emptyList()
         }
         val results = nativeDecodeLuma(
-            luma, width, height, rowStride, formatMask,
+            luma.slice(), width, height, rowStride, formatMask,
             cropLeft, cropTop, cropWidth, cropHeight,
             tryHarder, tryRotate, tryInvert, tryDownscale, maxSymbols,
         )

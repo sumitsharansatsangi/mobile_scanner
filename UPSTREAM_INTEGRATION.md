@@ -89,3 +89,13 @@ physical devices before shipping.
   `databarltd-1/00.png` through the C ABI with the fork's new IDs, both with
   explicit filters and with default detection. A QR-only filter excludes both.
 - iOS/macOS builds and physical-camera behavior require a macOS host/devices.
+
+
+## Follow-up completeness work
+
+See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for the current audit
+status. Follow-up changes add structured FFI/web payloads, strict format
+filtering, safe sized native decoding, worker isolates, image batches, Android
+frame quality and Apple native build wiring. The CI matrix now includes native
+Linux/Windows checks, Chrome regressions, Android release compilation and both
+Apple dependency managers. DotCode and desktop live capture remain open features.

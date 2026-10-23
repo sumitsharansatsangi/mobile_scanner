@@ -477,7 +477,7 @@ class MobileScannerWeb extends MobileScannerPlatform {
       case WebBarcodeReader.auto:
         // Use the native BarcodeDetector API when available (Chrome/Edge/Safari
         // 17+), fall back to zxing-wasm for Firefox and older browsers.
-        if (await BarcodeDetectorReader.isSupported()) {
+        if (await BarcodeDetectorReader.isSupported(startOptions.formats)) {
           _barcodeReader = BarcodeDetectorReader();
           _activeWebReader = WebBarcodeReader.barcodeDetector;
         } else {

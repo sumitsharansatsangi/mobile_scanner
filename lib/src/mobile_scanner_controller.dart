@@ -21,6 +21,7 @@ import 'package:mobile_scanner/src/objects/barcode_capture.dart';
 import 'package:mobile_scanner/src/objects/mobile_scanner_state.dart';
 import 'package:mobile_scanner/src/objects/start_options.dart';
 import 'package:mobile_scanner/src/objects/switch_camera_option.dart';
+import 'package:mobile_scanner/src/utils/barcode_capture_filter.dart';
 
 /// The controller for the [MobileScanner] widget.
 class MobileScannerController extends ValueNotifier<MobileScannerState> {
@@ -169,15 +170,14 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
 
   /// Enable image quality analysis for barcode detection optimization.
   ///
-  /// When enabled, the scanner will analyze image quality and suggest
-  ///  enhancements.
-  /// Defaults to false.
+  /// On Android, attaches luminance, contrast and sharpness measurements to
+  /// [BarcodeCapture.imageQuality] for detected frames. Defaults to false.
   final bool enableQualityAnalysis;
 
   /// Enable batch processing for multiple images.
   ///
-  /// When enabled, the scanner can process multiple images concurrently.
-  /// Defaults to false.
+  /// Enables concurrency by default in [analyzeImages]. Defaults to false.
+  /// This setting does not change the live camera pipeline.
   final bool enableBatchProcessing;
 
   /// Enable automatic image quality enhancement.
@@ -248,7 +248,8 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
               return;
             }
 
-            _barcodesController.add(barcode);
+            final filtered = filterBarcodeCapture(barcode, formats);
+            if (filtered != null) _barcodesController.add(filtered);
           },
           onError: (Object error) {
             if (_barcodesController.isClosed) {
@@ -352,9 +353,9 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   /// image.
   /// If the [formats] are omitted or empty, all formats are detected.
   ///
-  /// This is only supported on Android, physical iOS devices and MacOS.
-  /// This is not supported on the iOS Simulator, due to restrictions on the
-  /// Simulator.
+  /// Supported on Android, iOS, macOS, Linux and Windows through the native
+  /// decoder. Apple Vision is used as a fallback on physical Apple devices.
+  /// File paths are not supported on web.
   ///
   /// Returns the [BarcodeCapture] that was found in the image.
   ///
@@ -366,8 +367,53 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   Future<BarcodeCapture?> analyzeImage(
     String path, {
     List<BarcodeFormat> formats = const <BarcodeFormat>[],
-  }) {
-    return MobileScannerPlatform.instance.analyzeImage(path, formats: formats);
+  }) async {
+    if (_isDisposed) {
+      throw const MobileScannerException(
+        errorCode: MobileScannerErrorCode.controllerDisposed,
+      );
+    }
+    return filterBarcodeCapture(
+      await MobileScannerPlatform.instance.analyzeImage(path, formats: formats),
+      formats,
+    );
+  }
+
+  /// Analyzes image files in input order with bounded concurrency.
+  ///
+  /// With [enableBatchProcessing], up to four files are analyzed concurrently;
+  /// otherwise files are processed sequentially. [maxConcurrent] overrides this
+  /// default (1–16). Empty detections occupy a null entry in the returned list.
+  /// A failure is propagated after all started workers have finished.
+  Future<List<BarcodeCapture?>> analyzeImages(
+    List<String> paths, {
+    List<BarcodeFormat> formats = const <BarcodeFormat>[],
+    int? maxConcurrent,
+  }) async {
+    if (_isDisposed) {
+      throw const MobileScannerException(
+        errorCode: MobileScannerErrorCode.controllerDisposed,
+      );
+    }
+    final concurrency = maxConcurrent ?? (enableBatchProcessing ? 4 : 1);
+    if (concurrency < 1 || concurrency > 16) {
+      throw RangeError.range(concurrency, 1, 16, 'maxConcurrent');
+    }
+    final inputs = List<String>.of(paths);
+    final requested = List<BarcodeFormat>.of(formats);
+    final results = List<BarcodeCapture?>.filled(inputs.length, null);
+    var next = 0;
+    Future<void> worker() async {
+      while (next < inputs.length) {
+        final index = next++;
+        results[index] = await analyzeImage(inputs[index], formats: requested);
+      }
+    }
+
+    await Future.wait([
+      for (var i = 0; i < concurrency && i < inputs.length; i++) worker(),
+    ]);
+    return results;
   }
 
   /// Build a camera preview widget.

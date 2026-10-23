@@ -99,3 +99,25 @@ Barcode mirrorBarcodeX(Barcode barcode, double videoWidth) {
     type: barcode.type,
   );
 }
+
+/// Orders four corners clockwise from the top-left without mutating the input.
+List<Offset> orderBarcodeCornersClockwise(List<Offset> points) {
+  if (points.length != 4) return List.of(points);
+  final center = points.reduce((a, b) => a + b) / 4;
+  final ordered = List<Offset>.of(points)
+    ..sort(
+      (a, b) => math
+          .atan2(a.dy - center.dy, a.dx - center.dx)
+          .compareTo(math.atan2(b.dy - center.dy, b.dx - center.dx)),
+    );
+  var first = 0;
+  for (var i = 1; i < ordered.length; i++) {
+    final candidate = ordered[i];
+    final current = ordered[first];
+    final difference = candidate.dx + candidate.dy - current.dx - current.dy;
+    if (difference < 0 || (difference == 0 && candidate.dy < current.dy)) {
+      first = i;
+    }
+  }
+  return [...ordered.skip(first), ...ordered.take(first)];
+}

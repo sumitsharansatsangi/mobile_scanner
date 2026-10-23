@@ -1,0 +1,48 @@
+# Implementation status
+
+This records the follow-up to the upstream integration audit. Statuses distinguish
+implemented code from platform and hardware validation that has not run here.
+
+| Audited gap | Current implementation | Remaining work |
+| --- | --- | --- |
+| FFI drops structured payloads | Shared Dart parsing for MECARD, vCard, WiFi, email, phone, SMS, URLs/bookmarks, geo, calendar and AAMVA; native SDK payloads preserved | More uncommon payload dialects can be added with fixtures |
+| Requested formats widen to all | Output filtering on web and controllers, empty native-mask guard, no unsupported-only web decoder invocation, browser auto selection checks requested capabilities | Physical camera regression across fallback engines |
+| DotCode falsely advertised | Support tables and enum documentation corrected; unsupported-only format regression | No DotCode decoder is implemented; a backend and corpus are required |
+| Quality switch does nothing | Android Y-plane brightness, contrast and horizontal sharpness available as `BarcodeCapture.imageQuality`, without a returned JPEG | Apple/web quality analysis is not implemented; measurements describe detected frames |
+| Batch switch does nothing | `analyzeImages` with bounded concurrency, ordered output, empty detections and error propagation; flag selects sequential vs parallel default | Web file-path analysis is unsupported |
+| Apple native build missing | Pinned ZXing 2.3.0 source, shared C ABI wrappers, CocoaPods source/header settings and SwiftPM native target now supplied | Xcode builds and iOS/macOS device tests; CI covers both dependency managers |
+| Unsafe raw-buffer boundary | Dart validation, length-aware C ABI, native bounds checks, JNI buffer slices and CVPixelBuffer length | Further fuzzing and sanitizer coverage |
+| Desktop capture missing | Linux/Windows native image decoding and native ABI CI | Live camera/preview backends remain unimplemented |
+| Missing release/browser/desktop checks | Android release build in CI, headless Chrome reader regressions, Linux/Windows CTest jobs, real FFI fixture test | Physical camera E2E and executing remote CI |
+
+## Validation commands
+
+```sh
+flutter analyze
+flutter test
+flutter test --platform chrome test/web/reader_browser_test.dart
+cmake -S src -B build/native -DMS_ZXING_BUILD_TESTS=ON
+cmake --build build/native --config Release --parallel 2
+ctest --test-dir build/native -C Release --output-on-failure
+MS_ZXING_NATIVE_TESTS=1 LD_LIBRARY_PATH="$PWD/build/native" flutter test test/ffi/zxing_native_test.dart
+cd example/android
+./gradlew :mobile_scanner:testDebugUnitTest
+cd ..
+flutter build apk --release --target-platform android-arm64
+```
+
+The native Flutter fixture tests are opt-in so ordinary widget tests do not
+require a prebuilt shared library. Native CI enables them explicitly on Linux.
+Browser tests use mock detector results and real JavaScript interop; they do not
+prove real-camera decoding. CTest reads a real QR fixture without an image library.
+Apple's vendored source set was compiled and linked on Linux as an additional
+check; this does not validate Swift imports, CocoaPods, SwiftPM or Apple runtime.
+
+## Open feature work
+
+DotCode and Linux/Windows live capture have not been marked complete. A DotCode
+reader needs symbol sampling, error correction and reference images, or a decoder
+library that actually supports it. ZXing 2.3.0 does not provide that decoder.
+Desktop live capture needs an integrated frame/preview backend, lifecycle and
+permission handling, camera selection, throttling and hardware validation on both
+operating systems. File decoding does not supply those capabilities.

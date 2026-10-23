@@ -48,10 +48,7 @@ final class ZXingWasmBarcodeReader extends PollingBarcodeReader {
 
   @override
   Future<void> prepareDecoder(StartOptions options) async {
-    _formats = [
-      for (final f in options.formats)
-        if (f != BarcodeFormat.unknown) f,
-    ];
+    _formats = List.of(options.formats);
 
     // Off-screen canvas used to extract ImageData from each video frame.
     // willReadFrequently: true tells the browser to optimise for repeated
@@ -65,6 +62,11 @@ final class ZXingWasmBarcodeReader extends PollingBarcodeReader {
 
   @override
   Future<List<Barcode>> decodeFrame(web.HTMLVideoElement video) async {
+    if (_formats.isNotEmpty &&
+        !_formats.contains(BarcodeFormat.all) &&
+        _formats.every((f) => f.toZXingWasmString == null)) {
+      return const [];
+    }
     final canvas = _canvas;
     final ctx = _ctx;
 
@@ -120,9 +122,7 @@ final class ZXingWasmBarcodeReader extends PollingBarcodeReader {
         );
       }
 
-      // If none of the requested formats are supported by zxing-wasm,
-      // deliberately fall through to detecting all formats, rather than
-      // detecting nothing at all.
+      // Unsupported-only requests are short-circuited by decodeFrame.
     }
 
     // Omit the formats key entirely so zxing-wasm detects all formats.

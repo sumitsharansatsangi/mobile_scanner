@@ -97,7 +97,7 @@ Java_dev_steenbakker_mobile_1scanner_engine_ZxingEngine_nativeDecodeLuma(
   params.try_downscale = tryDownscale ? 1 : 0;
   params.max_symbols = maxSymbols;
 
-  MsZxingResultList* list = ms_zxing_decode(&params);
+  MsZxingResultList* list = ms_zxing_decode_sized(&params, static_cast<uint64_t>(env->GetDirectBufferCapacity(luma)));
   if (list == nullptr) return nullptr;
 
   jobjectArray array =

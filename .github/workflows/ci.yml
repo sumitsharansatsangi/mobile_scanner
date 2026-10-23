@@ -101,6 +101,9 @@ jobs:
       - name: Check Code Formatting
         run: dart format --set-exit-if-changed .
 
+      - name: Check Apple native ABI header stays in sync
+        run: cmp src/ms_zxing.h darwin/mobile_scanner/Sources/MobileScannerNative/include/ms_zxing.h
+
   unit_tests:
     name: Unit Tests
     needs: [analysis, formatting]
@@ -206,7 +209,7 @@ jobs:
       # build below needs to locate the Flutter SDK.
       - name: Build Example App
         working-directory: example
-        run: flutter build apk --debug
+        run: flutter build apk --release --target-platform android-arm64
 
       - name: Run Plugin Unit Tests
         working-directory: example/android
@@ -223,7 +226,11 @@ jobs:
     name: Build iOS
     needs: [analysis, formatting]
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        swift-package-manager: [true, false]
 
     steps:
       - name: Checkout Repository
@@ -234,6 +241,14 @@ jobs:
         with:
           channel: stable
           cache: true
+
+      - name: Select Apple dependency manager
+        run: |
+          if [ "${{ matrix.swift-package-manager }}" = "true" ]; then
+            flutter config --enable-swift-package-manager
+          else
+            flutter config --no-enable-swift-package-manager
+          fi
 
       - name: Install Dependencies
         working-directory: example
@@ -247,7 +262,11 @@ jobs:
     name: Build macOS
     needs: [analysis, formatting]
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        swift-package-manager: [true, false]
 
     steps:
       - name: Checkout Repository
@@ -258,6 +277,14 @@ jobs:
         with:
           channel: stable
           cache: true
+
+      - name: Select Apple dependency manager
+        run: |
+          if [ "${{ matrix.swift-package-manager }}" = "true" ]; then
+            flutter config --enable-swift-package-manager
+          else
+            flutter config --no-enable-swift-package-manager
+          fi
 
       - name: Install Dependencies
         working-directory: example
@@ -300,3 +327,46 @@ jobs:
       - name: Build Example App
         working-directory: example
         run: flutter build web
+
+  native_desktop:
+    name: Native ABI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure native engine
+        run: cmake -S src -B build/native -DMS_ZXING_BUILD_TESTS=ON
+      - name: Build native engine and tests
+        run: cmake --build build/native --config Release --parallel 2
+      - name: Test native bounds and format requests
+        run: ctest --test-dir build/native -C Release --output-on-failure
+      - uses: subosito/flutter-action@v2
+        if: runner.os == 'Linux'
+        with:
+          channel: stable
+          cache: true
+      - name: Native Flutter image regression
+        if: runner.os == 'Linux'
+        env:
+          MS_ZXING_NATIVE_TESTS: "1"
+          LD_LIBRARY_PATH: ${{ github.workspace }}/build/native
+        run: |
+          flutter pub get
+          flutter test test/ffi/zxing_native_test.dart
+
+  browser_regressions:
+    name: Browser reader regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test --platform chrome test/web/reader_browser_test.dart

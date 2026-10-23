@@ -2,7 +2,6 @@ import 'dart:js_interop';
 import 'dart:ui';
 
 import 'package:mobile_scanner/src/enums/barcode_format.dart';
-import 'package:mobile_scanner/src/enums/barcode_type.dart';
 import 'package:mobile_scanner/src/objects/barcode.dart';
 import 'package:mobile_scanner/src/objects/start_options.dart';
 import 'package:mobile_scanner/src/web/barcode_detector/barcode_detector_formats.dart';
@@ -23,7 +22,23 @@ final class BarcodeDetectorReader extends PollingBarcodeReader {
 
   /// Returns `true` when the BarcodeDetector API is available and reports at
   /// least one supported format.
-  static Future<bool> isSupported() => isBarcodeDetectorSupported();
+  static Future<bool> isSupported([
+    List<BarcodeFormat> formats = const [],
+  ]) async {
+    try {
+      final supported =
+          (await NativeBarcodeDetector.getSupportedFormats().toDart).toDart
+              .map((s) => s.toDart)
+              .toSet();
+      if (supported.isEmpty) return false;
+      if (formats.isEmpty || formats.contains(BarcodeFormat.all)) return true;
+      return formats.every(
+        (f) => supported.contains(f.toBarcodeDetectorString),
+      );
+    } on Object {
+      return false;
+    }
+  }
 
   NativeBarcodeDetector? _detector;
 
@@ -33,12 +48,13 @@ final class BarcodeDetectorReader extends PollingBarcodeReader {
 
   @override
   Future<void> prepareDecoder(StartOptions options) async {
-    final formats = [
-      for (final f in options.formats)
-        if (f != BarcodeFormat.unknown) f,
-    ];
+    final formats = options.formats;
 
-    _detector = _buildDetector(formats);
+    final supported = (await NativeBarcodeDetector.getSupportedFormats().toDart)
+        .toDart
+        .map((s) => s.toDart)
+        .toSet();
+    _detector = _buildDetector(formats, supported);
   }
 
   @override
@@ -59,7 +75,10 @@ final class BarcodeDetectorReader extends PollingBarcodeReader {
     _detector = null;
   }
 
-  NativeBarcodeDetector _buildDetector(List<BarcodeFormat> formats) {
+  NativeBarcodeDetector? _buildDetector(
+    List<BarcodeFormat> formats,
+    Set<String> supported,
+  ) {
     final detectAll = formats.isEmpty || formats.contains(BarcodeFormat.all);
 
     if (detectAll) {
@@ -67,15 +86,13 @@ final class BarcodeDetectorReader extends PollingBarcodeReader {
     }
 
     final strs = [
-      for (final f in formats) ?f.toBarcodeDetectorString,
+      for (final f in formats)
+        if (f.toBarcodeDetectorString case final value?
+            when supported.contains(value))
+          value,
     ];
 
-    // If none of the requested formats are supported by the BarcodeDetector
-    // API, deliberately fall back to detecting all formats, rather than
-    // detecting nothing at all.
-    if (strs.isEmpty) {
-      return NativeBarcodeDetector();
-    }
+    if (strs.isEmpty) return null;
 
     return NativeBarcodeDetector.withOptions(
       BarcodeDetectorInit(
@@ -88,13 +105,15 @@ final class BarcodeDetectorReader extends PollingBarcodeReader {
     final pts = result.cornerPoints.toDart;
     final corners = [for (final p in pts) Offset(p.x, p.y)];
 
-    return Barcode(
-      corners: corners,
-      format: result.format.toBarcodeFormat,
-      displayValue: result.rawValue,
-      rawValue: result.rawValue,
-      size: computeBoundingBoxSize(corners),
-      type: BarcodeType.text,
-    );
+    final size = computeBoundingBoxSize(corners);
+    return Barcode.fromNative({
+      'corners': [
+        for (final p in corners) {'x': p.dx, 'y': p.dy},
+      ],
+      'format': result.format.toBarcodeFormat.rawValue,
+      'displayValue': result.rawValue,
+      'rawValue': result.rawValue,
+      'size': {'width': size.width, 'height': size.height},
+    });
   }
 }

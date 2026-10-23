@@ -5,6 +5,23 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:mobile_scanner/src/web/web_barcode_utils.dart';
 
 void main() {
+  test('corner ordering starts at top-left and preserves the caller list', () {
+    final points = [
+      const Offset(10, 10),
+      Offset.zero,
+      const Offset(0, 10),
+      const Offset(10, 0),
+    ];
+    final original = List<Offset>.of(points);
+    expect(orderBarcodeCornersClockwise(points), [
+      Offset.zero,
+      const Offset(10, 0),
+      const Offset(10, 10),
+      const Offset(0, 10),
+    ]);
+    expect(points, original);
+  });
+
   test('mirroring retains structured payloads and restores corner winding', () {
     const barcode = Barcode(
       corners: [Offset(10, 20), Offset(30, 20), Offset(30, 40), Offset(10, 40)],

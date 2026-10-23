@@ -3,9 +3,11 @@ import 'dart:js_interop';
 import 'dart:ui';
 
 import 'package:meta/meta.dart';
+import 'package:mobile_scanner/src/enums/barcode_format.dart';
 import 'package:mobile_scanner/src/objects/barcode.dart';
 import 'package:mobile_scanner/src/objects/barcode_capture.dart';
 import 'package:mobile_scanner/src/objects/start_options.dart';
+import 'package:mobile_scanner/src/utils/barcode_format_filter.dart';
 import 'package:mobile_scanner/src/web/barcode_reader.dart';
 import 'package:mobile_scanner/src/web/media_track_constraints_delegate.dart';
 import 'package:mobile_scanner/src/web/web_camera_utility.dart';
@@ -29,6 +31,8 @@ abstract base class PollingBarcodeReader extends BarcodeReader {
   /// the camera texture. Barcodes whose bounding box is not contained within
   /// this rect are filtered out.
   Rect? _scanWindow;
+
+  List<BarcodeFormat> _requestedFormats = const [];
 
   int _timeBetweenScansMs = 1000;
 
@@ -113,6 +117,7 @@ abstract base class PollingBarcodeReader extends BarcodeReader {
     _videoElement = videoElement;
     _videoStream = videoStream;
     _timeBetweenScansMs = options.detectionTimeoutMs;
+    _requestedFormats = List.of(options.formats);
 
     await prepareDecoder(options);
 
@@ -200,6 +205,13 @@ abstract base class PollingBarcodeReader extends BarcodeReader {
     final barcodes = <Barcode>[];
 
     for (var barcode in results) {
+      if (!matchesBarcodeFormat(
+        barcode.format,
+        _requestedFormats,
+        rawValue: barcode.rawValue,
+      )) {
+        continue;
+      }
       // Check the scan window using raw camera coordinates (before
       // mirroring), because the scan window percentages are also in raw
       // camera space.

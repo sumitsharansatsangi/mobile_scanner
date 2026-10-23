@@ -95,16 +95,16 @@ This returns:
 
 mobile_scanner uses a hybrid pipeline. **ZXing-C++** is the primary decoder on
 Android, Linux, and Windows; web selects the native BarcodeDetector API when
-available and otherwise uses ZXing-WASM, with ZXing-js available as an option. On Apple platforms, Apple Vision
-is the default engine until the optional native bridge is compiled. With the
-`MOBILE_SCANNER_ZXING` build flag enabled, ZXing-C++ becomes primary on
-iOS/macOS too and Apple Vision is used as the fallback.
+available for every requested format and otherwise uses ZXing-WASM, with
+ZXing-js available as an option. CocoaPods and SwiftPM now compile the pinned
+ZXing-C++ engine on iOS/macOS, with Apple Vision as the recovery decoder.
+Apple builds require validation on Xcode; see [implementation status](IMPLEMENTATION_STATUS.md).
 
 | Platform | Primary engine | ML fallback |
 |----------|----------------|-------------|
 | Android | ZXing-C++ (FFI/JNI) | ML Kit |
-| iOS | Apple Vision, or ZXing-C++ when enabled | Vision fallback when ZXing is enabled |
-| macOS | Apple Vision, or ZXing-C++ when enabled | Vision fallback when ZXing is enabled |
+| iOS | ZXing-C++ (Apple build validation pending) | Apple Vision |
+| macOS | ZXing-C++ (Apple build validation pending) | Apple Vision |
 | Web | ZXing-js | — |
 | Linux/Windows | ZXing-C++ | — |
 
@@ -124,7 +124,7 @@ iOS/macOS too and Apple Vision is used as the fallback.
 | | enhanceImageQuality | ✅ | ❌ | ❌ | ❌ |
 | | enableAdvancedProcessing | ✅ | ❌ | ❌ | ❌ |
 | **Detection** | enableQualityAnalysis | ✅ | ❌ | ❌ | ❌ |
-| | enableBatchProcessing | ✅ | ❌ | ❌ | ❌ |
+| | enableBatchProcessing (`analyzeImages`) | ✅ | ✅ | ✅ | ❌ |
 | | multiFormatDetection | ✅ | ✅ | ✅ | ✅ |
 | **Formats** | All exposed formats | ✅ | ⚠️² | ⚠️² | ⚠️¹ |
 
@@ -139,7 +139,7 @@ Detected by ZXing-C++, Apple Vision, ML Kit, or ZXing-js depending on platform:
 | **PDF417** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Aztec** | 2D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **MaxiCode** | 2D | ✅ | ⚠️² | ⚠️² | ✅ | ✅ |
-| **DotCode** | 2D | ✅ | ⚠️² | ⚠️² | ❌¹ | ✅ |
+| **DotCode** | 2D | ❌¹ | ❌¹ | ❌¹ | ❌¹ | ❌¹ |
 | **Code 128** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Code 39** | 1D | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Code 32 / Italian Pharmacode** | 1D | ✅⁵ | ⚠️²⁵ | ⚠️²⁵ | ❌⁵ | ✅⁵ |
@@ -155,14 +155,12 @@ Detected by ZXing-C++, Apple Vision, ML Kit, or ZXing-js depending on platform:
 | **Pharmacode One-Track** | 1D | ✅⁴ | ⚠️³⁴ | ⚠️³⁴ | ❌³ | ✅⁴ |
 | **Pharmacode Two-Track** | 1D | ✅⁴ | ⚠️³⁴ | ⚠️³⁴ | ❌³ | ✅⁴ |
 
-¹ DotCode is not supported by the web ZXing-js reader.
-² On iOS/macOS, MaxiCode and DotCode require the optional ZXing-C++ engine
-(`MOBILE_SCANNER_ZXING` — see `darwin/mobile_scanner.podspec`). Apple Vision alone
-covers the other formats, including GS1 DataBar (iOS 15+ / macOS 12+).
+¹ DotCode is reserved in the API but has no decoder in the pinned engine.
+² The Apple native decoder is wired into CocoaPods and SwiftPM; Xcode and device
+validation remain pending. Apple Vision also covers GS1 DataBar on supported OS versions.
 ³ Code 11, MSI/Plessey, and Pharmacode are decoded by mobile_scanner's native
 linear fallback detector. They are not available through Android ML Kit, Apple
-Vision, or ZXing-js web; on iOS/macOS they require the optional native
-ZXing-C++ bridge to be enabled.
+Vision, or ZXing-js web; on iOS/macOS they use the native ZXing-C++ bridge.
 ⁴ Pharmacode has no checksum, so the fallback detector only runs when
 `BarcodeFormat.pharmaCode` or `BarcodeFormat.pharmaCodeTwoTrack` is explicitly
 requested.
@@ -743,3 +741,23 @@ On Web, support depends on the active detection backend:
 | Native BarcodeDetector | :x: Not available (browser API returns decoded text only) |
 | zxing-wasm             | :heavy_check_mark: Fully supported                      |
 | ZXing-js (legacy)      | :heavy_check_mark: Fully supported                      |
+
+### Image batches and quality
+
+```dart
+final scanner = MobileScannerController(
+  enableBatchProcessing: true,
+  enableQualityAnalysis: true,
+);
+final results = await scanner.analyzeImages(
+  imagePaths,
+  maxConcurrent: 4,
+);
+```
+
+Batches also work for image files on Linux and Windows. Results preserve input
+order and use `null` for an image without a detection. Native image scanning runs
+on worker isolates. On Android, live captures include `capture.imageQuality`
+with normalized brightness, contrast and horizontal sharpness statistics. Quality
+analysis does not require `returnImage`; it measures frames with detections.
+Linux/Windows live camera capture is not implemented.

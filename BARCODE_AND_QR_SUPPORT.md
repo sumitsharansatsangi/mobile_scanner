@@ -13,9 +13,9 @@ content categories through `BarcodeType`.
 
 | Platform | Primary engine | Fallback engine | Notes |
 | --- | --- | --- | --- |
-| Android | ZXing-C++ | ML Kit | ZXing-C++ covers extra formats such as GS1 DataBar, MaxiCode, DotCode, Code 11, MSI/Plessey, Pharmacode, and Code 32. |
-| iOS | Apple Vision, or ZXing-C++ when enabled | Vision fallback when ZXing is enabled | MaxiCode, DotCode, Code 11, MSI/Plessey, Pharmacode, and distinct Code 32 reporting require the optional `MOBILE_SCANNER_ZXING` build path. |
-| macOS | Apple Vision, or ZXing-C++ when enabled | Vision fallback when ZXing is enabled | Same format notes as iOS. |
+| Android | ZXing-C++ | ML Kit | ZXing-C++ covers extra formats such as GS1 DataBar, MaxiCode, Code 11, MSI/Plessey, Pharmacode, and Code 32. |
+| iOS | ZXing-C++ (Xcode validation pending) | Apple Vision | MaxiCode, Code 11, MSI/Plessey, Pharmacode, and distinct Code 32 reporting use the native decoder now included in CocoaPods and SwiftPM. |
+| macOS | ZXing-C++ (Xcode validation pending) | Apple Vision | Same format notes as iOS. |
 | Web | Native BarcodeDetector when available | ZXing-WASM; ZXing-js can be selected explicitly | Available formats depend on the selected backend. Native-only fallback formats such as Code 11, MSI/Plessey, and Pharmacode remain unavailable on web. |
 | Linux / Windows | ZXing-C++ | None | Image decoding is supported; live camera preview is not available in this project. |
 
@@ -33,7 +33,7 @@ for the format IDs used by this fork.
 | PDF417 | Yes | 2D stacked | Driver licenses, boarding passes, shipping labels, government documents. | It stores larger structured payloads in a printable rectangular barcode. | High capacity, robust for documents, common in ID workflows. | Wide shape needs more label space, not as consumer-friendly as QR. |
 | Aztec | Yes | 2D | Transport tickets, boarding passes, mobile tickets. | It scans well without a quiet zone and is good for compact ticket layouts. | Compact, no quiet zone required, good error correction. | Less common than QR, fewer consumer tools recognize it. |
 | MaxiCode | Yes where ZXing-C++ is active | 2D | Parcel and logistics sorting, especially shipping labels. | Designed for high-speed package sorting systems. | Fast logistics scanning, fixed-size symbol, good for conveyor environments. | Specialized use, not supported by ML Kit or Apple Vision; relies on ZXing path. |
-| DotCode | Yes where ZXing-C++ is active, except web | 2D dot pattern | High-speed printing, tobacco/pharma packaging, industrial coding. | Useful where dot-matrix or high-speed production printing is used. | Works with dot-based printing, compact, industrial-friendly. | Not supported on web ZXing-js, not supported by ML Kit or Apple Vision, less common for general apps. |
+| DotCode | Not implemented in the pinned engine | 2D dot pattern | High-speed printing, tobacco/pharma packaging, industrial coding. | Useful where dot-matrix or high-speed production printing is used. | Works with dot-based printing, compact, industrial-friendly. | Not supported on web ZXing-js, not supported by ML Kit or Apple Vision, less common for general apps. |
 | Code 128 | Yes | 1D | Shipping, inventory, asset tracking, serial numbers. | It encodes dense alphanumeric data and is common in logistics. | High density for 1D, supports full ASCII, widely supported. | Needs a straight scan line, stores less data than 2D codes. |
 | GS1-128 / UCC/EAN-128 | Yes where ZXing-C++ is active | 1D GS1 Code 128 | GS1 application identifiers for cartons, logistics, healthcare, and retail supply-chain labels. | Encodes GS1 data using Code 128 with FNC1 in the first position. | Distinguishes GS1-128 from plain Code 128 on native ZXing platforms. | Physically a Code 128 symbol; ML Kit, Apple Vision, and web may report it as plain Code 128. |
 | Code 39 | Yes | 1D | Industrial labels, badges, inventory, older systems. | Simple and widely implemented. | Easy to print, broad legacy support. | Low density, larger labels, limited character set unless extended variants are used. |
@@ -134,24 +134,24 @@ Avoid QR Code when:
 
 ## Important Limitations
 
-- Platform support is not identical across every engine. DotCode is not
-  supported on web; Code 11, MSI/Plessey, and Pharmacode are also unavailable
-  on web.
-- MaxiCode, DotCode, GS1-128 identification, Code 11, MSI/Plessey,
-  Pharmacode, and UPC/EAN extension support rely on the native bridge; on Apple
-  platforms that path is optional and must be enabled at build time.
+- DotCode has no decoder in the pinned engine on any platform. Its enum value
+  is reserved for compatibility. Code 11, MSI/Plessey and Pharmacode are also
+  unavailable on web.
+- MaxiCode, GS1-128 identification, Code 11, MSI/Plessey, Pharmacode and UPC/EAN
+  extensions rely on the native bridge. CocoaPods and SwiftPM now include it;
+  Apple build and device validation remain pending.
 - Android ML Kit does not support GS1 DataBar, GS1 DataBar Expanded, MaxiCode,
-  DotCode, Code 11, MSI/Plessey, or Pharmacode; the project handles those
-  through native decoding.
+  DotCode, Code 11, MSI/Plessey or Pharmacode. Native decoding adds the other
+  formats; DotCode remains unimplemented.
 - Pharmacode has no checksum, so it is decoded only when the caller explicitly
   requests `BarcodeFormat.pharmaCode` or `BarcodeFormat.pharmaCodeTwoTrack`.
 - UPC/EAN add-ons can be required by requesting
   `BarcodeFormat.upcEanExtension`. On native ZXing platforms, the scan result
   format remains the main `ean13`, `ean8`, `upcA`, or `upcE` format and the
   decoded text includes the add-on after a space.
-- `BarcodeType` classification can be `unknown` even when the barcode format is
-  decoded correctly. In that case, use `rawValue` or `rawDecodedBytes` and parse
-  it yourself.
+- FFI and web results now parse common contact, WiFi, email, phone, SMS, URL,
+  geographic, calendar and AAMVA payloads. Unsupported payload conventions remain
+  text; native SDK structured data is preserved.
 - Some formats encode only identifiers. For example, EAN/UPC usually gives a
   product number, not the product name; you need an external database to resolve
   it.

@@ -16,10 +16,20 @@ let package = Package(
     targets: [
         .target(
             name: "mobile_scanner",
-            dependencies: [],
+            dependencies: ["MobileScannerNative"],
             resources: [
                 .process("Resources"),
-            ]
+            ],
+            swiftSettings: [.define("MOBILE_SCANNER_ZXING")]
+        ),
+        .target(
+            name: "MobileScannerNative",
+            exclude: ["README.md", "ZXING_LICENSE"],
+            publicHeadersPath: "include",
+            cSettings: [.define("ZXING_READERS")],
+            cxxSettings: [.define("ZXING_READERS"), .headerSearchPath("zxing")],
+            linkerSettings: [.linkedLibrary("c++")]
         )
-    ]
+    ],
+    cxxLanguageStandard: .cxx20
 )

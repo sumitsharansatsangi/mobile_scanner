@@ -1,12 +1,12 @@
-// The ZXing-C++ primary engine on Apple platforms is gated behind the
-// MOBILE_SCANNER_ZXING compilation condition. It stays off until the native
-// core (src/ms_zxing.{h,cpp}) and zxing-cpp are wired into the darwin build
-// (see the setup notes in mobile_scanner.podspec). With the flag off, the
-// plugin builds exactly as before and uses Apple Vision only.
+// ZXing-C++ is linked by both CocoaPods and SwiftPM. Vision is the fallback.
 #if MOBILE_SCANNER_ZXING
 
 import CoreVideo
 import Foundation
+
+#if SWIFT_PACKAGE
+import MobileScannerNative
+#endif
 
 #if canImport(Flutter)
 import Flutter
@@ -87,7 +87,7 @@ enum ZxingScannerDarwin {
         params.try_downscale = tryHarder ? 1 : 0
         params.max_symbols = 0
 
-        guard let listPtr = ms_zxing_decode(&params) else {
+        guard let listPtr = ms_zxing_decode_sized(&params, UInt64(rowStride * height)) else {
             return []
         }
         defer { ms_zxing_free_results(listPtr) }

@@ -79,9 +79,8 @@ enum BarcodeFormat {
 
   /// Barcode format constant for DotCode.
   ///
-  /// Platform support: decoded by the native ZXing-C++ engine only
-  /// (Android/iOS/macOS/desktop). Not supported by ML Kit, Apple Vision, or
-  /// the web ZXing-js reader.
+  /// Reserved for compatibility. The pinned native and web decoders do not
+  /// implement DotCode; requesting only this format returns no detections.
   dotCode(65536),
 
   /// Barcode format constant for Code 11.

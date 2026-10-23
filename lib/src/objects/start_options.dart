@@ -89,10 +89,7 @@ class StartOptions {
   /// for better barcode detection. Defaults to true in breaking change release.
   final bool enableAdvancedProcessing;
 
-  /// Enable image quality analysis for barcode detection optimization.
-  ///
-  /// When enabled, the scanner analyzes image quality and suggests
-  /// enhancements.
+  /// Attach image brightness, contrast and sharpness to Android captures.
   /// Defaults to false.
   final bool enableQualityAnalysis;
 

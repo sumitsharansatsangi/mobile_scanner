@@ -24,7 +24,11 @@ extern "C" {
 // Visibility / calling-convention macro so the symbols are exported from the
 // shared library on every toolchain.
 #if defined(_WIN32)
+#if defined(MS_ZXING_BUILD)
 #define MS_ZXING_API __declspec(dllexport)
+#else
+#define MS_ZXING_API __declspec(dllimport)
+#endif
 #else
 #define MS_ZXING_API __attribute__((visibility("default"))) __attribute__((used))
 #endif
@@ -102,6 +106,11 @@ typedef struct {
 // the list and are invalidated once it is freed.
 MS_ZXING_API MsZxingResultList* ms_zxing_decode(
     const MsZxingDecodeParams* params);
+
+// Bounds-checked decode. Returns an empty list for invalid image metadata or
+// an undersized buffer. New integrations should prefer this entry point.
+MS_ZXING_API MsZxingResultList* ms_zxing_decode_sized(
+    const MsZxingDecodeParams* params, uint64_t data_length);
 
 // Free a list returned by ms_zxing_decode (null-safe).
 MS_ZXING_API void ms_zxing_free_results(MsZxingResultList* list);

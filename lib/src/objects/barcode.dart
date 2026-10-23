@@ -16,6 +16,7 @@ import 'package:mobile_scanner/src/objects/phone.dart';
 import 'package:mobile_scanner/src/objects/sms.dart';
 import 'package:mobile_scanner/src/objects/url_bookmark.dart';
 import 'package:mobile_scanner/src/objects/wifi.dart';
+import 'package:mobile_scanner/src/utils/barcode_payload_parser.dart';
 
 /// Represents a single recognized barcode and its value.
 class Barcode {
@@ -39,8 +40,22 @@ class Barcode {
     this.wifi,
   });
 
-  /// Creates a new [Barcode] instance from the given [data].
-  factory Barcode.fromNative(Map<Object?, Object?> data) {
+  /// Creates a new [Barcode] instance from the given native data.
+  factory Barcode.fromNative(Map<Object?, Object?> nativeData) {
+    var data = nativeData;
+    // Keep structured values supplied by native SDKs; enrich plain results.
+    if (data['type'] == null || data['type'] == 0 || data['type'] == 7) {
+      final parsed = parseBarcodePayload(
+        data['rawValue'] as String?,
+        BarcodeFormat.fromRawValue(data['format'] as int? ?? -1),
+      );
+      data = {
+        ...data,
+        for (final entry in parsed.entries)
+          if (entry.key == 'type' || data[entry.key] == null)
+            entry.key: entry.value,
+      };
+    }
     final calendarEvent = data['calendarEvent'] as Map<Object?, Object?>?;
     final contactInfo = data['contactInfo'] as Map<Object?, Object?>?;
     final corners = data['corners'] as List<Object?>?;

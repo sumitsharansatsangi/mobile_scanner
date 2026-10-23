@@ -3,9 +3,8 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:mobile_scanner/src/enums/barcode_format.dart';
-import 'package:mobile_scanner/src/enums/barcode_type.dart';
 import 'package:mobile_scanner/src/objects/barcode.dart';
-import 'package:mobile_scanner/src/objects/barcode_bytes.dart';
+import 'package:mobile_scanner/src/web/web_barcode_utils.dart';
 import 'package:mobile_scanner/src/web/zxing/result_point.dart';
 
 /// The JS static interop class for the Result class in the ZXing library.
@@ -94,19 +93,7 @@ extension type Result(JSObject _) implements JSObject {
   /// Sorts four detected points into
   /// [Top-Left, Top-Right, Bottom-Right, Bottom-Left]
   List<Offset> sortCornersClockwise(List<Offset> points) {
-    points.sort((a, b) {
-      if (a.dy == b.dy) {
-        return a.dx.compareTo(b.dx);
-      }
-      return a.dy.compareTo(b.dy);
-    });
-
-    final topLeft = points[3];
-    final topRight = points[2];
-    final bottomRight = points[1];
-    final bottomLeft = points[0];
-
-    return [topLeft, topRight, bottomRight, bottomLeft];
+    return orderBarcodeCornersClockwise(points);
   }
 
   /// Estimate missing fourth corner when given three points (for QR codes)
@@ -148,17 +135,17 @@ extension type Result(JSObject _) implements JSObject {
 
     final rawBytesData = rawBytes;
 
-    return Barcode(
-      corners: corners,
-      format: barcodeFormat,
-      displayValue: text,
-      rawDecodedBytes: rawBytesData != null
-          ? DecodedBarcodeBytes(bytes: rawBytesData)
-          : null,
-      rawValue: text,
-      size: _computeSize(corners),
-      type: BarcodeType.text,
-    );
+    final size = _computeSize(corners);
+    return Barcode.fromNative({
+      'corners': [
+        for (final p in corners) {'x': p.dx, 'y': p.dy},
+      ],
+      'format': barcodeFormat.rawValue,
+      'displayValue': text,
+      'rawValue': text,
+      'rawBytes': rawBytesData,
+      'size': {'width': size.width, 'height': size.height},
+    });
   }
 
   Size _computeSize(List<Offset> points) {

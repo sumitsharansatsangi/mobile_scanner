@@ -1,9 +1,7 @@
 import 'dart:js_interop';
 import 'dart:ui';
 
-import 'package:mobile_scanner/src/enums/barcode_type.dart';
 import 'package:mobile_scanner/src/objects/barcode.dart';
-import 'package:mobile_scanner/src/objects/barcode_bytes.dart';
 import 'package:mobile_scanner/src/web/web_barcode_utils.dart';
 import 'package:mobile_scanner/src/web/zxing_wasm/zxing_wasm_formats.dart';
 import 'package:web/web.dart' as web;
@@ -131,16 +129,16 @@ extension ZXingWasmReadResultToBarcode on ZXingWasmReadResult {
 
     final rawBytes = bytes?.toDart;
 
-    return Barcode(
-      corners: corners,
-      format: format.toBarcodeFormat,
-      displayValue: text,
-      rawDecodedBytes: rawBytes != null
-          ? DecodedBarcodeBytes(bytes: rawBytes)
-          : null,
-      rawValue: text,
-      size: computeBoundingBoxSize(corners),
-      type: BarcodeType.text,
-    );
+    final size = computeBoundingBoxSize(corners);
+    return Barcode.fromNative({
+      'corners': [
+        for (final p in corners) {'x': p.dx, 'y': p.dy},
+      ],
+      'format': format.toBarcodeFormat.rawValue,
+      'displayValue': text,
+      'rawValue': text,
+      'rawBytes': rawBytes,
+      'size': {'width': size.width, 'height': size.height},
+    });
   }
 }

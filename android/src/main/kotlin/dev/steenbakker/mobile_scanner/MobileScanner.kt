@@ -44,6 +44,7 @@ import dev.steenbakker.mobile_scanner.objects.DetectionSpeed
 import dev.steenbakker.mobile_scanner.objects.MobileScannerErrorCodes
 import dev.steenbakker.mobile_scanner.objects.MobileScannerStartParameters
 import dev.steenbakker.mobile_scanner.utils.invertBitmapColors as createInvertedBitmap
+import dev.steenbakker.mobile_scanner.utils.FrameQuality
 import dev.steenbakker.mobile_scanner.utils.rotateBitmap
 import dev.steenbakker.mobile_scanner.utils.serialize
 import io.flutter.view.TextureRegistry
@@ -95,7 +96,6 @@ class MobileScanner(
     // Advanced features for breaking change release
     private var enableAdvancedProcessing: Boolean = true
     private var enableQualityAnalysis: Boolean = false
-    private var enableBatchProcessing: Boolean = false
     private var enhanceImageQuality: Boolean = true
 
     // Hybrid engine: ZXing-C++ is the primary decoder; ML Kit is the recovery
@@ -498,9 +498,18 @@ class MobileScanner(
         reportHeight: Int,
         releaseFrame: () -> Unit,
     ) {
+        val quality = if (enableQualityAnalysis) {
+            imageProxy.planes.firstOrNull()?.let { plane ->
+                FrameQuality.measure(plane.buffer, imageProxy.width, imageProxy.height,
+                    plane.rowStride, plane.pixelStride)
+            }
+        } else null
+        val results = if (quality == null) barcodeMap else barcodeMap.map {
+            it + ("imageQuality" to quality)
+        }
         if (!returnImage) {
             try {
-                mobileScannerCallback(barcodeMap, null, reportWidth, reportHeight)
+                mobileScannerCallback(results, null, reportWidth, reportHeight)
             } finally {
                 releaseFrame()
             }
@@ -532,7 +541,7 @@ class MobileScanner(
 
                 // Call the callback with the result
                 mobileScannerCallback(
-                    barcodeMap,
+                    results,
                     byteArray,
                     outputBitmap.width,
                     outputBitmap.height
@@ -688,7 +697,6 @@ class MobileScanner(
         this.invertImage = invertImage
         this.enableAdvancedProcessing = enableAdvancedProcessing
         this.enableQualityAnalysis = enableQualityAnalysis
-        this.enableBatchProcessing = enableBatchProcessing
         this.enhanceImageQuality = enhanceImageQuality
 
         // Build the ZXing format mask from the requested rawValue bits. An empty

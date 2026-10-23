@@ -100,10 +100,12 @@ final class MsZxingResultList extends ffi.Struct {
 
 typedef MsZxingDecodeNative = ffi.Pointer<MsZxingResultList> Function(
   ffi.Pointer<MsZxingDecodeParams> params,
+  ffi.Uint64 dataLength,
 );
 
 typedef MsZxingDecodeDart = ffi.Pointer<MsZxingResultList> Function(
   ffi.Pointer<MsZxingDecodeParams> params,
+  int dataLength,
 );
 
 typedef MsZxingFreeNative = ffi.Void Function(
@@ -121,7 +123,7 @@ final class MsZxingBindings {
   /// Looks up the `ms_zxing_*` symbols in [library].
   MsZxingBindings(ffi.DynamicLibrary library)
     : decode = library.lookupFunction<MsZxingDecodeNative, MsZxingDecodeDart>(
-        'ms_zxing_decode',
+        'ms_zxing_decode_sized',
       ),
       freeResults = library.lookupFunction<MsZxingFreeNative, MsZxingFreeDart>(
         'ms_zxing_free_results',

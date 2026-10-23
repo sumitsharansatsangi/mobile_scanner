@@ -17,6 +17,7 @@ import 'package:mobile_scanner/src/mobile_scanner_platform_interface.dart';
 import 'package:mobile_scanner/src/mobile_scanner_view_attributes.dart';
 import 'package:mobile_scanner/src/objects/barcode.dart';
 import 'package:mobile_scanner/src/objects/barcode_capture.dart';
+import 'package:mobile_scanner/src/objects/image_quality.dart';
 import 'package:mobile_scanner/src/objects/start_options.dart';
 import 'package:mobile_scanner/src/utils/parse_device_orientation_extension.dart';
 
@@ -171,7 +172,11 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
       final width = imageData?['width'] as double?;
       final height = imageData?['height'] as double?;
 
+      final quality = barcodes.isEmpty
+          ? null
+          : barcodes.first['imageQuality'] as Map<Object?, Object?>?;
       return BarcodeCapture(
+        imageQuality: quality == null ? null : ImageQuality.fromNative(quality),
         raw: event,
         barcodes: barcodes.map(Barcode.fromNative).toList(),
         image: image,
@@ -285,7 +290,10 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     // Returns empty when unavailable.
     final zxingBarcodes = await analyzeImageWithZxing(path, formats);
     if (zxingBarcodes.isNotEmpty) {
-      return BarcodeCapture(barcodes: zxingBarcodes);
+      return BarcodeCapture(
+        barcodes: zxingBarcodes,
+        size: zxingBarcodes.first.size,
+      );
     }
 
     // Fallback: the platform's native analyzer (ML Kit / Apple Vision). Absent
