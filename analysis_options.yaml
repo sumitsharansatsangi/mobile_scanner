@@ -4,9 +4,12 @@ analyzer:
   errors:
     # The library itself should be able to use deprecated members, for backwards support reasons.
     deprecated_member_use_from_same_package: ignore
+    # Retain upstream deprecated APIs for existing fork consumers.
+    remove_deprecations_in_breaking_versions: ignore
   exclude:
     - build/**
     - android/**
     - ios/**
     - windows/**
     - linux/**
+    - macos/**

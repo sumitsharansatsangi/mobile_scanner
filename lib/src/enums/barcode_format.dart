@@ -138,7 +138,13 @@ enum BarcodeFormat {
   /// a compressed base-32 representation. The native ZXing-C++ engine reports
   /// this format when explicitly requested. Platforms without ZXing-C++ may
   /// report matching symbols as plain [code39].
-  code32(8388608);
+  code32(8388608),
+
+  /// Barcode format constant for Micro QR Code.
+  microQrCode(16777216),
+
+  /// Barcode format constant for GS1 DataBar Limited.
+  dataBarLimited(33554432);
 
   const BarcodeFormat(this.rawValue);
 
@@ -200,6 +206,10 @@ enum BarcodeFormat {
         return BarcodeFormat.gs1Code128;
       case 8388608:
         return BarcodeFormat.code32;
+      case 16777216:
+        return BarcodeFormat.microQrCode;
+      case 33554432:
+        return BarcodeFormat.dataBarLimited;
       default:
         throw ArgumentError.value(value, 'value', 'Invalid raw value.');
     }

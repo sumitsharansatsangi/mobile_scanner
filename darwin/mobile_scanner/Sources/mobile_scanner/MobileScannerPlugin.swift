@@ -37,6 +37,11 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
     /// This is static to avoid accessing `self` in the `VNDetectBarcodesRequest` callback.
     private static var returnImage: Bool = false
 
+    /// The dispatch queue that will process ``captureOutput(_:didOutput:from:)`` calls.
+    ///
+    /// This queue is user initiated because it is tied to an ``AVCaptureSession``.
+    private let sampleBufferQueue = DispatchQueue(label: "com.juliansteenbakker.mobile_scanner.captureOutputQueue", qos: .userInitiated)
+
     var detectionSpeed: DetectionSpeed = DetectionSpeed.noDuplicates
 
     var timeoutSeconds: Double = 0
@@ -67,6 +72,22 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
 #if os(iOS)
     var interfaceOrientationObserver: NSObjectProtocol?
 #endif
+
+    /// Observer for the notification that the app is about to terminate.
+    private var willTerminateObserver: NSObjectProtocol?
+
+    /// Whether the app is terminating, and the engine is therefore being destroyed.
+    ///
+    /// Only read and written on the main thread.
+    private var terminating = false
+
+    /// Whether a frame notification is already queued on the main queue.
+    ///
+    /// Written from ``sampleBufferQueue`` and cleared on the main queue, so it is guarded by
+    /// ``frameNotificationLock``.
+    private var pendingFrameNotification = false
+
+    private let frameNotificationLock = NSLock()
 
     private var stopped: Bool {
         return device == nil || captureSession == nil
@@ -104,6 +125,35 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
     init(_ registry: FlutterTextureRegistry) {
         self.registry = registry
         super.init()
+
+#if os(iOS)
+        let willTerminate = UIApplication.willTerminateNotification
+#else
+        let willTerminate = NSApplication.willTerminateNotification
+#endif
+        // Stop the camera as soon as the app starts terminating. The engine destroys its shell
+        // during termination, after which any call into the texture registry dereferences
+        // released memory, and the plugin has no way to observe that from the registry itself.
+        willTerminateObserver = NotificationCenter.default.addObserver(
+            forName: willTerminate, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.terminating = true
+            self?.releaseCamera()
+        }
+    }
+
+    deinit {
+        if let willTerminateObserver {
+            NotificationCenter.default.removeObserver(willTerminateObserver)
+        }
+    }
+
+    public func detachFromEngine(for registrar: FlutterPluginRegistrar) {
+        // Release the camera and texture when the engine detaches this plugin, so the capture
+        // session cannot outlive the engine. Termination is covered by the observer above, but an
+        // engine can also be destroyed while the app keeps running, for example in add-to-app.
+        releaseCamera()
+        releaseTexture()
     }
     
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -117,7 +167,9 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
         case "toggleTorch":
             toggleTorch(result)
         case "getSupportedLenses":
-            getSupportedLenses(result)
+            getSupportedLenses(call, result)
+        case "getBestCloseRangeScanningLens":
+            getBestCloseRangeScanningLens(call, result)
         case "setScale":
             setScale(call, result)
         case "setFocus":
@@ -158,6 +210,46 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
         return Unmanaged<CVPixelBuffer>.passRetained(buffer)
     }
     
+    /// Notifies the texture registry that a new frame is available.
+    ///
+    /// This is called from ``sampleBufferQueue``, while the Flutter engine is torn down on the
+    /// main thread, so the notification is hopped to the main queue to serialize it against that
+    /// teardown. `FlutterTextureRegistryRelay` holds its parent weakly, but the engine object
+    /// outlives the shell that actually backs the registry, so the weak reference does not guard
+    /// against a call that arrives during teardown.
+    ///
+    /// At most one notification is in flight at a time. The registry always reads the newest
+    /// buffer, so queueing one block per captured frame would only pile up redundant work on a
+    /// main thread that is already behind.
+    private func notifyFrameAvailable(for frameTextureId: Int64) {
+        frameNotificationLock.lock()
+        if pendingFrameNotification {
+            frameNotificationLock.unlock()
+
+            return
+        }
+        pendingFrameNotification = true
+        frameNotificationLock.unlock()
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else {
+                return
+            }
+
+            self.frameNotificationLock.lock()
+            self.pendingFrameNotification = false
+            self.frameNotificationLock.unlock()
+
+            // Drop the frame if the engine is going away, or if the texture was released or
+            // replaced while this block was queued.
+            guard !self.terminating, self.textureId == frameTextureId else {
+                return
+            }
+
+            self.registry.textureFrameAvailable(frameTextureId)
+        }
+    }
+
     var nextScanTime = 0.0
     var imagesCurrentlyBeingProcessed = false
     
@@ -171,19 +263,20 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
             return
         }
         latestBuffer = imageBuffer
-        registry.textureFrameAvailable(textureId)
-        
+        notifyFrameAvailable(for: textureId)
+
         let currentTime = Date().timeIntervalSince1970
         let eligibleForScan = currentTime > nextScanTime && !imagesCurrentlyBeingProcessed
         if ((detectionSpeed == DetectionSpeed.normal || detectionSpeed == DetectionSpeed.noDuplicates) && eligibleForScan || detectionSpeed == DetectionSpeed.unrestricted) {
             nextScanTime = currentTime + timeoutSeconds
             imagesCurrentlyBeingProcessed = true
+            let bufferToProcess = latestBuffer
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 guard let self = self else {
                     return
                 }
-                
-                guard let buffer = self.latestBuffer else {
+
+                guard let buffer = bufferToProcess else {
                     self.imagesCurrentlyBeingProcessed = false
                     return
                 }
@@ -620,7 +713,7 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
         let format = getPreferredVideoFormat(videoOutput: videoOutput)
         videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: format]
         videoOutput.alwaysDiscardsLateVideoFrames = true
-        videoOutput.setSampleBufferDelegate(self, queue: DispatchQueue.main)
+        videoOutput.setSampleBufferDelegate(self, queue: self.sampleBufferQueue)
         captureSession!.addOutput(videoOutput)
         let deviceVideoOrientation = self.getVideoOrientation()
 
@@ -731,8 +824,23 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
         return kCVPixelFormatType_32BGRA
     }
 
-    private func getSupportedLenses(_ result: @escaping FlutterResult) {
-        result(MobileScannerCameraSelector.getSupportedLenses())
+    private func getSupportedLenses(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
+        let argReader = MapArgumentReader(call.arguments as? [String: Any])
+        let facing: AVCaptureDevice.Position? = switch argReader.int(key: "facing") {
+        case 0?: .front
+        case 1?: .back
+        default: nil
+        }
+        result(MobileScannerCameraSelector.getSupportedLenses(facing: facing))
+    }
+
+    private func getBestCloseRangeScanningLens(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
+        let argReader = MapArgumentReader(call.arguments as? [String: Any])
+        let position: AVCaptureDevice.Position = switch argReader.int(key: "facing") {
+        case 0?: .front
+        default: .back
+        }
+        result(MobileScannerCameraSelector.getBestCloseRangeScanningLens(position: position))
     }
 
     /// Turn the torch on.
@@ -1066,8 +1174,7 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
             details: nil
         ))
         return
-#endif
-
+#else
         let argReader = MapArgumentReader(call.arguments as? [String: Any])
         let symbologies:[VNBarcodeSymbology] = argReader.toSymbology()
         let visionFormatFilterRequested = argReader.hasFormatFilter()
@@ -1172,6 +1279,7 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
                     message: error.localizedDescription, details: nil))
             }
         }
+#endif
     }
 
     // Observer for torch state
@@ -1464,16 +1572,19 @@ extension VNBarcodeObservation {
 extension VNBarcodeSymbology {
     static func fromInt(_ mapValue:Int) -> VNBarcodeSymbology? {
         if #available(iOS 15.0, macOS 12.0, *) {
-            if(mapValue == 8){
+            switch(mapValue){
+            case 8:
                 return VNBarcodeSymbology.codabar
-            }
-            // GS1 DataBar (RSS-14) and DataBar Expanded.
-            if(mapValue == 8192){
+            case 8192:
                 return VNBarcodeSymbology.gs1DataBar
-            }
-            if(mapValue == 16384){
+            case 16384:
                 return VNBarcodeSymbology.gs1DataBarExpanded
+            case 33554432:
+                return VNBarcodeSymbology.gs1DataBarLimited
+            default:
+                break
             }
+
         }
         switch(mapValue){
         case 1:
@@ -1511,15 +1622,19 @@ extension VNBarcodeSymbology {
 
     var toInt: Int? {
         if #available(iOS 15.0, macOS 12.0, *) {
-            if(self == VNBarcodeSymbology.codabar){
+            switch(self){
+            case VNBarcodeSymbology.codabar:
                 return 8
-            }
-            if(self == VNBarcodeSymbology.gs1DataBar){
+            case VNBarcodeSymbology.gs1DataBar:
                 return 8192
-            }
-            if(self == VNBarcodeSymbology.gs1DataBarExpanded){
+            case VNBarcodeSymbology.gs1DataBarExpanded:
                 return 16384
+            case VNBarcodeSymbology.gs1DataBarLimited:
+                return 33554432
+            default:
+                break
             }
+
         }
         switch(self){
         case VNBarcodeSymbology.code128:

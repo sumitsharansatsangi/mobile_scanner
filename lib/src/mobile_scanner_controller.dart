@@ -44,8 +44,9 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
     this.enableQualityAnalysis = false,
     this.enableBatchProcessing = false,
     this.enhanceImageQuality = true,
-  }) : detectionTimeoutMs =
-           detectionSpeed == DetectionSpeed.normal ? detectionTimeoutMs : 0,
+  }) : detectionTimeoutMs = detectionSpeed == DetectionSpeed.normal
+           ? detectionTimeoutMs
+           : 0,
        assert(
          detectionTimeoutMs >= 0,
          'The detection timeout must be greater than or equal to 0.',
@@ -116,7 +117,6 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   /// Defaults to false, and is only supported on iOS, MacOS and Android.
   final bool returnImage;
 
-
   /// Whether the scanner should try to detect color-inverted barcodes in every
   ///  other frame.
   ///
@@ -160,8 +160,6 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   /// Defaults to no initial zoom and is only supported on iOS, MacOS and
   /// Android.
   final double? initialZoom;
-
-
 
   /// Enable advanced barcode processing with multiple enhancement techniques.
   ///
@@ -209,6 +207,26 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   // that is attached to this controller,
   // called its `initState()` lifecycle method.
   final Completer<void> _isAttachedCompleter = Completer<void>();
+
+  // The controller that currently holds the platform camera session.
+  //
+  // Only one camera session can be active at a time,
+  // but multiple controllers can exist simultaneously,
+  // for instance when two routes with a scanner are on the navigation stack.
+  //
+  // A controller that does not hold the session must not tear down the
+  // platform resources, as that would break the controller that does.
+  // See https://github.com/juliansteenbakker/mobile_scanner/issues/1631
+  static MobileScannerController? _platformSessionOwner;
+
+  /// Reset the shared platform camera session owner.
+  ///
+  /// This is only intended for use in tests,
+  /// to prevent state from leaking between test cases.
+  @visibleForTesting
+  static void resetPlatformSessionOwner() {
+    _platformSessionOwner = null;
+  }
 
   void _disposeListeners() {
     unawaited(_barcodesSubscription?.cancel());
@@ -320,10 +338,9 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
     // If the device does not have a torch, do not report "off".
     value = value.copyWith(
       isRunning: false,
-      torchState:
-          oldTorchState == TorchState.unavailable
-              ? TorchState.unavailable
-              : TorchState.off,
+      torchState: oldTorchState == TorchState.unavailable
+          ? TorchState.unavailable
+          : TorchState.off,
     );
     return true;
   }
@@ -541,6 +558,9 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
         stopRequest: stop,
       );
 
+      // This controller now holds the platform camera session.
+      _platformSessionOwner = this;
+
       if (!_isDisposed) {
         value = value.copyWith(
           availableCameras: viewAttributes.numberOfCameras,
@@ -582,6 +602,13 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   /// Does nothing if the camera is already stopped.
   Future<void> stop() async {
     if (_stop()) {
+      // Stopping releases the platform camera session,
+      // so that another controller can start it.
+      // Pausing does not, as a paused session is resumed by its own owner.
+      if (identical(_platformSessionOwner, this)) {
+        _platformSessionOwner = null;
+      }
+
       await MobileScannerPlatform.instance.stop();
     }
   }
@@ -664,11 +691,16 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   Future<void> _toggleLensType() async {
     // Fetch supported lenses fresh each time to handle dynamic camera changes
     // (e.g., external cameras being attached/detached).
-    final supportedLenses = await getSupportedLenses();
+    // Pass the current facing direction so only lenses for that camera side
+    // are returned, avoiding cross-side pollution.
+    final supportedLenses = await getSupportedLenses(
+      facing: value.cameraDirection,
+    );
 
     // Filter out 'any' and keep only specific lens types.
-    final specificLenses =
-        supportedLenses.where((lens) => lens != CameraLensType.any).toList();
+    final specificLenses = supportedLenses
+        .where((lens) => lens != CameraLensType.any)
+        .toList();
 
     // Do nothing if there are less than 2 lens types available.
     if (specificLenses.length < 2) {
@@ -684,10 +716,9 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
 
     // Find the current lens type from state (default to normal if unknown).
     final stateLensType = value.cameraLensType;
-    final currentLens =
-        stateLensType == CameraLensType.any
-            ? CameraLensType.normal
-            : stateLensType;
+    final currentLens = stateLensType == CameraLensType.any
+        ? CameraLensType.normal
+        : stateLensType;
 
     // Find the next available lens in the cycle.
     final currentIndex = lensCycle.indexOf(currentLens);
@@ -799,7 +830,9 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   ///   print('Available lenses: $supportedLenses');
   /// }
   /// ```
-  Future<Set<CameraLensType>> getSupportedLenses() async {
+  Future<Set<CameraLensType>> getSupportedLenses({
+    CameraFacing? facing,
+  }) async {
     if (_isDisposed) {
       throw MobileScannerException(
         errorCode: MobileScannerErrorCode.controllerDisposed,
@@ -809,7 +842,50 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
       );
     }
 
-    return MobileScannerPlatform.instance.getSupportedLenses();
+    return MobileScannerPlatform.instance.getSupportedLenses(facing: facing);
+  }
+
+  /// Determine the lens type best suited for close-range scanning.
+  ///
+  /// Returns the [CameraLensType] whose camera can focus closest to the
+  /// phone, making it best suited for scanning barcodes held at close range.
+  ///
+  /// Returns `null` if the device has no camera for the given [facing]
+  /// direction.
+  ///
+  /// This does not switch the camera. Combine it with [getSupportedLenses]
+  /// and [switchCamera] to only switch to the returned lens if it is
+  /// actually available on the device:
+  ///
+  /// ```dart
+  /// final bestLens = await controller.getBestCloseRangeScanningLens();
+  /// final supported = await controller.getSupportedLenses(
+  ///   facing: CameraFacing.back,
+  /// );
+  ///
+  /// if (bestLens != null && supported.contains(bestLens)) {
+  ///   await controller.switchCamera(
+  ///     SelectCamera(facingDirection: CameraFacing.back, lensType: bestLens),
+  ///   );
+  /// }
+  /// ```
+  ///
+  /// Throws a [MobileScannerException] if the controller has been disposed.
+  Future<CameraLensType?> getBestCloseRangeScanningLens({
+    CameraFacing facing = CameraFacing.back,
+  }) async {
+    if (_isDisposed) {
+      throw MobileScannerException(
+        errorCode: MobileScannerErrorCode.controllerDisposed,
+        errorDetails: MobileScannerErrorDetails(
+          message: MobileScannerErrorCode.controllerDisposed.message,
+        ),
+      );
+    }
+
+    return MobileScannerPlatform.instance.getBestCloseRangeScanningLens(
+      facing: facing,
+    );
   }
 
   /// Dispose the controller.
@@ -822,8 +898,21 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
     }
 
     _isDisposed = true;
+    _disposeListeners();
     unawaited(_barcodesController.close());
     super.dispose();
+
+    MobileScannerPlatform.instance.unregisterController(hashCode);
+
+    // If another controller currently holds the platform camera session,
+    // disposing the platform resources would break that controller.
+    // In that case only this controller's own resources are cleaned up.
+    if (_platformSessionOwner != null &&
+        !identical(_platformSessionOwner, this)) {
+      return;
+    }
+
+    _platformSessionOwner = null;
 
     await MobileScannerPlatform.instance.dispose(hashCode);
   }

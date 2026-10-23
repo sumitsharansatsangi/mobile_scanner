@@ -30,8 +30,7 @@ final class ZxingDecoder {
       _instance ??= ZxingDecoder._(MsZxingBindings(_openLibrary()));
 
   /// The linked zxing-cpp version string, for diagnostics.
-  String get nativeVersion =>
-      _bindings.version().cast<Utf8>().toDartString();
+  String get nativeVersion => _bindings.version().cast<Utf8>().toDartString();
 
   static ffi.DynamicLibrary _openLibrary() {
     if (Platform.isAndroid || Platform.isLinux) {

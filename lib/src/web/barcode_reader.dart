@@ -87,40 +87,37 @@ abstract class BarcodeReader {
 
     final completer = Completer<void>();
 
-    final script =
-        HTMLScriptElement()
-          ..id = scriptId
-          ..async = true
-          ..defer = false
-          ..type = 'application/javascript'
-          ..lang = 'javascript'
-          ..crossOrigin = 'anonymous'
-          ..src = alternateScriptUrl ?? scriptUrl
-          ..onload =
-              (JSAny _) {
-                if (!completer.isCompleted) {
-                  completer.complete();
-                }
-              }.toJS;
+    final script = HTMLScriptElement()
+      ..id = scriptId
+      ..async = true
+      ..defer = false
+      ..type = 'application/javascript'
+      ..lang = 'javascript'
+      ..crossOrigin = 'anonymous'
+      ..src = alternateScriptUrl ?? scriptUrl
+      ..onload = (JSAny _) {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      }.toJS;
 
-    script.onerror =
-        (JSAny _) {
-          if (!completer.isCompleted) {
-            // Remove the script if it did not load.
-            document.head!.removeChild(script);
+    script.onerror = (JSAny _) {
+      if (!completer.isCompleted) {
+        // Remove the script if it did not load.
+        document.head!.removeChild(script);
 
-            completer.completeError(
-              const MobileScannerException(
-                errorCode: MobileScannerErrorCode.genericError,
-                errorDetails: MobileScannerErrorDetails(
-                  message:
-                      'Could not load the BarcodeReader script due to a network'
-                      ' error.',
-                ),
-              ),
-            );
-          }
-        }.toJS;
+        completer.completeError(
+          const MobileScannerException(
+            errorCode: MobileScannerErrorCode.genericError,
+            errorDetails: MobileScannerErrorDetails(
+              message:
+                  'Could not load the BarcodeReader script due to a network'
+                  ' error.',
+            ),
+          ),
+        );
+      }
+    }.toJS;
 
     document.head!.appendChild(script);
 
@@ -161,5 +158,13 @@ abstract class BarcodeReader {
   /// Stop the barcode reader and dispose of the video stream.
   Future<void> stop() {
     throw UnimplementedError('stop() has not been implemented.');
+  }
+
+  /// Update the scan window to [window].
+  ///
+  /// Barcodes detected outside the [window] rect (in widget coordinates)
+  /// are ignored. Pass null to disable scan window filtering.
+  void updateScanWindow(Rect? window) {
+    // No-op by default.
   }
 }

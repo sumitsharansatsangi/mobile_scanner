@@ -1,7 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:mobile_scanner/src/enums/barcode_format.dart';
+import 'package:mobile_scanner/src/enums/camera_facing.dart';
 import 'package:mobile_scanner/src/enums/camera_lens_type.dart';
 import 'package:mobile_scanner/src/enums/torch_state.dart';
+import 'package:mobile_scanner/src/enums/web_barcode_reader.dart';
 import 'package:mobile_scanner/src/method_channel/mobile_scanner_method_channel.dart';
 import 'package:mobile_scanner/src/mobile_scanner_view_attributes.dart';
 import 'package:mobile_scanner/src/objects/barcode_capture.dart';
@@ -75,6 +77,16 @@ abstract class MobileScannerPlatform extends PlatformInterface {
   /// This is only supported on the web.
   void setBarcodeLibraryScriptUrl(String scriptUrl) {}
 
+  /// Set the preferred barcode detection backend for the web platform.
+  ///
+  /// This is only supported on the web. On other platforms this is a no-op.
+  /// Must be called before [start].
+  void setWebBarcodeReader(WebBarcodeReader reader) {}
+
+  /// The barcode reader that is currently active on web,
+  /// or `null` when no scanner is running or the platform is not web.
+  WebBarcodeReader? get activeWebReader => null;
+
   /// Set the zoom scale of the camera.
   ///
   /// The [zoomScale] must be between `0.0` and `1.0` (both inclusive).
@@ -133,8 +145,27 @@ abstract class MobileScannerPlatform extends PlatformInterface {
   /// containing only [CameraLensType.any] if cameras are available.
   ///
   /// This method can be called before starting the scanner.
-  Future<Set<CameraLensType>> getSupportedLenses() {
+  Future<Set<CameraLensType>> getSupportedLenses({
+    CameraFacing? facing,
+  }) {
     throw UnimplementedError('getSupportedLenses() has not been implemented.');
+  }
+
+  /// Determine the lens type best suited for close-range scanning.
+  ///
+  /// Returns the [CameraLensType] whose camera can focus closest to the
+  /// phone. On iOS 15+, this is based on the minimum focus distance reported
+  /// by each camera; on platforms or OS versions where that data is not
+  /// available or not actionable, this returns [CameraLensType.normal].
+  ///
+  /// Returns `null` if the device has no camera for the given [facing]
+  /// direction.
+  Future<CameraLensType?> getBestCloseRangeScanningLens({
+    CameraFacing facing = CameraFacing.back,
+  }) {
+    throw UnimplementedError(
+      'getBestCloseRangeScanningLens() has not been implemented.',
+    );
   }
 
   /// Update the scan window to the given [window] rectangle.
@@ -147,11 +178,17 @@ abstract class MobileScannerPlatform extends PlatformInterface {
     throw UnimplementedError('updateScanWindow() has not been implemented.');
   }
 
-   /// Set inverting image colors in intervals (for negative Data Matrices).
-  Future<void> setShouldConsiderInvertedImages(bool shouldConsiderInvertedImages) {
+  /// Set inverting image colors in intervals (for negative Data Matrices).
+  Future<void> setShouldConsiderInvertedImages(
+    // Keep the existing public positional argument for fork consumers.
+    // ignore: avoid_positional_boolean_parameters
+    bool shouldConsiderInvertedImages,
+  ) {
     throw UnimplementedError('setInvertImage() has not been implemented.');
   }
 
+  /// Remove a controller from the platform camera resume registry.
+  void unregisterController(int id) {}
 
   /// Dispose of this [MobileScannerPlatform] instance.
   Future<void> dispose(int id) {

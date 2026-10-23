@@ -120,14 +120,12 @@ typedef MsZxingVersionDart = ffi.Pointer<ffi.Char> Function();
 final class MsZxingBindings {
   /// Looks up the `ms_zxing_*` symbols in [library].
   MsZxingBindings(ffi.DynamicLibrary library)
-    : decode = library
-          .lookupFunction<MsZxingDecodeNative, MsZxingDecodeDart>(
-            'ms_zxing_decode',
-          ),
-      freeResults = library
-          .lookupFunction<MsZxingFreeNative, MsZxingFreeDart>(
-            'ms_zxing_free_results',
-          ),
+    : decode = library.lookupFunction<MsZxingDecodeNative, MsZxingDecodeDart>(
+        'ms_zxing_decode',
+      ),
+      freeResults = library.lookupFunction<MsZxingFreeNative, MsZxingFreeDart>(
+        'ms_zxing_free_results',
+      ),
       version = library
           .lookupFunction<MsZxingVersionNative, MsZxingVersionDart>(
             'ms_zxing_version',

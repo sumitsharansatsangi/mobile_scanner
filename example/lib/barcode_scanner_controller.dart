@@ -9,7 +9,9 @@ import 'package:mobile_scanner_example/widgets/buttons/switch_camera_button.dart
 import 'package:mobile_scanner_example/widgets/buttons/toggle_flashlight_button.dart';
 import 'package:mobile_scanner_example/widgets/scanner_error_widget.dart';
 
+/// Scanner example with explicit camera lifecycle controls.
 class BarcodeScannerWithController extends StatefulWidget {
+  /// Creates the scanner example.
   const BarcodeScannerWithController({super.key});
 
   @override
@@ -18,7 +20,8 @@ class BarcodeScannerWithController extends StatefulWidget {
 }
 
 class _BarcodeScannerWithControllerState
-    extends State<BarcodeScannerWithController> with WidgetsBindingObserver {
+    extends State<BarcodeScannerWithController>
+    with WidgetsBindingObserver {
   final MobileScannerController controller = MobileScannerController(
     autoStart: false,
     torchEnabled: true,

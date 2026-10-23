@@ -118,11 +118,9 @@ class _ExampleHome extends StatelessWidget {
   ) {
     return GestureDetector(
       onTap: () {
-        unawaited(
-          Navigator.of(
-            context,
-          ).push(MaterialPageRoute<void>(builder: (context) => page)),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (context) => page));
       },
       child: Card(
         elevation: 5,

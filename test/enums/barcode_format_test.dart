@@ -33,6 +33,8 @@ void main() {
         2097152: BarcodeFormat.upcEanExtension,
         4194304: BarcodeFormat.gs1Code128,
         8388608: BarcodeFormat.code32,
+        16777216: BarcodeFormat.microQrCode,
+        33554432: BarcodeFormat.dataBarLimited,
       };
 
       for (final entry in values.entries) {
@@ -57,7 +59,7 @@ void main() {
 
     test('invalid raw value throws argument error', () {
       const negative = -2;
-      const outOfRange = 4097;
+      const outOfRange = 131073;
 
       expect(() => BarcodeFormat.fromRawValue(negative), throwsArgumentError);
       expect(() => BarcodeFormat.fromRawValue(outOfRange), throwsArgumentError);
@@ -94,6 +96,8 @@ void main() {
         BarcodeFormat.upcEanExtension: 2097152,
         BarcodeFormat.gs1Code128: 4194304,
         BarcodeFormat.code32: 8388608,
+        BarcodeFormat.microQrCode: 16777216,
+        BarcodeFormat.dataBarLimited: 33554432,
       };
 
       for (final entry in values.entries) {

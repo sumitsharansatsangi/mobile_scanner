@@ -49,8 +49,9 @@ class StartOptions {
 
   /// The detection speed for the scanner.
   final DetectionSpeed detectionSpeed;
- 
-  /// Whether the scanner should try to detect color-inverted barcodes in every other frame.
+
+  /// Whether the scanner should try to detect color-inverted barcodes
+  /// in every other frame.
   final bool shouldConsiderInvertedImages;
 
   /// The detection timeout for the scanner, in milliseconds.
@@ -77,8 +78,6 @@ class StartOptions {
   /// This option is only supported on Android.
   final bool useNewCameraSelector;
 
-
-
   /// The initial zoom scale factor for the camera.
   ///
   /// Currently only supported on iOS, MacOS and Android.
@@ -92,7 +91,8 @@ class StartOptions {
 
   /// Enable image quality analysis for barcode detection optimization.
   ///
-  /// When enabled, the scanner will analyze image quality and suggest enhancements.
+  /// When enabled, the scanner analyzes image quality and suggests
+  /// enhancements.
   /// Defaults to false.
   final bool enableQualityAnalysis;
 
@@ -104,7 +104,8 @@ class StartOptions {
 
   /// Enable automatic image quality enhancement.
   ///
-  /// When enabled, the scanner will automatically enhance image quality for better detection.
+  /// When enabled, the scanner automatically enhances image quality
+  /// for better detection.
   /// Defaults to true.
   final bool enhanceImageQuality;
 

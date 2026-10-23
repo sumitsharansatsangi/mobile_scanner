@@ -10,81 +10,76 @@ extension String {
     ///
     /// If any error occurs during detection, returns 0 (BarcodeType.unknown).
     func detectBarcodeType() -> Int {
-        do {
-            let trimmed = self.trimmingCharacters(in: .whitespacesAndNewlines)
-            
-            // Return unknown if empty
-            if trimmed.isEmpty {
-                return 0 // BarcodeType.unknown
-            }
-            
-            let uppercased = trimmed.uppercased()
-            
-            // Check for ContactInfo (VCARD/MECARD) - most specific structured format
-            if uppercased.hasPrefix("BEGIN:VCARD") || uppercased.hasPrefix("MECARD:") {
-                return 1 // BarcodeType.contactInfo
-            }
-        
-            // Check for CalendarEvent (VCALENDAR/VEVENT) - iCalendar format
-            if uppercased.contains("BEGIN:VCALENDAR") || uppercased.contains("BEGIN:VEVENT") {
-                return 11 // BarcodeType.calendarEvent
-            }
-            
-            // Check for WiFi
-            if uppercased.hasPrefix("WIFI:") {
-                return 9 // BarcodeType.wifi
-            }
-            
-            // Check for Email
-            if uppercased.hasPrefix("MAILTO:") {
-                return 2 // BarcodeType.email
-            }
-            
-            // Check for Phone
-            if uppercased.hasPrefix("TEL:") {
-                return 4 // BarcodeType.phone
-            }
-            
-            // Check for SMS
-            if uppercased.hasPrefix("SMS:") {
-                return 6 // BarcodeType.sms
-            }
-            
-            // Check for Geo
-            if uppercased.hasPrefix("GEO:") {
-                return 10 // BarcodeType.geo
-            }
-            
-            // Check for URL bookmark (MEBKM format)
-            if uppercased.hasPrefix("MEBKM:") {
-                return 8 // BarcodeType.url
-            }
-            
-            // Check for HTTP/HTTPS URLs
-            if uppercased.hasPrefix("HTTP://") || uppercased.hasPrefix("HTTPS://") {
-                return 8 // BarcodeType.url
-            }
-            
-            // Check for ISBN
-            if isISBN() {
-                return 3 // BarcodeType.isbn
-            }
+        let trimmed = self.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            // Check for ISSN with 2-digit supplement
-            if isISSNWithSupplement() {
-                return 5 // BarcodeType.product
-            }
-            
-            // Check for Product codes (EAN/UPC)
-            if isProductCode() {
-                return 5 // BarcodeType.product
-            }
-            
-            // Default to text for unrecognized patterns
-            return 7 // BarcodeType.text
-        } catch {
+        // Return unknown if empty
+        if trimmed.isEmpty {
             return 0 // BarcodeType.unknown
         }
+
+        let uppercased = trimmed.uppercased()
+
+        // Check for ContactInfo (VCARD) - most specific structured format
+        if uppercased.hasPrefix("BEGIN:VCARD") || uppercased.hasPrefix("MECARD:") {
+            return 1 // BarcodeType.contactInfo
+        }
+
+        // Check for CalendarEvent (VCALENDAR) - iCalendar format
+        if uppercased.contains("BEGIN:VCALENDAR") || uppercased.contains("BEGIN:VEVENT") {
+            return 11 // BarcodeType.calendarEvent
+        }
+
+        // Check for WiFi
+        if uppercased.hasPrefix("WIFI:") {
+            return 9 // BarcodeType.wifi
+        }
+
+        // Check for Email
+        if uppercased.hasPrefix("MAILTO:") {
+            return 2 // BarcodeType.email
+        }
+
+        // Check for Phone
+        if uppercased.hasPrefix("TEL:") {
+            return 4 // BarcodeType.phone
+        }
+
+        // Check for SMS
+        if uppercased.hasPrefix("SMS:") {
+            return 6 // BarcodeType.sms
+        }
+
+        // Check for Geo
+        if uppercased.hasPrefix("GEO:") {
+            return 10 // BarcodeType.geo
+        }
+
+        // Check for URL bookmark (MEBKM format)
+        if uppercased.hasPrefix("MEBKM:") {
+            return 8 // BarcodeType.url
+        }
+
+        // Check for HTTP/HTTPS URLs
+        if uppercased.hasPrefix("HTTP://") || uppercased.hasPrefix("HTTPS://") {
+            return 8 // BarcodeType.url
+        }
+
+        // Check for ISBN
+        if isISBN() {
+            return 3 // BarcodeType.isbn
+        }
+
+        if isISSNWithSupplement() {
+            return 5 // BarcodeType.product
+        }
+
+        // Check for Product codes (EAN/UPC)
+        if isProductCode() {
+            return 5 // BarcodeType.product
+        }
+
+        // Default to text for unrecognized patterns
+        return 7 // BarcodeType.text
     }
 
     /// Parses Wi-Fi QR payloads into the same field names used by Android.
@@ -453,7 +448,7 @@ extension String {
             "middleName": fields["DAD"] ?? fields["DCT"]?.split(separator: ",", maxSplits: 1).last.map(String.init),
         ]
     }
-    
+
     /// Checks if the string matches ISBN-10 or ISBN-13 format.
     /// ISBN-10: 10 digits (with optional hyphens)
     /// ISBN-13: 13 digits starting with 978 or 979 (with optional hyphens)
@@ -467,7 +462,7 @@ extension String {
                 options: [.regularExpression, .caseInsensitive]
             )
             .filter { $0.isLetter || $0.isNumber }
-        
+
         // Check for ISBN-13 (13 digits, starting with 978 or 979)
         if digitsOnly.count == 13,
            let _ = Int(digitsOnly),
@@ -481,13 +476,13 @@ extension String {
            digitsOnly.hasPrefix("978") || digitsOnly.hasPrefix("979") {
             return true
         }
-        
+
         // Check for ISBN-10 (10 digits)
         if digitsOnly.count == 10,
            let _ = Int(digitsOnly) {
             return true
         }
-        
+
         return false
     }
 
@@ -515,7 +510,7 @@ extension String {
         let supplement = String(normalized.suffix(2))
         return issn.isValidISSN() && supplement.allSatisfy { $0.isNumber }
     }
-    
+
     /// Checks if the string matches product code format (EAN/UPC).
     /// EAN-8: 8 digits
     /// UPC-A: 12 digits
@@ -523,14 +518,14 @@ extension String {
     private func isProductCode() -> Bool {
         // Remove any non-digit characters
         let digitsOnly = self.replacingOccurrences(of: "[^0-9]", with: "", options: .regularExpression)
-        
+
         // Check for EAN-8 (8 digits), UPC-A (12 digits), or EAN-13 (13 digits)
         let length = digitsOnly.count
         if length == 8 || length == 12 || length == 13 {
             // Verify all characters are digits
             return digitsOnly.allSatisfy { $0.isNumber }
         }
-        
+
         return false
     }
 

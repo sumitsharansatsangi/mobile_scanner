@@ -52,6 +52,8 @@ constexpr uint32_t kRawPharmaCodeTwoTrack = 1048576;
 constexpr uint32_t kRawUpcEanExtension = 2097152;
 constexpr uint32_t kRawGs1Code128 = 4194304;
 constexpr uint32_t kRawCode32 = 8388608;
+constexpr uint32_t kRawMicroQr = 16777216;
+constexpr uint32_t kRawDataBarLimited = 33554432;
 
 struct FallbackCandidate {
   int32_t format = -1;
@@ -111,6 +113,8 @@ BarcodeFormats RawMaskToZxing(uint32_t mask) {
   // enable ITF and produce spurious reads.
   if (mask & kRawItf) formats |= BarcodeFormat::ITF;
   if (mask & kRawQr) formats |= BarcodeFormat::QRCode;
+  if (mask & kRawMicroQr) formats |= BarcodeFormat::MicroQRCode;
+  if (mask & kRawDataBarLimited) formats |= BarcodeFormat::DataBarLimited;
   if (mask & kRawUpcA) formats |= BarcodeFormat::UPCA;
   if (mask & kRawUpcE) formats |= BarcodeFormat::UPCE;
   if (mask & kRawUpcEanExtension) {
@@ -212,6 +216,8 @@ int32_t ZxingToRaw(const Barcode& barcode) {
     case BarcodeFormat::EAN8: return kRawEan8;
     case BarcodeFormat::ITF: return kRawItf;
     case BarcodeFormat::QRCode: return kRawQr;
+    case BarcodeFormat::MicroQRCode: return kRawMicroQr;
+    case BarcodeFormat::DataBarLimited: return kRawDataBarLimited;
     case BarcodeFormat::UPCA: return kRawUpcA;
     case BarcodeFormat::UPCE: return kRawUpcE;
     case BarcodeFormat::PDF417: return kRawPdf417;

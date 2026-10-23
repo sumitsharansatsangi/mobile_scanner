@@ -92,6 +92,11 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
   @visibleForTesting
   static const String kGetSupportedLensesMethodName = 'getSupportedLenses';
 
+  /// The name of the method that gets the best lens for close-range scanning.
+  @visibleForTesting
+  static const String kGetBestCloseRangeScanningLensMethodName =
+      'getBestCloseRangeScanningLens';
+
   /// The method channel used to interact with the native platform.
   @visibleForTesting
   final methodChannel = const MethodChannel(
@@ -110,63 +115,27 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     'dev.steenbakker.mobile_scanner/scanner/event',
   );
 
-  StreamController<DeviceOrientation>? _deviceOrientationStreamController;
-  StreamController<Map<Object?, Object?>>? _eventsStreamController;
-  StreamSubscription<Object?>? _deviceOrientationSubscription;
-  StreamSubscription<Object?>? _eventsSubscription;
+  Stream<DeviceOrientation>? _deviceOrientationStream;
+  Stream<Map<Object?, Object?>>? _eventsStream;
 
   /// Get the event stream of device orientation change events
   /// that come from the [deviceOrientationEventChannel].
   Stream<DeviceOrientation> get deviceOrientationChangedStream {
-    if (_deviceOrientationStreamController == null) {
-      _deviceOrientationStreamController =
-          StreamController<DeviceOrientation>.broadcast();
-      _deviceOrientationSubscription = deviceOrientationEventChannel
-          .receiveBroadcastStream()
-          .cast<String>()
-          .map((orientation) => orientation.parseDeviceOrientation())
-          .listen(
-            (orientation) {
-              if (!(_deviceOrientationStreamController?.isClosed ?? true)) {
-                _deviceOrientationStreamController!.add(orientation);
-              }
-            },
-            onError: (Object error) {
-              if (!(_deviceOrientationStreamController?.isClosed ?? true)) {
-                _deviceOrientationStreamController!.addError(error);
-              }
-            },
-            cancelOnError: false,
-          );
-    }
+    _deviceOrientationStream ??= deviceOrientationEventChannel
+        .receiveBroadcastStream()
+        .cast<String>()
+        .map((orientation) => orientation.parseDeviceOrientation());
 
-    return _deviceOrientationStreamController!.stream;
+    return _deviceOrientationStream!;
   }
 
   /// Get the event stream of barcode events that come from the [eventChannel].
   Stream<Map<Object?, Object?>> get eventsStream {
-    if (_eventsStreamController == null) {
-      _eventsStreamController =
-          StreamController<Map<Object?, Object?>>.broadcast();
-      _eventsSubscription = eventChannel
-          .receiveBroadcastStream()
-          .cast<Map<Object?, Object?>>()
-          .listen(
-            (event) {
-              if (!(_eventsStreamController?.isClosed ?? true)) {
-                _eventsStreamController!.add(event);
-              }
-            },
-            onError: (Object error) {
-              if (!(_eventsStreamController?.isClosed ?? true)) {
-                _eventsStreamController!.addError(error);
-              }
-            },
-            cancelOnError: false,
-          );
-    }
+    _eventsStream ??= eventChannel
+        .receiveBroadcastStream()
+        .cast<Map<Object?, Object?>>();
 
-    return _eventsStreamController!.stream;
+    return _eventsStream!;
   }
 
   /// The delegate that handles texture rotation corrections on Android.
@@ -225,10 +194,12 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
   /// with [kBarcodeErrorEventName] as [PlatformException.code], the error is
   /// rethrown as-is.
   Never _parseBarcodeError(Object error, StackTrace stackTrace) {
-    if (error case PlatformException(
-      :final String code,
-      :final String? message,
-    ) when code == kBarcodeErrorEventName) {
+    if (error
+        case PlatformException(
+          :final String code,
+          :final String? message,
+        )
+        when code == kBarcodeErrorEventName) {
       throw MobileScannerBarcodeException(message);
     }
 
@@ -526,20 +497,19 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
     _textureId = null;
     _pausing = false;
     _surfaceProducerDelegate = null;
-
-    await Future.wait(
-      [
-        _eventsSubscription?.cancel(),
-        _deviceOrientationSubscription?.cancel(),
-        _eventsStreamController?.close(),
-        _deviceOrientationStreamController?.close(),
-      ].nonNulls,
-    );
-
-    _eventsSubscription = null;
-    _deviceOrientationSubscription = null;
-    _eventsStreamController = null;
-    _deviceOrientationStreamController = null;
+    _eventsStream = null;
+    // The device orientation stream is deliberately kept alive, here and in
+    // dispose(). Unlike the events stream, it can have listeners outside this
+    // class (e.g. RotatedPreview), whose lifecycle is tied to the widget tree.
+    // If the stream were recreated while an old listener is still subscribed,
+    // cancelling that old subscription later would tear down the platform
+    // channel of the new stream instance: EventChannel.receiveBroadcastStream
+    // unconditionally clears the channel message handler and sends a 'cancel'
+    // message in onCancel, even when a newer stream instance on the same
+    // channel has taken over. Keeping a single stream instance makes the
+    // listen/cancel reference counting correct regardless of subscription
+    // timing, and costs nothing while unlistened: the message handler is only
+    // registered between the first listen and the last cancel.
 
     await methodChannel.invokeMethod<void>(kStopCameraMethodName, {
       'force': force,
@@ -582,9 +552,12 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
   }
 
   @override
-  Future<Set<CameraLensType>> getSupportedLenses() async {
+  Future<Set<CameraLensType>> getSupportedLenses({
+    CameraFacing? facing,
+  }) async {
     final lensTypes = await methodChannel.invokeListMethod<Object?>(
       kGetSupportedLensesMethodName,
+      facing != null ? {'facing': facing.rawValue} : null,
     );
 
     if (lensTypes == null || lensTypes.isEmpty) {
@@ -595,9 +568,29 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
   }
 
   @override
+  Future<CameraLensType?> getBestCloseRangeScanningLens({
+    CameraFacing facing = CameraFacing.back,
+  }) async {
+    final rawValue = await methodChannel.invokeMethod<int>(
+      kGetBestCloseRangeScanningLensMethodName,
+      {'facing': facing.rawValue},
+    );
+
+    if (rawValue == null) {
+      return null;
+    }
+
+    return CameraLensType.fromRawValue(rawValue);
+  }
+
+  @override
+  void unregisterController(int id) {
+    _instances.remove(id);
+  }
+
+  @override
   Future<void> dispose(int id) async {
     _instances.remove(id);
-
     await updateScanWindow(null);
     await stop();
 

@@ -72,40 +72,37 @@ class Barcode {
     }
 
     return Barcode(
-      calendarEvent:
-          calendarEvent == null
-              ? null
-              : CalendarEvent.fromNative(calendarEvent),
-      contactInfo:
-          contactInfo == null ? null : ContactInfo.fromNative(contactInfo),
-      corners:
-          corners == null
-              ? const <Offset>[]
-              : List.unmodifiable(
-                corners.cast<Map<Object?, Object?>>().map((
-                  e,
-                ) {
-                  final x = e['x']! as double;
-                  final y = e['y']! as double;
+      calendarEvent: calendarEvent == null
+          ? null
+          : CalendarEvent.fromNative(calendarEvent),
+      contactInfo: contactInfo == null
+          ? null
+          : ContactInfo.fromNative(contactInfo),
+      corners: corners == null
+          ? const <Offset>[]
+          : List.unmodifiable(
+              corners.cast<Map<Object?, Object?>>().map((
+                e,
+              ) {
+                final x = e['x']! as double;
+                final y = e['y']! as double;
 
-                  return Offset(x, y);
-                }),
-              ),
+                return Offset(x, y);
+              }),
+            ),
       displayValue: data['displayValue'] as String?,
-      driverLicense:
-          driverLicense == null
-              ? null
-              : DriverLicense.fromNative(driverLicense),
+      driverLicense: driverLicense == null
+          ? null
+          : DriverLicense.fromNative(driverLicense),
       email: email == null ? null : Email.fromNative(email),
       format: BarcodeFormat.fromRawValue(data['format'] as int? ?? -1),
       geoPoint: geoPoint == null ? null : GeoPoint.fromNative(geoPoint),
       phone: phone == null ? null : Phone.fromNative(phone),
       rawDecodedBytes: rawDecodedBytes,
       rawValue: data['rawValue'] as String?,
-      size:
-          barcodeWidth == null || barcodeHeight == null
-              ? Size.zero
-              : Size(barcodeWidth, barcodeHeight),
+      size: barcodeWidth == null || barcodeHeight == null
+          ? Size.zero
+          : Size(barcodeWidth, barcodeHeight),
       sms: sms == null ? null : SMS.fromNative(sms),
       type: BarcodeType.fromRawValue(data['type'] as int? ?? 0),
       url: url == null ? null : UrlBookmark.fromNative(url),

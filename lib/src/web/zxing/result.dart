@@ -54,6 +54,7 @@ extension type Result(JSObject _) implements JSObject {
       15 => BarcodeFormat.upcE,
       // UPC/EAN extension
       16 => BarcodeFormat.upcEanExtension,
+      17 => BarcodeFormat.microQrCode,
       _ => BarcodeFormat.unknown,
     };
   }

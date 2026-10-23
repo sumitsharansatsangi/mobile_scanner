@@ -44,49 +44,38 @@ class ScanWindowPainter extends CustomPainter {
       return;
     }
 
-    // Define the main overlay path covering the entire screen.
-    final backgroundPath = Path()..addRect(Offset.zero & size);
-
     // The cutout rect depends on the border radius.
-    final cutoutRect =
-        borderRadius == BorderRadius.zero
-            ? RRect.fromRectAndCorners(scanWindow)
-            : RRect.fromRectAndCorners(
-              scanWindow,
-              topLeft: borderRadius.topLeft,
-              topRight: borderRadius.topRight,
-              bottomLeft: borderRadius.bottomLeft,
-              bottomRight: borderRadius.bottomRight,
-            );
+    final cutoutRect = borderRadius == BorderRadius.zero
+        ? RRect.fromRectAndCorners(scanWindow)
+        : RRect.fromRectAndCorners(
+            scanWindow,
+            topLeft: borderRadius.topLeft,
+            topRight: borderRadius.topRight,
+            bottomLeft: borderRadius.bottomLeft,
+            bottomRight: borderRadius.bottomRight,
+          );
 
-    // The cutout path is always in the center.
-    final cutoutPath = Path()..addRRect(cutoutRect);
+    final borderPaint = Paint()
+      ..color = borderColor
+      ..style = borderStyle
+      ..strokeWidth = borderWidth
+      ..strokeCap = borderStrokeCap
+      ..strokeJoin = borderStrokeJoin;
 
-    // Combine the two paths: overlay minus the cutout area
-    final overlayWithCutoutPath = Path.combine(
-      PathOperation.difference,
-      backgroundPath,
-      cutoutPath,
-    );
-
-    final overlayWithCutoutPaint =
+    // Use a layer so that BlendMode.clear punches a transparent hole through
+    // the dark overlay. This works correctly on all platforms including web,
+    // where Path.combine(PathOperation.difference) may not render correctly.
+    canvas
+      ..saveLayer(Offset.zero & size, Paint())
+      ..drawRect(
+        Offset.zero & size,
         Paint()
           ..color = color
-          ..style = PaintingStyle.fill
-          ..blendMode = BlendMode.srcOver; // android
-
-    final borderPaint =
-        Paint()
-          ..color = borderColor
-          ..style = borderStyle
-          ..strokeWidth = borderWidth
-          ..strokeCap = borderStrokeCap
-          ..strokeJoin = borderStrokeJoin;
-
-    // Paint the overlay with the cutout.
-    canvas
-      ..drawPath(overlayWithCutoutPath, overlayWithCutoutPaint)
-      // Then, draw the border around the cutout area.
+          ..style = PaintingStyle.fill,
+      )
+      ..drawRRect(cutoutRect, Paint()..blendMode = BlendMode.clear)
+      ..restore()
+      // Draw the border around the cutout area.
       ..drawRRect(cutoutRect, borderPaint);
   }
 
