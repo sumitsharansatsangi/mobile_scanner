@@ -169,6 +169,10 @@ void main() {
       );
       expect(await reader.decodeFrame(web.HTMLVideoElement()), isEmpty);
       expect(_detectorCalls, 0);
+      for (final postal in [BarcodeFormat.postnet, BarcodeFormat.planet]) {
+        await reader.prepareDecoder(_options(formats: [postal]));
+        expect(await reader.decodeFrame(web.HTMLVideoElement()), isEmpty);
+      }
       await reader.prepareDecoder(
         _options(formats: [BarcodeFormat.unknown]),
       );
@@ -184,6 +188,10 @@ void main() {
         _options(formats: [BarcodeFormat.dotCode]),
       );
       expect(await reader.decodeFrame(web.HTMLVideoElement()), isEmpty);
+      for (final postal in [BarcodeFormat.postnet, BarcodeFormat.planet]) {
+        await reader.prepareDecoder(_options(formats: [postal]));
+        expect(await reader.decodeFrame(web.HTMLVideoElement()), isEmpty);
+      }
       await reader.prepareDecoder(
         _options(formats: [BarcodeFormat.unknown]),
       );

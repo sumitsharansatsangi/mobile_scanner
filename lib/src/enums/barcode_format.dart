@@ -167,7 +167,15 @@ enum BarcodeFormat {
 
   /// The EAN/UPC family: EAN-8, EAN-13, UPC-A and UPC-E.
   /// This value is their combined mask, rather than a new format bit.
-  eanUpc(1632);
+  eanUpc(1632),
+
+  /// USPS POSTNET. Native bridge only; returns 5, 9 or 11 payload digits.
+  /// The validated checksum digit is omitted from the returned text.
+  postnet(2147483648),
+
+  /// USPS PLANET. Native bridge only; returns 11 or 13 payload digits.
+  /// The validated checksum digit is omitted from the returned text.
+  planet(4294967296);
 
   const BarcodeFormat(this.rawValue);
 
@@ -243,6 +251,10 @@ enum BarcodeFormat {
         return BarcodeFormat.pzn;
       case 1073741824:
         return BarcodeFormat.otherBarcode;
+      case 2147483648:
+        return BarcodeFormat.postnet;
+      case 4294967296:
+        return BarcodeFormat.planet;
       case 1632:
         return BarcodeFormat.eanUpc;
       default:

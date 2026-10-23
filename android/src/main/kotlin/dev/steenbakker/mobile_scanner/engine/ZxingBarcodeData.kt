@@ -14,7 +14,7 @@ import java.nio.charset.StandardCharsets
  */
 val ZxingBarcode.data: Map<String, Any?>
     get() {
-        val parsed = ParsedPayload.from(text, format)
+        val parsed = ParsedPayload.from(text, if (format <= Int.MAX_VALUE) format.toInt() else -1)
         val cornerList = listOf(
             mapOf("x" to corners[0].toDouble(), "y" to corners[1].toDouble()),
             mapOf("x" to corners[2].toDouble(), "y" to corners[3].toDouble()),

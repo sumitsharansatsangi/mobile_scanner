@@ -15,7 +15,7 @@ package dev.steenbakker.mobile_scanner.engine
  *   bottomLeftX, bottomLeftY].
  */
 class ZxingBarcode(
-    @JvmField val format: Int,
+    @JvmField val format: Long,
     @JvmField val text: String?,
     @JvmField val rawBytes: ByteArray?,
     @JvmField val corners: FloatArray,

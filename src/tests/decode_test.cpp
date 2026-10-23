@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
   params.data = image.data(); params.width = width; params.height = height;
   params.try_harder = 1; params.try_rotate = 1;
   params.format_mask = 256; // QR
-  auto* result = ms_zxing_decode_sized(&params, image.size());
+  auto* result = ms_zxing_decode_sized_v2(&params, image.size());
   if (!result || result->count != 1 || !result->results[0].text ||
       std::string(result->results[0].text).find("MECARD:") != 0) return 3;
   const auto* metadata = ms_zxing_result_metadata(result, 0);
@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
     return 11;
   }
   auto empty = [&](uint64_t length) {
-    auto* list = ms_zxing_decode_sized(&params, length);
+    auto* list = ms_zxing_decode_sized_v2(&params, length);
     const bool valid = list && list->count == 0;
     ms_zxing_free_results(list);
     return valid;
@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
   params.data = rmqr.data(); params.width = width; params.height = height;
   for (const uint32_t mask : {67108864u, 0u, 256u, 131072u}) {
     params.format_mask = mask;
-    auto* decoded = ms_zxing_decode_sized(&params, rmqr.size());
+    auto* decoded = ms_zxing_decode_sized_v2(&params, rmqr.size());
     const bool expected = mask == 67108864u || mask == 0u;
     const bool valid = decoded && (expected
         ? decoded->count == 1 && decoded->results[0].format == 67108864 &&

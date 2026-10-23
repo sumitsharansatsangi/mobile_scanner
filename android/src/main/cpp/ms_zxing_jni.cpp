@@ -26,9 +26,9 @@ bool ensureBarcodeClass(JNIEnv* env) {
   env->DeleteLocalRef(local);
   if (g_barcode_class == nullptr) return false;
 
-  // ZxingBarcode(int format, String text, byte[] rawBytes, float[] corners)
+  // ZxingBarcode(long format, String text, byte[] rawBytes, float[] corners)
   g_barcode_ctor = env->GetMethodID(
-      g_barcode_class, "<init>", "(ILjava/lang/String;[B[F)V");
+      g_barcode_class, "<init>", "(JLjava/lang/String;[B[F)V");
   return g_barcode_ctor != nullptr;
 }
 
@@ -126,7 +126,7 @@ jobject toJavaBarcode(JNIEnv* env, const MsZxingResult& r, const MsZxingResultMe
 extern "C" JNIEXPORT jobjectArray JNICALL
 Java_dev_steenbakker_mobile_1scanner_engine_ZxingEngine_nativeDecodeLuma(
     JNIEnv* env, jobject /*thiz*/, jobject luma, jint width, jint height,
-    jint rowStride, jint formatMask, jint cropLeft, jint cropTop,
+    jint rowStride, jlong formatMask, jint cropLeft, jint cropTop,
     jint cropWidth, jint cropHeight, jboolean tryHarder, jboolean tryRotate,
     jboolean tryInvert, jboolean tryDownscale, jint maxSymbols) {
   if (!ensureBarcodeClass(env)) return nullptr;
@@ -141,7 +141,7 @@ Java_dev_steenbakker_mobile_1scanner_engine_ZxingEngine_nativeDecodeLuma(
   params.height = height;
   params.row_stride = rowStride;
   params.pixel_format = MS_ZXING_PIXEL_LUM;
-  params.format_mask = static_cast<uint32_t>(formatMask);
+  params.format_mask = static_cast<uint64_t>(formatMask);
   params.crop_left = cropLeft;
   params.crop_top = cropTop;
   params.crop_width = cropWidth;
@@ -152,7 +152,7 @@ Java_dev_steenbakker_mobile_1scanner_engine_ZxingEngine_nativeDecodeLuma(
   params.try_downscale = tryDownscale ? 1 : 0;
   params.max_symbols = maxSymbols;
 
-  MsZxingResultList* list = ms_zxing_decode_sized(&params, static_cast<uint64_t>(env->GetDirectBufferCapacity(luma)));
+  MsZxingResultList* list = ms_zxing_decode_sized_v2(&params, static_cast<uint64_t>(env->GetDirectBufferCapacity(luma)));
   if (list == nullptr) return nullptr;
 
   jobjectArray array =

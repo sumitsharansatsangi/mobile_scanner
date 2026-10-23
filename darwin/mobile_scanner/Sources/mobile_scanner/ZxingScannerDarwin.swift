@@ -18,7 +18,7 @@ import FlutterMacOS
 /// pipeline. This is the primary decoder on iOS/macOS; Apple Vision is only
 /// used as a recovery fallback (see `MobileScannerPlugin.captureOutput`).
 ///
-/// The C functions `ms_zxing_decode` / `ms_zxing_free_results` are provided by
+/// The C functions `ms_zxing_decode_v2` / `ms_zxing_free_results` are provided by
 /// the native core compiled into this module (see mobile_scanner.podspec /
 /// Package.swift). The result dictionaries match the shape produced by
 /// `VNBarcodeObservation.toMap` so the Dart `Barcode.fromNative` parser handles
@@ -34,7 +34,7 @@ enum ZxingScannerDarwin {
     /// window in image pixels.
     static func decode(
         pixelBuffer: CVPixelBuffer,
-        formatMask: UInt32,
+        formatMask: UInt64,
         crop: CGRect? = nil,
         tryHarder: Bool = false,
         tryInvert: Bool = false
@@ -87,7 +87,7 @@ enum ZxingScannerDarwin {
         params.try_downscale = tryHarder ? 1 : 0
         params.max_symbols = 0
 
-        guard let listPtr = ms_zxing_decode_sized(&params, UInt64(rowStride * height)) else {
+        guard let listPtr = ms_zxing_decode_sized_v2(&params, UInt64(rowStride * height)) else {
             return []
         }
         defer { ms_zxing_free_results(listPtr) }

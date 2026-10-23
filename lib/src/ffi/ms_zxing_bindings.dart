@@ -41,7 +41,7 @@ final class MsZxingDecodeParams extends ffi.Struct {
   @ffi.Int32()
   external int pixelFormat;
 
-  @ffi.Uint32()
+  @ffi.Uint64()
   external int formatMask;
 
   @ffi.Int32()
@@ -74,7 +74,7 @@ final class MsZxingDecodeParams extends ffi.Struct {
 
 /// Mirrors `MsZxingResult`.
 final class MsZxingResult extends ffi.Struct {
-  @ffi.Int32()
+  @ffi.Int64()
   external int format;
 
   external ffi.Pointer<ffi.Char> text;
@@ -154,7 +154,7 @@ final class MsZxingBindings {
             )
           : null,
       decode = library.lookupFunction<MsZxingDecodeNative, MsZxingDecodeDart>(
-        'ms_zxing_decode_sized',
+        'ms_zxing_decode_sized_v2',
       ),
       freeResults = library.lookupFunction<MsZxingFreeNative, MsZxingFreeDart>(
         'ms_zxing_free_results',

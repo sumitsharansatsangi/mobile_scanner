@@ -33,7 +33,7 @@ extern "C" {
 #define MS_ZXING_API __attribute__((visibility("default"))) __attribute__((used))
 #endif
 
-// Layout of the pixel buffer passed to ms_zxing_decode.
+// Layout of the pixel buffer passed to ms_zxing_decode_v2.
 typedef enum {
   MS_ZXING_PIXEL_LUM = 0,   // 8-bit grayscale, 1 byte/pixel (preferred fast path)
   MS_ZXING_PIXEL_RGB = 1,   // 24-bit RGB
@@ -41,6 +41,8 @@ typedef enum {
   MS_ZXING_PIXEL_BGRA = 3,  // 32-bit BGRA (e.g. Apple Vision / 32BGRA buffers)
 } MsZxingPixelFormat;
 
+// Native ABI v2: format masks and result formats are 64-bit. Rebuild all
+// bindings and native libraries together; v1 binaries are not compatible.
 // Decode request. Fields left at 0 take their documented default, so callers
 // only need to set what they care about.
 typedef struct {
@@ -54,7 +56,7 @@ typedef struct {
   // supported format. Checksum-less fallback formats such as Pharmacode require
   // an explicit format bit to avoid false positives.
   // Normalize legacy ITF enum aliases 126/127 to bit 128 before OR-ing.
-  uint32_t format_mask;
+  uint64_t format_mask;
 
   // Optional crop rectangle in pixels, used to restrict scanning to a scan
   // window. Leave all four at 0 to scan the whole image.
@@ -83,7 +85,7 @@ typedef struct {
 // One decoded barcode.
 typedef struct {
   // BarcodeFormat.rawValue (matches the Dart enum). -1 if unknown.
-  int32_t format;
+  int64_t format;
   // UTF-8 decoded text, NUL-terminated. Owned by the result list.
   const char* text;
   // Raw decoded bytes (may contain NULs). Owned by the result list.
@@ -94,14 +96,14 @@ typedef struct {
   MsZxingPoint corners[4];
 } MsZxingResult;
 
-// A heap-allocated list of results returned by ms_zxing_decode.
+// A heap-allocated list of results returned by ms_zxing_decode_v2.
 typedef struct {
   MsZxingResult* results;
   int32_t count;
 } MsZxingResultList;
 
 // Optional per-symbol metadata. Strings are owned by the result list.
-// Existing result/list layouts remain unchanged for binary compatibility.
+// Metadata remains separate from the result stride.
 typedef struct {
   const char* format_name;
   const char* symbology_identifier;
@@ -123,15 +125,15 @@ MS_ZXING_API const MsZxingResultMetadata* ms_zxing_result_metadata(
 // Always returns a non-null, heap-allocated list (count may be 0). The caller
 // MUST free it with ms_zxing_free_results. Returned strings/bytes are owned by
 // the list and are invalidated once it is freed.
-MS_ZXING_API MsZxingResultList* ms_zxing_decode(
+MS_ZXING_API MsZxingResultList* ms_zxing_decode_v2(
     const MsZxingDecodeParams* params);
 
 // Bounds-checked decode. Returns an empty list for invalid image metadata or
 // an undersized buffer. New integrations should prefer this entry point.
-MS_ZXING_API MsZxingResultList* ms_zxing_decode_sized(
+MS_ZXING_API MsZxingResultList* ms_zxing_decode_sized_v2(
     const MsZxingDecodeParams* params, uint64_t data_length);
 
-// Free a list returned by ms_zxing_decode (null-safe).
+// Free a list returned by ms_zxing_decode_v2 (null-safe).
 MS_ZXING_API void ms_zxing_free_results(MsZxingResultList* list);
 
 // Returns the linked zxing-cpp version string (for diagnostics / about pages).

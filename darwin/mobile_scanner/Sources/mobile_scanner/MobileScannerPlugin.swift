@@ -55,7 +55,7 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
 
     /// OR-ed BarcodeFormat.rawValue bits to scan for (0 = all formats). Used by
     /// the primary ZXing-C++ engine.
-    var zxingFormatMask: UInt32 = 0
+    var zxingFormatMask: UInt64 = 0
 
     /// Number of consecutive frames ZXing must find nothing in before Apple
     /// Vision is consulted as a recovery fallback when enhanced recovery is
@@ -486,7 +486,7 @@ public class MobileScannerPlugin: NSObject, FlutterPlugin, FlutterStreamHandler,
         return false
     }
 
-    private func analyzeImageWithZxing(ciImage: CIImage, formatMask: UInt32) -> [[String: Any?]] {
+    private func analyzeImageWithZxing(ciImage: CIImage, formatMask: UInt64) -> [[String: Any?]] {
         let extent = ciImage.extent.integral
         let width = Int(extent.width)
         let height = Int(extent.height)
@@ -1359,7 +1359,7 @@ class MapArgumentReader {
 
     /// OR-ed BarcodeFormat.rawValue bits for the native ZXing engine.
     /// Returns 0 (all formats) when none/`all` are requested.
-    func toFormatMask() -> UInt32 {
+    func toFormatMask() -> UInt64 {
         guard let syms: [Int] = args?["formats"] as? [Int] else {
             return 0
         }
@@ -1370,10 +1370,11 @@ class MapArgumentReader {
         // flags; their values collide with combinations of the other format
         // bits. Normalize them onto the dedicated ITF bit (itf14 == 128) before
         // OR-ing. zxing-cpp has a single ITF format.
-        return syms.reduce(UInt32(0)) { acc, raw in
+        let mask = syms.filter { $0 >= 0 }.reduce(UInt64(0)) { acc, raw in
             let bit = (raw == 126 || raw == 127) ? 128 : raw
-            return acc | UInt32(bit)
+            return acc | UInt64(bit)
         }
+        return syms.isEmpty || mask != 0 ? mask : (UInt64(1) << 63)
     }
 
     func floatArray(key: String) -> [CGFloat]? {

@@ -113,7 +113,7 @@ barcode formats; applications can request lists of public formats.
   fallbacks, not upstream ZXing readers. Their existing limitations remain.
   Pharmacode is explicit-only because it has no checksum.
 - DotCode remains a reserved enum without an implemented reader in these
-  pinned engines. Postal symbologies, Han Xin, Grid Matrix, iQR and proprietary
+  pinned engines. Four-state postal symbologies, Han Xin, Grid Matrix, iQR and proprietary
   QR derivatives are not enabled merely by adding enum entries.
 - Metadata is optional. ML Kit, Vision and native browser results may omit it.
   Structured-append pieces are exposed individually; automatic assembly is not
@@ -146,3 +146,40 @@ barcode formats; applications can request lists of public formats.
 - [Pinned WASM readable format table](https://github.com/Sec-ant/zxing-wasm/blob/v3.1.3/src/bindings/barcodeFormat.ts)
 - [Pinned WASM reader options](https://github.com/Sec-ant/zxing-wasm/blob/v3.1.3/src/bindings/readerOptions.ts)
 - [Pinned legacy reader](https://github.com/zxing-js/library/blob/v0.23.0/src/core/MultiFormatReader.ts)
+
+## POSTNET and PLANET follow-up
+
+Two native sampled-line image readers now supplement the 20 bundled ZXing
+formats. `BarcodeFormat.postnet` (2147483648) and `BarcodeFormat.planet`
+(4294967296) are supported explicitly and in default/all detection. They require
+valid frame bars, legal lengths, digit patterns and a Mod-10 checksum; output
+omits the checksum. Direction follows the common baseline, preventing a failed
+checksum from being retried backwards as a different valid payload.
+
+Format masks and native result IDs now use 64-bit integers throughout Dart FFI,
+Android JNI/Kotlin and Swift. Android accepts mixed 32/64-bit method-channel
+integers without truncating high postal bits into existing formats. Existing
+public format IDs are unchanged. The C ABI uses versioned decode symbols
+`ms_zxing_decode_v2` and `ms_zxing_decode_sized_v2`; native binaries and bindings
+must be rebuilt together. Old ABI binaries fail symbol lookup rather than
+being interpreted using the new struct layout.
+
+Synthetic image fixtures and their generator live in `test/fixtures/postal`.
+They cover every supported payload length, upright/90/180-degree orientation,
+inversion, bad checksums, missing frame bars and unsupported lengths. FFI tests
+also check padded color buffers, cropping, corners, decoded bytes and strict
+format requests. JNI tests exercise both high format bits on an actual JVM.
+These do not establish physical-camera performance or Apple Swift build success.
+
+Web, ML Kit and Apple Vision do not acquire postal decoding from this change.
+The detector requires nearly axis-aligned symbols and clear scan lines; a scan
+window can isolate postal bars from surrounding print. Four-state postal readers
+remain unimplemented. See [postal usage](BARCODE_AND_QR_SUPPORT.md#postal-barcodes).
+
+Follow-up validation: 451 Flutter tests (native fixtures enabled), 62 Android
+JVM tests, eight Chrome regressions and both native/JNI CTests passed. Static
+analysis was clean. The Apple vendored C++ source bridge also compiled and
+linked on Linux; this does not validate Swift or Xcode.
+
+The Android ARM64 release APK built successfully with application R8 enabled.
+Both packaged native libraries reference the v2 decode ABI.

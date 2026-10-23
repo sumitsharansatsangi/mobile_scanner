@@ -361,7 +361,7 @@ jobs:
           LD_LIBRARY_PATH: ${{ github.workspace }}/build/native
         run: |
           flutter pub get
-          flutter test test/ffi/zxing_native_test.dart
+          flutter test test/ffi/zxing_native_test.dart test/ffi/postal_native_test.dart
 
   browser_regressions:
     name: Browser reader regressions

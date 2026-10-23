@@ -24,7 +24,7 @@ flutter test --platform chrome test/web/reader_browser_test.dart
 cmake -S src -B build/native -DMS_ZXING_BUILD_TESTS=ON
 cmake --build build/native --config Release --parallel 2
 ctest --test-dir build/native -C Release --output-on-failure
-MS_ZXING_NATIVE_TESTS=1 LD_LIBRARY_PATH="$PWD/build/native" flutter test test/ffi/zxing_native_test.dart
+MS_ZXING_NATIVE_TESTS=1 LD_LIBRARY_PATH="$PWD/build/native" flutter test test/ffi/zxing_native_test.dart test/ffi/postal_native_test.dart
 cd example/android
 ./gradlew :mobile_scanner:testDebugUnitTest
 cd ..
@@ -101,3 +101,25 @@ are distinguished in the audit report.
 
 The format-audit Android ARM64 release build also passed with application R8
 active. The current APK includes the native format fixes and JNI metadata bridge.
+
+## POSTNET and PLANET
+
+Added both two-state postal image readers to the native bridge, including
+explicit/all selection, required checksums, baseline-based direction, quarter-turn
+rotation, optional inversion, crop-aware corners and decoded bytes. Public
+selectors are `BarcodeFormat.postnet` and `BarcodeFormat.planet`. See the
+[postal format audit](FORMAT_SUPPORT_AUDIT.md#postnet-and-planet-follow-up) for
+fixture coverage and detector limits.
+
+The native ABI now uses 64-bit masks/results and versioned v2 decode symbols.
+Rebuild native libraries with the updated Dart/JNI/Swift bindings. Public IDs
+for existing formats remain unchanged. Web postal decoding, four-state postal
+formats, Apple builds and physical-camera validation remain outside this change.
+
+Postal verification: 451 Flutter tests with native fixtures, 62 Android JVM
+tests, eight Chrome regressions and two native/JNI CTests passed. Flutter
+analysis reported no issues. Apple vendored C++ sources compiled and linked
+on Linux; Swift/Xcode and camera-device validation remain pending.
+
+The Android ARM64 release APK built successfully with application R8 enabled.
+Both packaged native libraries reference the v2 decode ABI.

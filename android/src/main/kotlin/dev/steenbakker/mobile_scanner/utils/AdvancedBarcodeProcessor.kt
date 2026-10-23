@@ -79,14 +79,16 @@ class AdvancedBarcodeProcessor(private val context: Context) {
     /**
      * Create scanner options with all available features enabled
      */
-    fun createAdvancedScannerOptions(formats: List<Int>? = null): BarcodeScannerOptions {
+    fun createAdvancedScannerOptions(formats: List<Number>? = null): BarcodeScannerOptions {
         val builder = BarcodeScannerOptions.Builder()
 
         // Enable all formats if none specified
         if (formats.isNullOrEmpty()) {
             builder.setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
         } else {
-            val supportedFormats = formats.filter {
+            val supportedFormats = formats.mapNotNull {
+                if (it.toLong() in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) it.toInt() else null
+            }.filter {
                 it == Barcode.FORMAT_UNKNOWN ||
                 it == Barcode.FORMAT_ALL_FORMATS ||
                 it == Barcode.FORMAT_CODE_128 ||

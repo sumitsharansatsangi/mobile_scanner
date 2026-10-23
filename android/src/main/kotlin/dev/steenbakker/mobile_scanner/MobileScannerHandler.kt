@@ -171,7 +171,7 @@ class MobileScannerHandler(
         val torch: Boolean = call.argument<Boolean>("torch") ?: false
         val facing: Int = call.argument<Int>("facing") ?: 0
         val lensType: Int = call.argument<Int>("lensType") ?: -1
-        val formats: List<Int>? = call.argument<List<Int>>("formats")
+        val formats: List<Number>? = call.argument<List<Number>>("formats")
         val returnImage: Boolean = call.argument<Boolean>("returnImage") ?: false
         val speed: Int = call.argument<Int>("speed") ?: 1
         val timeout: Int = call.argument<Int>("timeout") ?: 250
@@ -308,7 +308,7 @@ class MobileScannerHandler(
     private fun analyzeImage(call: MethodCall, result: MethodChannel.Result) {
         analyzerResult = result
 
-        val formats: List<Int>? = call.argument<List<Int>>("formats")
+        val formats: List<Number>? = call.argument<List<Number>>("formats")
         val filePath: String = call.argument<String>("filePath")!!
 
         mobileScanner!!.analyzeImage(
@@ -401,13 +401,13 @@ class MobileScannerHandler(
         result.success(null)
     }
 
-    private fun buildBarcodeScannerOptions(formats: List<Int>?, autoZoom: Boolean, enableAdvancedProcessing: Boolean = true): BarcodeScannerOptions? {
+    private fun buildBarcodeScannerOptions(formats: List<Number>?, autoZoom: Boolean, enableAdvancedProcessing: Boolean = true): BarcodeScannerOptions? {
         val builder : BarcodeScannerOptions.Builder?
         if (formats == null) {
             builder = BarcodeScannerOptions.Builder()
         } else {
             val formatsList = formats.mapNotNull {
-                BarcodeFormats.fromRawValueOrNull(it)?.intValue
+                BarcodeFormats.fromRawValueOrNull(it.toLong())?.intValue
             }
 
             if (formatsList.isEmpty()) {

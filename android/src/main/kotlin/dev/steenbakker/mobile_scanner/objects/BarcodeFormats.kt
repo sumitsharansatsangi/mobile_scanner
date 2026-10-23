@@ -19,31 +19,31 @@ enum class BarcodeFormats(val intValue: Int) {
     AZTEC(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_AZTEC);
 
     companion object {
-        fun fromRawValueOrNull(rawValue: Int): BarcodeFormats? {
+        fun fromRawValueOrNull(rawValue: Long): BarcodeFormats? {
             return when(rawValue) {
-                -1 -> UNKNOWN
-                0 -> ALL_FORMATS
-                1 -> CODE_128
-                2 -> CODE_39
-                8388608 -> CODE_39
-                4 -> CODE_93
-                8 -> CODABAR
-                16 -> DATA_MATRIX
-                32 -> EAN_13
-                64 -> EAN_8
-                1632 -> EAN_UPC
-                126, 127, 128 -> ITF
-                256 -> QR_CODE
-                512 -> UPC_A
-                1024 -> UPC_E
-                2048 -> PDF417
-                4096 -> AZTEC
+                -1L -> UNKNOWN
+                0L -> ALL_FORMATS
+                1L -> CODE_128
+                2L -> CODE_39
+                8388608L -> CODE_39
+                4L -> CODE_93
+                8L -> CODABAR
+                16L -> DATA_MATRIX
+                32L -> EAN_13
+                64L -> EAN_8
+                1632L -> EAN_UPC
+                126L, 127L, 128L -> ITF
+                256L -> QR_CODE
+                512L -> UPC_A
+                1024L -> UPC_E
+                2048L -> PDF417
+                4096L -> AZTEC
                 else -> null
             }
         }
 
         fun fromRawValue(rawValue: Int): BarcodeFormats {
-            return fromRawValueOrNull(rawValue) ?: UNKNOWN
+            return fromRawValueOrNull(rawValue.toLong()) ?: UNKNOWN
         }
     }
 }

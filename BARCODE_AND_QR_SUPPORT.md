@@ -59,6 +59,36 @@ for the format IDs used by this fork.
 | GS1 DataBar / RSS-14 | Yes | 1D | Retail coupons, fresh food, healthcare, small item marking. | Encodes GS1 data in smaller spaces than classic EAN/UPC. | Compact GS1 support, useful for variable measure items. | Less familiar than EAN/UPC; not supported by Android ML Kit fallback. |
 | GS1 DataBar Expanded / RSS Expanded | Yes | 1D | Coupons, variable weight products, expiry/lot data. | Can encode richer GS1 application identifier data. | More data than basic DataBar, GS1-compatible. | Larger than basic DataBar, not supported by Android ML Kit fallback. |
 
+## Postal barcodes
+
+POSTNET and PLANET are decoded by the shared native bridge on Android,
+iOS/macOS and Linux/Windows image analysis. Apple builds and live-camera
+validation still require their respective environments. The web engines,
+ML Kit and Apple Vision do not decode these formats.
+
+```dart
+final controller = MobileScannerController(
+  formats: [BarcodeFormat.postnet, BarcodeFormat.planet],
+);
+```
+
+An empty format list also enables both postal readers. POSTNET returns 5, 9 or
+11 payload digits; PLANET returns 11 or 13 payload digits. Frame bars, digit
+patterns and the Mod-10 checksum are required; the checksum digit is removed
+from `rawValue` and decoded bytes. Leading zeros are preserved.
+
+The sampled-line detector handles upright, upside-down and quarter-turn images
+(with rotation enabled), plus inverted images when inversion is enabled. It
+requires distinct bar heights, a nearly level common baseline, uniform spacing
+and clear margins. Use a scan window around the barcode when neighboring text
+or other symbols cross the scan line. Perspective, significant skew, mirrored
+symbols and damaged bars are not covered by these fixtures.
+
+These are the legacy two-state postal formats. Intelligent Mail, Royal Mail and
+Australia Post remain unsupported. The format rules follow the
+[USPS POSTNET specification](https://pe.usps.com/archive/html/dmmarchive20041209/C840.htm)
+and [USPS PLANET specification](https://about.usps.com/postal-bulletin/2002/html/pb22083/a-d.html).
+
 ## Not Supported Symbologies
 
 These formats are not exposed by this project because the integrated engines do
@@ -66,13 +96,11 @@ not provide dependable support for them.
 
 Some C++20 helper code for these formats lives in
 `src/ms_fallback_barcodes.{h,cpp}`. Those helpers decode or validate
-already-normalized symbol streams. Code 11, MSI/Plessey, and Pharmacode are the
+already-normalized symbol streams. Code 11, MSI/Plessey, Pharmacode, POSTNET and PLANET are the
 exceptions: their helpers are wired into native sampled-line detectors.
 
 | Format | Supported | Why not supported | Typical purpose |
 | --- | --- | --- | --- |
-| POSTNET | Not exposed | Native helper decodes normalized full/half bars; postal image detection is not wired into the scanner. | USPS postal routing. |
-| PLANET | Not exposed | Native helper decodes normalized full/half bars; postal image detection is not wired into the scanner. | USPS postal tracking, now legacy. |
 | Intelligent Mail Barcode / IMb | No | Postal barcode formats are not supported by the integrated engines. | USPS mail tracking and routing. |
 | Australia Post / Royal Mail / other postal variants | No | Postal barcode formats are not supported by the integrated engines. | Postal sorting and routing. |
 

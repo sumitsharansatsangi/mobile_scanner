@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+* Added native POSTNET and PLANET image decoding with checksum validation,
+  format selectors, rotation and inversion support.
+* Widened native format masks/results to 64 bits for postal format IDs. The v2
+  decode ABI requires rebuilding native binaries with the updated bindings.
+
 ## [7.4.2](https://github.com/juliansteenbakker/mobile_scanner/compare/v7.4.1...v7.4.2) (2026-09-10)
 
 

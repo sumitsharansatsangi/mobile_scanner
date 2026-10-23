@@ -41,6 +41,8 @@ void main() {
         536870912: BarcodeFormat.pzn,
         1073741824: BarcodeFormat.otherBarcode,
         1632: BarcodeFormat.eanUpc,
+        2147483648: BarcodeFormat.postnet,
+        4294967296: BarcodeFormat.planet,
       };
 
       for (final entry in values.entries) {
@@ -110,6 +112,8 @@ void main() {
         BarcodeFormat.pzn: 536870912,
         BarcodeFormat.otherBarcode: 1073741824,
         BarcodeFormat.eanUpc: 1632,
+        BarcodeFormat.postnet: 2147483648,
+        BarcodeFormat.planet: 4294967296,
       };
 
       for (final entry in values.entries) {

@@ -38,6 +38,7 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import dev.steenbakker.mobile_scanner.engine.ZxingFormatMask
 import dev.steenbakker.mobile_scanner.engine.ZxingEngine
 import dev.steenbakker.mobile_scanner.engine.data
 import dev.steenbakker.mobile_scanner.objects.DetectionSpeed
@@ -104,7 +105,7 @@ class MobileScanner(
     private val zxingAvailable: Boolean by lazy { ZxingEngine.ensureLoaded() }
 
     /// OR-ed BarcodeFormat.rawValue bits to scan for (0 = all formats).
-    private var zxingFormatMask: Int = 0
+    private var zxingFormatMask: Long = 0
 
     /// Number of consecutive frames ZXing must find nothing in before the
     /// ML Kit recovery path is invoked when enhanced recovery is disabled.
@@ -688,7 +689,7 @@ class MobileScanner(
         enableQualityAnalysis: Boolean = false,
         enableBatchProcessing: Boolean = false,
         enhanceImageQuality: Boolean = true,
-        formats: List<Int>? = null,
+        formats: List<Number>? = null,
     ) {
         this.detectionSpeed = detectionSpeed
         this.detectionTimeout = detectionTimeout
@@ -705,9 +706,7 @@ class MobileScanner(
         // flags; their values collide with combinations of the other format
         // bits, so normalize them onto the dedicated ITF bit (itf14 == 128)
         // before OR-ing. zxing-cpp has a single ITF format.
-        zxingFormatMask = formats?.fold(0) { acc, raw ->
-            acc or if (raw == 126 || raw == 127) 128 else raw
-        } ?: 0
+        zxingFormatMask = ZxingFormatMask.fromFormats(formats)
         consecutiveZxingMisses = 0
 
 

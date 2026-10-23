@@ -125,5 +125,7 @@ if(MS_ZXING_BUILD_JNI_TESTS AND NOT ANDROID)
   add_test(NAME ms_zxing_jni_test COMMAND ${Java_JAVA_EXECUTABLE}
     -Djava.awt.headless=true -cp "${_java_classes}"
     dev.steenbakker.mobile_scanner.engine.ZxingEngine
-    "$<TARGET_FILE:ms_zxing_jni_test>" "${CMAKE_CURRENT_LIST_DIR}/../test/fixtures/qr_unicode.png")
+    "$<TARGET_FILE:ms_zxing_jni_test>" "${CMAKE_CURRENT_LIST_DIR}/../test/fixtures/qr_unicode.png"
+    "${CMAKE_CURRENT_LIST_DIR}/../test/fixtures/postal/postnet5.png"
+    "${CMAKE_CURRENT_LIST_DIR}/../test/fixtures/postal/planet11.png")
 endif()

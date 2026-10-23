@@ -57,14 +57,19 @@ constexpr uint32_t kRawDataBarLimited = 33554432;
 constexpr uint32_t kRawRmQr = 67108864;
 constexpr uint32_t kRawDxFilmEdge = 134217728;
 constexpr uint32_t kRawOtherBarcode = 1073741824;
+constexpr uint64_t kRawPostnet = UINT64_C(2147483648);
+constexpr uint64_t kRawPlanet = UINT64_C(4294967296);
 
 struct FallbackCandidate {
-  int32_t format = -1;
+  int64_t format = -1;
   std::string text;
   int32_t start = 0;
   int32_t end = 0;
   int32_t fixed = 0;
   bool vertical = false;
+  int crossMin = -1;
+  int crossMax = -1;
+  bool inverted = false;
 };
 
 struct Run {
@@ -86,7 +91,7 @@ constexpr Code11Symbol kCode11Symbols[] = {
 
 // Translate a Dart BarcodeFormat.rawValue bitmask into zxing-cpp's
 // BarcodeFormats. An empty/zero mask means "all supported formats".
-BarcodeFormats RawMaskToZxing(uint32_t mask) {
+BarcodeFormats RawMaskToZxing(uint64_t mask) {
   if (mask == 0) {
     return BarcodeFormat::Any;
   }
@@ -133,19 +138,19 @@ BarcodeFormats RawMaskToZxing(uint32_t mask) {
   return formats;
 }
 
-bool Code11Requested(uint32_t mask) {
+bool Code11Requested(uint64_t mask) {
   return mask == 0 || (mask & kRawCode11) != 0;
 }
 
-bool MsiPlesseyRequested(uint32_t mask) {
+bool MsiPlesseyRequested(uint64_t mask) {
   return mask == 0 || (mask & kRawMsiPlessey) != 0;
 }
 
-bool ExplicitFormatRequested(uint32_t mask, uint32_t format) {
+bool ExplicitFormatRequested(uint64_t mask, uint64_t format) {
   return mask != 0 && (mask & format) != 0;
 }
 
-bool UpcEanRequested(uint32_t mask) {
+bool UpcEanRequested(uint64_t mask) {
   return mask == 0 || (mask & (kRawEan13 | kRawEan8 | kRawUpcA | kRawUpcE |
                                kRawUpcEanExtension)) != 0;
 }
@@ -310,6 +315,123 @@ std::optional<std::vector<Run>> ExtractRuns(const MsZxingDecodeParams& params,
   }
   if (runs.empty()) return std::nullopt;
   return runs;
+}
+
+// Two-state postal symbols have equal-width bars and spaces, a common
+// baseline and two bar heights. A scan through the short bars supplies the
+// horizontal positions; perpendicular probes recover their heights.
+std::vector<FallbackCandidate> DecodePostal(const MsZxingDecodeParams& params) {
+  const bool cropped = params.crop_width > 0 && params.crop_height > 0;
+  const int ox = cropped ? params.crop_left : 0;
+  const int oy = cropped ? params.crop_top : 0;
+  const int width = cropped ? params.crop_width : params.width;
+  const int height = cropped ? params.crop_height : params.height;
+  std::vector<FallbackCandidate> out;
+  for (int orientation = 0; orientation < (params.try_rotate ? 2 : 1); ++orientation) {
+    const bool vertical = orientation != 0;
+    const int length = vertical ? height : width;
+    const int depth = vertical ? width : height;
+    const int samples = std::min(depth, params.try_harder ? 161 : 41);
+    for (int polarity = 0; polarity < (params.try_invert ? 2 : 1); ++polarity) {
+      for (int sample = 0; sample < samples; ++sample) {
+        const int fixed = (2 * sample + 1) * depth / (2 * samples);
+        // Use the row's contrast for both segmentation and perpendicular probes.
+        int lo = 255, hi = 0;
+        for (int pos = 0; pos < length; ++pos) {
+          const int lum = LuminanceAt(params, ox + (vertical ? fixed : pos),
+                                     oy + (vertical ? pos : fixed));
+          lo = std::min(lo, lum); hi = std::max(hi, lum);
+        }
+        if (hi - lo < 32) continue;
+        const int threshold = (hi + lo) / 2;
+        const auto black = [&](int pos, int cross) {
+          const int lum = LuminanceAt(params, ox + (vertical ? cross : pos),
+                                     oy + (vertical ? pos : cross));
+          return polarity ? lum > threshold : lum < threshold;
+        };
+        std::vector<Run> bars;
+        for (int pos = 0; pos < length;) {
+          if (!black(pos, fixed)) { ++pos; continue; }
+          const int start = pos;
+          while (pos < length && black(pos, fixed)) ++pos;
+          bars.push_back({start, pos - start, true});
+        }
+        const size_t count = bars.size();
+        const bool postnet = count == 32 || count == 52 || count == 62;
+        const bool planet = count == 62 || count == 72;
+        if (!postnet && !planet) continue;
+        // Reject irregular spacing and broad shapes before probing heights.
+        int minBar = length, maxBar = 0, minGap = length, maxGap = 0;
+        for (size_t i = 0; i < count; ++i) {
+          minBar = std::min(minBar, bars[i].width);
+          maxBar = std::max(maxBar, bars[i].width);
+          if (i > 0) {
+            const int gap = bars[i].start - bars[i-1].start - bars[i-1].width;
+            minGap = std::min(minGap, gap); maxGap = std::max(maxGap, gap);
+          }
+        }
+        if (maxBar > minBar * 1.8 || maxGap > minGap * 1.8 ||
+            minGap < minBar * 0.5 || maxGap > maxBar * 6) continue;
+        if (bars.front().start < minBar * 2 ||
+            length - bars.back().start - bars.back().width < minBar * 2) continue;
+        std::vector<int> tops, bottoms, heights;
+        for (const auto& bar : bars) {
+          const int center = bar.start + bar.width / 2;
+          int top = fixed, bottom = fixed;
+          while (top > 0 && black(center, top - 1)) --top;
+          while (bottom + 1 < depth && black(center, bottom + 1)) ++bottom;
+          tops.push_back(top); bottoms.push_back(bottom);
+          heights.push_back(bottom - top + 1);
+        }
+        const auto [shortIt, tallIt] = std::minmax_element(heights.begin(), heights.end());
+        const int shortHeight = *shortIt, tallHeight = *tallIt;
+        if (shortHeight < 2 || shortHeight < maxBar ||
+            tallHeight < shortHeight * 1.5 || tallHeight > shortHeight * 3.5) continue;
+        const int tolerance = std::max(1, tallHeight / 8);
+        const auto [topLo, topHi] = std::minmax_element(tops.begin(), tops.end());
+        const auto [bottomLo, bottomHi] = std::minmax_element(bottoms.begin(), bottoms.end());
+        if (*topHi - *topLo > tolerance && *bottomHi - *bottomLo > tolerance) continue;
+        std::string pattern;
+        bool valid = true;
+        for (const int h : heights) {
+          const bool tall = h > (shortHeight + tallHeight) / 2;
+          if (std::abs(h - (tall ? tallHeight : shortHeight)) > tolerance) valid = false;
+          pattern.push_back(tall ? '1' : '0');
+        }
+        if (!valid || pattern.front() != '1' || pattern.back() != '1') continue;
+        for (const uint64_t format : {kRawPostnet, kRawPlanet}) {
+          if (params.format_mask != 0 && !(params.format_mask & format)) continue;
+          if ((format == kRawPostnet && !postnet) || (format == kRawPlanet && !planet)) continue;
+          // The shared baseline gives direction: upright horizontal symbols
+          // read left-to-right; a 180-degree symbol has its baseline on top.
+          // Do not retry the opposite direction after a checksum failure.
+          const bool reverse = (*topHi - *topLo <= tolerance) != vertical;
+          {
+            const std::string ordered = reverse ? std::string(pattern.rbegin(), pattern.rend()) : pattern;
+            const auto result = format == kRawPostnet
+                ? mobile_scanner::fallback::DecodePostnet(ordered)
+                : mobile_scanner::fallback::DecodePlanet(ordered);
+            if (!result || !result->checksumValid) continue;
+            const int start = bars.front().start + (vertical ? oy : ox);
+            const int end = bars.back().start + bars.back().width + (vertical ? oy : ox);
+            const int crossMin = *topLo + (vertical ? ox : oy);
+            const int crossMax = *bottomHi + 1 + (vertical ? ox : oy);
+            const bool duplicate = std::any_of(out.begin(), out.end(), [&](const auto& c) {
+              return c.format == static_cast<int64_t>(format) && c.text == result->text &&
+                     c.vertical == vertical && std::abs(c.start - start) < maxBar * 2 &&
+                     std::abs(c.fixed - (crossMin + crossMax) / 2) < tallHeight;
+            });
+            if (!duplicate) out.push_back(FallbackCandidate{
+                .format = static_cast<int64_t>(format), .text = result->text,
+                .start = start, .end = end, .fixed = (crossMin + crossMax) / 2,
+                .vertical = vertical, .crossMin = crossMin, .crossMax = crossMax,
+                .inverted = polarity != 0});
+          }
+        }
+      }
+    }
+  }
+  return out;
 }
 
 std::optional<double> WideThreshold(const std::vector<Run>& runs,
@@ -1138,7 +1260,7 @@ void AssignMetadata(MsZxingResultMetadata& metadata, const Barcode& barcode) {
 
 extern "C" {
 
-MsZxingResultList* ms_zxing_decode_sized(const MsZxingDecodeParams* params,
+MsZxingResultList* ms_zxing_decode_sized_v2(const MsZxingDecodeParams* params,
                                         uint64_t data_length) {
   if (params != nullptr && params->width > 0 && params->height > 0 &&
       params->pixel_format >= MS_ZXING_PIXEL_LUM &&
@@ -1147,13 +1269,13 @@ MsZxingResultList* ms_zxing_decode_sized(const MsZxingDecodeParams* params,
     const uint64_t stride = params->row_stride == 0 ? rowBytes : params->row_stride;
     const uint64_t required = (static_cast<uint64_t>(params->height) - 1) * stride + rowBytes;
     if (params->row_stride >= 0 && stride >= rowBytes && data_length >= required) {
-      return ms_zxing_decode(params);
+      return ms_zxing_decode_v2(params);
     }
   }
-  return ms_zxing_decode(nullptr);
+  return ms_zxing_decode_v2(nullptr);
 }
 
-MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
+MsZxingResultList* ms_zxing_decode_v2(const MsZxingDecodeParams* params) {
   auto* storage = static_cast<ResultStorage*>(std::calloc(1, sizeof(ResultStorage)));
   if (storage == nullptr) return nullptr;
   auto* list = &storage->list;
@@ -1237,6 +1359,11 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
       fallbackCandidates.insert(fallbackCandidates.end(),
                                 pharmaTwoCandidates.begin(),
                                 pharmaTwoCandidates.end());
+    }
+
+    if (params->format_mask == 0 || (params->format_mask & (kRawPostnet | kRawPlanet))) {
+      const auto postal = DecodePostal(*params);
+      fallbackCandidates.insert(fallbackCandidates.end(), postal.begin(), postal.end());
     }
 
     const size_t resultCapacity = barcodes.size() + fallbackCandidates.size();
@@ -1330,9 +1457,12 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
       MsZxingResult& r = results[i];
       r.format = candidate.format;
       storage->metadata[i].format_name = DupString(
+          candidate.format == kRawPostnet ? "POSTNET" :
+          candidate.format == kRawPlanet ? "PLANET" :
           candidate.format == kRawCode11 ? "Code11" :
           candidate.format == kRawMsiPlessey ? "MSIPlessey" :
           candidate.format == kRawPharmaCode ? "Pharmacode" : "PharmacodeTwoTrack");
+      storage->metadata[i].is_inverted = candidate.inverted;
       r.text = DupString(candidate.text);
 
       if (!candidate.text.empty()) {
@@ -1344,22 +1474,22 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
         }
       }
 
+      const float crossMin = candidate.crossMin >= 0 ? candidate.crossMin : candidate.fixed - 1.0f;
+      const float crossMax = candidate.crossMax >= 0 ? candidate.crossMax : candidate.fixed + 1.0f;
       if (candidate.vertical) {
-        const float x = static_cast<float>(candidate.fixed);
         const float top = static_cast<float>(candidate.start);
         const float bottom = static_cast<float>(candidate.end);
-        r.corners[0] = MsZxingPoint{.x = x - 1.0f, .y = top};
-        r.corners[1] = MsZxingPoint{.x = x + 1.0f, .y = top};
-        r.corners[2] = MsZxingPoint{.x = x + 1.0f, .y = bottom};
-        r.corners[3] = MsZxingPoint{.x = x - 1.0f, .y = bottom};
+        r.corners[0] = MsZxingPoint{.x = crossMin, .y = top};
+        r.corners[1] = MsZxingPoint{.x = crossMax, .y = top};
+        r.corners[2] = MsZxingPoint{.x = crossMax, .y = bottom};
+        r.corners[3] = MsZxingPoint{.x = crossMin, .y = bottom};
       } else {
         const float left = static_cast<float>(candidate.start);
         const float right = static_cast<float>(candidate.end);
-        const float y = static_cast<float>(candidate.fixed);
-        r.corners[0] = MsZxingPoint{.x = left, .y = y - 1.0f};
-        r.corners[1] = MsZxingPoint{.x = right, .y = y - 1.0f};
-        r.corners[2] = MsZxingPoint{.x = right, .y = y + 1.0f};
-        r.corners[3] = MsZxingPoint{.x = left, .y = y + 1.0f};
+        r.corners[0] = MsZxingPoint{.x = left, .y = crossMin};
+        r.corners[1] = MsZxingPoint{.x = right, .y = crossMin};
+        r.corners[2] = MsZxingPoint{.x = right, .y = crossMax};
+        r.corners[3] = MsZxingPoint{.x = left, .y = crossMax};
       }
 
       ++i;
