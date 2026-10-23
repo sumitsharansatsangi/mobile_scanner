@@ -26,8 +26,8 @@ let package = Package(
             name: "MobileScannerNative",
             exclude: ["README.md", "ZXING_LICENSE"],
             publicHeadersPath: "include",
-            cSettings: [.define("ZXING_READERS")],
-            cxxSettings: [.define("ZXING_READERS"), .headerSearchPath("zxing")],
+            cSettings: [.define("ZXING_READERS"), .define("NDEBUG")],
+            cxxSettings: [.define("ZXING_READERS"), .define("NDEBUG"), .headerSearchPath("zxing")],
             linkerSettings: [.linkedLibrary("c++")]
         )
     ],

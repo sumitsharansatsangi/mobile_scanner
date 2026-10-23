@@ -1,5 +1,6 @@
 #include "ms_zxing.h"
 #include <fstream>
+#include <filesystem>
 #include <iostream>
 #include <iterator>
 #include <vector>
@@ -22,6 +23,12 @@ int main(int argc, char** argv) {
   if (!result || result->count != 1 || !result->results[0].text ||
       std::string(result->results[0].text).find("MECARD:") != 0) return 3;
   ms_zxing_free_results(result);
+  if (std::filesystem::exists("thresholds_new.pnm") ||
+      std::filesystem::exists("thresholds.pnm") ||
+      std::filesystem::exists("thresholds_avg.pnm")) {
+    std::cerr << "Decoder wrote an input-derived debug image\n";
+    return 11;
+  }
   auto empty = [&](uint64_t length) {
     auto* list = ms_zxing_decode_sized(&params, length);
     const bool valid = list && list->count == 0;

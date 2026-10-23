@@ -126,7 +126,7 @@ Apple builds require validation on Xcode; see [implementation status](IMPLEMENTA
 | **Detection** | enableQualityAnalysis | ✅ | ❌ | ❌ | ❌ |
 | | enableBatchProcessing (`analyzeImages`) | ✅ | ✅ | ✅ | ❌ |
 | | multiFormatDetection | ✅ | ✅ | ✅ | ✅ |
-| **Formats** | All exposed formats | ✅ | ⚠️² | ⚠️² | ⚠️¹ |
+| **Formats** | Supported formats (see below) | ✅ | ⚠️² | ⚠️² | ⚠️¹ |
 
 ### 📊 **Supported Barcode Formats**
 

@@ -10,3 +10,6 @@ The small wrapper translation units include the shared repository src/ engine.
 The public C header is a copy of src/ms_zxing.h; keep both identical. Vendoring
 allows CocoaPods and SwiftPM to use the same pinned engine without an optional
 manual build step. Update this copy together with ZXING_CPP_TAG in src/CMakeLists.txt.
+
+Both Apple build systems define NDEBUG for the native target, including debug
+apps. This disables upstream image-dump diagnostics in the binarizer.

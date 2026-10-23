@@ -46,3 +46,16 @@ library that actually supports it. ZXing 2.3.0 does not provide that decoder.
 Desktop live capture needs an integrated frame/preview backend, lifecycle and
 permission handling, camera selection, throttling and hardware validation on both
 operating systems. File decoding does not supply those capabilities.
+
+## Local verification
+
+- 415 Flutter tests passed with the native fixture tests enabled.
+- 59 Android JVM tests passed, including padded/strided frame quality buffers.
+- Four headless Chrome reader regressions passed.
+- Flutter analyzer: no issues.
+- Native sized-ABI, crop and unsupported-format CTest passed.
+- Apple vendored C++ sources compiled, linked and passed the same native fixture
+  checks on Linux; Swift/Xcode validation remains pending.
+
+Debug native builds also disable upstream image-dump diagnostics with NDEBUG,
+preventing binarizer threshold images from being written to the app directory.

@@ -34,8 +34,14 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/zxing-cpp/zxing-cpp.git
   GIT_TAG ${ZXING_CPP_TAG}
   GIT_SHALLOW ON
+  # Reader-only builds do not use the large zint writer submodule.
+  GIT_SUBMODULES ""
 )
 FetchContent_MakeAvailable(zxing-cpp)
+
+# Upstream debug binarizers dump input-derived threshold images to disk.
+# Production plugin builds must never write camera data as a debug side effect.
+target_compile_definitions(ZXing PRIVATE NDEBUG)
 
 # The plugin's shared library that Dart FFI / JNI / Swift loads.
 add_library(ms_zxing SHARED

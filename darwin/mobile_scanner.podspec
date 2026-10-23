@@ -30,7 +30,7 @@ An universal scanner for Flutter based on the Vision API.
   ]
   s.public_header_files = 'mobile_scanner/Sources/MobileScannerNative/include/ms_zxing.h'
   s.libraries = 'c++'
-  s.compiler_flags = '-DZXING_READERS'
+  s.compiler_flags = '-DZXING_READERS -DNDEBUG'
   s.pod_target_xcconfig.merge!({
     'CLANG_CXX_LANGUAGE_STANDARD' => 'c++20',
     'HEADER_SEARCH_PATHS' => '"$(PODS_TARGET_SRCROOT)/mobile_scanner/Sources/MobileScannerNative/zxing"',
