@@ -116,17 +116,17 @@ dependencies {
         implementation("com.google.mlkit:barcode-scanning:17.3.0")
     }
 
-    implementation("androidx.camera:camera-lifecycle:1.6.1")
-    implementation("androidx.camera:camera-camera2:1.6.1")
-    implementation("androidx.camera:camera-view:1.6.1")
-    implementation("androidx.camera:camera-extensions:1.6.1")
-    implementation("androidx.camera:camera-video:1.6.1")
+    implementation("androidx.camera:camera-lifecycle:1.6.2")
+    implementation("androidx.camera:camera-camera2:1.6.2")
+    implementation("androidx.camera:camera-view:1.6.2")
+    implementation("androidx.camera:camera-extensions:1.6.2")
+    implementation("androidx.camera:camera-video:1.6.2")
 
-    implementation("androidx.camera:camera-mlkit-vision:1.6.1")
+    implementation("androidx.camera:camera-mlkit-vision:1.6.2")
 
     implementation("androidx.exifinterface:exifinterface:1.4.2")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
 
     testImplementation(kotlin("test"))

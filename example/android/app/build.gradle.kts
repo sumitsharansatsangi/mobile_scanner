@@ -33,7 +33,7 @@ android {
         versionCode = flutterVersionCode
         versionName = flutterVersionName
 
-        ndkVersion = "30.0.14904198"
+        ndkVersion = "30.0.16248370"
     }
 
     compileOptions {
