@@ -69,7 +69,7 @@ enum ZxingScannerDarwin {
 
         var params = MsZxingDecodeParams()
         memset(&params, 0, MemoryLayout<MsZxingDecodeParams>.size)
-        params.data = base.assumingMemoryBound(to: UInt8.self)
+        params.data = UnsafePointer(base.assumingMemoryBound(to: UInt8.self))
         params.width = Int32(width)
         params.height = Int32(height)
         params.row_stride = Int32(rowStride)
