@@ -158,6 +158,9 @@ abstract base class PollingBarcodeReader extends BarcodeReader {
     _isDecoding = false;
     _onMediaTrackSettingsChanged = null;
     _scanWindow = null;
+    // Dropping the references alone would leave the camera on.
+    stopVideoStream(_videoStream);
+    _videoElement?.srcObject = null;
     _videoElement = null;
     _videoStream = null;
     disposeDecoder();

@@ -38,6 +38,7 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
     this.torchEnabled = false,
     this.shouldConsiderInvertedImages = false,
     this.useNewCameraSelector = false,
+    this.autoTorch = false,
     this.invertImage = false,
     this.autoZoom = false,
     this.initialZoom,
@@ -150,6 +151,17 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   /// Defaults to false.
   final bool torchEnabled;
 
+  /// Whether the flashlight should turn on automatically in low light,
+  /// and off again in bright light.
+  ///
+  /// Ignored when [torchEnabled] is true. Calling [toggleTorch] turns the
+  /// automatic mode off until the camera is started again.
+  ///
+  /// Defaults to false and is only supported on Android, iOS and MacOS.
+  /// Android requires an ambient light sensor, iOS and MacOS require a camera
+  /// that supports the automatic torch mode.
+  final bool autoTorch;
+
   /// Whether the camera should auto zoom if the detected code is to far from
   /// the camera.
   ///
@@ -203,6 +215,12 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   StreamSubscription<DeviceOrientation>? _deviceOrientationSubscription;
 
   bool _isDisposed = false;
+  // Whether a start() of this controller is waiting for,
+  // or holding, the platform session lock.
+  bool _hasPendingPlatformStart = false;
+  // Whether the platform is starting the camera for this controller,
+  // as opposed to this start still waiting for the lock.
+  bool _isPlatformStarting = false;
   // This completer keeps track of whether the MobileScanner widget,
   // that is attached to this controller,
   // called its `initState()` lifecycle method.
@@ -219,6 +237,51 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   // See https://github.com/juliansteenbakker/mobile_scanner/issues/1631
   static MobileScannerController? _platformSessionOwner;
 
+  // Starting, stopping, pausing and releasing the platform camera session
+  // are serialized, so that one controller cannot stop or release a session
+  // that another controller is starting at the same time.
+  static Future<void>? _platformSessionLock;
+
+  static Future<T> _lockPlatformSession<T>(
+    Future<T> Function() operation,
+  ) async {
+    final previous = _platformSessionLock;
+    final current = Completer<void>();
+    _platformSessionLock = current.future;
+
+    try {
+      if (previous != null) {
+        await previous;
+      }
+
+      return await operation();
+    } finally {
+      current.complete();
+
+      if (identical(_platformSessionLock, current.future)) {
+        _platformSessionLock = null;
+      }
+    }
+  }
+
+  bool get _isOwnedByOtherController =>
+      _platformSessionOwner != null && !identical(_platformSessionOwner, this);
+
+  // Release the platform camera session,
+  // unless another controller currently holds it.
+  Future<void> _releasePlatformSession() async {
+    // If another controller currently holds the platform camera session,
+    // disposing the platform resources would break that controller.
+    // In that case only this controller's own resources are cleaned up.
+    if (_isOwnedByOtherController) {
+      return;
+    }
+
+    _platformSessionOwner = null;
+
+    await MobileScannerPlatform.instance.dispose(hashCode);
+  }
+
   /// Reset the shared platform camera session owner.
   ///
   /// This is only intended for use in tests,
@@ -226,7 +289,16 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   @visibleForTesting
   static void resetPlatformSessionOwner() {
     _platformSessionOwner = null;
+    _platformSessionLock = null;
   }
+
+  /// The controller that currently holds the platform camera session,
+  /// or `null` if no controller holds it.
+  ///
+  /// This is only intended for use in tests.
+  @visibleForTesting
+  static MobileScannerController? get platformSessionOwner =>
+      _platformSessionOwner;
 
   void _disposeListeners() {
     unawaited(_barcodesSubscription?.cancel());
@@ -577,6 +649,7 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
       torchEnabled: torchEnabled,
       useNewCameraSelector: useNewCameraSelector,
       shouldConsiderInvertedImages: shouldConsiderInvertedImages,
+      autoTorch: autoTorch,
       invertImage: invertImage,
       autoZoom: autoZoom,
       initialZoom: initialZoom,
@@ -587,25 +660,64 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
     );
 
     try {
-      _setupListeners();
+      _hasPendingPlatformStart = true;
 
-      final viewAttributes = await MobileScannerPlatform.instance.start(
-        hashCode,
-        options,
-        startRequest: () async {
-          // Called on next frame to ensure no dispose will be scheduled
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            if (_isDisposed) {
-              return;
+      final viewAttributes = await _lockPlatformSession(() async {
+        try {
+          if (_isDisposed) {
+            return null;
+          }
+
+          // Listen only once the lock is held, so this controller does not
+          // receive events from the session of the previous holder.
+          _setupListeners();
+
+          _isPlatformStarting = true;
+
+          final attributes = await MobileScannerPlatform.instance.start(
+            hashCode,
+            options,
+            startRequest: () async {
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                if (!_isDisposed) await start();
+              });
+              WidgetsBinding.instance.ensureVisualUpdate();
+            },
+            // The registry invokes this while start holds the session lock.
+            // Do not reacquire the lock through the public stop() method.
+            stopRequest: () async {
+              if (_stop()) {
+                _platformSessionOwner = null;
+                await MobileScannerPlatform.instance.stop();
+              }
+            },
+          );
+
+          if (!_isDisposed) {
+            // This controller now holds the platform camera session.
+            _platformSessionOwner = this;
+          }
+
+          return attributes;
+        } finally {
+          _hasPendingPlatformStart = false;
+          _isPlatformStarting = false;
+
+          // dispose() leaves releasing the session to a pending start.
+          if (_isDisposed) {
+            try {
+              await _releasePlatformSession();
+            } on Object {
+              // Nothing is listening to a disposed controller, and the
+              // result or error of the start itself must not be replaced.
             }
-            await start();
-          });
-        },
-        stopRequest: stop,
-      );
+          }
+        }
+      });
 
-      // This controller now holds the platform camera session.
-      _platformSessionOwner = this;
+      if (viewAttributes == null) {
+        return;
+      }
 
       if (!_isDisposed) {
         value = value.copyWith(
@@ -648,14 +760,18 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   /// Does nothing if the camera is already stopped.
   Future<void> stop() async {
     if (_stop()) {
-      // Stopping releases the platform camera session,
-      // so that another controller can start it.
-      // Pausing does not, as a paused session is resumed by its own owner.
-      if (identical(_platformSessionOwner, this)) {
-        _platformSessionOwner = null;
-      }
+      await _lockPlatformSession(() async {
+        if (_isOwnedByOtherController) {
+          return;
+        }
 
-      await MobileScannerPlatform.instance.stop();
+        // Stopping releases the platform camera session,
+        // so that another controller can start it.
+        // Pausing does not, as a paused session is resumed by its own owner.
+        _platformSessionOwner = null;
+
+        await MobileScannerPlatform.instance.stop();
+      });
     }
   }
 
@@ -667,7 +783,13 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   /// Does nothing if the camera is already paused or stopped.
   Future<void> pause() async {
     if (_stop()) {
-      await MobileScannerPlatform.instance.pause();
+      await _lockPlatformSession(() async {
+        if (_isOwnedByOtherController) {
+          return;
+        }
+
+        await MobileScannerPlatform.instance.pause();
+      });
     }
   }
 
@@ -725,9 +847,9 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
 
     switch (value.cameraDirection) {
       case CameraFacing.front:
-        return start(cameraDirection: CameraFacing.back);
+        await start(cameraDirection: CameraFacing.back);
       case CameraFacing.back:
-        return start(cameraDirection: CameraFacing.front);
+        await start(cameraDirection: CameraFacing.front);
       case CameraFacing.external:
       case CameraFacing.unknown:
         return;
@@ -785,7 +907,7 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
     }
 
     await stop();
-    return start(
+    await start(
       cameraDirection: value.cameraDirection,
       cameraLensType: nextLens,
     );
@@ -812,7 +934,10 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
     }
 
     await stop();
-    return start(cameraDirection: targetDirection, cameraLensType: lensType);
+    await start(
+      cameraDirection: targetDirection,
+      cameraLensType: lensType,
+    );
   }
 
   /// Switches the flashlight on or off.
@@ -871,9 +996,7 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   /// ```dart
   /// final supportedLenses = await controller.getSupportedLenses();
   /// if (supportedLenses.isEmpty) {
-  ///   print('No camera lenses available');
   /// } else {
-  ///   print('Available lenses: $supportedLenses');
   /// }
   /// ```
   Future<Set<CameraLensType>> getSupportedLenses({
@@ -888,7 +1011,11 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
       );
     }
 
-    return MobileScannerPlatform.instance.getSupportedLenses(facing: facing);
+    final lenses = await MobileScannerPlatform.instance.getSupportedLenses(
+      facing: facing,
+    );
+
+    return lenses;
   }
 
   /// Determine the lens type best suited for close-range scanning.
@@ -929,9 +1056,10 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
       );
     }
 
-    return MobileScannerPlatform.instance.getBestCloseRangeScanningLens(
-      facing: facing,
-    );
+    final lens = await MobileScannerPlatform.instance
+        .getBestCloseRangeScanningLens(facing: facing);
+
+    return lens;
   }
 
   /// Dispose the controller.
@@ -950,17 +1078,23 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
 
     MobileScannerPlatform.instance.unregisterController(hashCode);
 
-    // If another controller currently holds the platform camera session,
-    // disposing the platform resources would break that controller.
-    // In that case only this controller's own resources are cleaned up.
-    if (_platformSessionOwner != null &&
-        !identical(_platformSessionOwner, this)) {
+    // A pending start releases the session itself once it gets the lock,
+    // so that dispose() does not wait for the camera to finish starting.
+    if (_hasPendingPlatformStart) {
+      // Stopping now lets a platform that can abort a start in progress,
+      // such as the web, do so before the camera is acquired.
+      // While this start still waits for the lock, the platform is busy with
+      // another controller's session, which must not be aborted.
+      if (_isPlatformStarting && _platformSessionOwner == null) {
+        unawaited(
+          MobileScannerPlatform.instance.stop().catchError((Object _) {}),
+        );
+      }
+
       return;
     }
 
-    _platformSessionOwner = null;
-
-    await MobileScannerPlatform.instance.dispose(hashCode);
+    await _lockPlatformSession(_releasePlatformSession);
   }
 
   /// Signal to this [MobileScannerController] that it is attached

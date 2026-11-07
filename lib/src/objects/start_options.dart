@@ -26,6 +26,7 @@ class StartOptions {
     this.enableQualityAnalysis = false,
     this.enableBatchProcessing = false,
     this.enhanceImageQuality = true,
+    this.autoTorch = false,
   });
 
   /// The direction for the camera.
@@ -65,6 +66,11 @@ class StartOptions {
 
   /// Whether the torch should be turned on when the scanner starts.
   final bool torchEnabled;
+
+  /// Whether the torch should turn on automatically in low light.
+  ///
+  /// Ignored when [torchEnabled] is true.
+  final bool autoTorch;
 
   /// Whether the camera should auto zoom if the detected code is to far from
   /// the camera.
@@ -124,6 +130,7 @@ class StartOptions {
       'torch': torchEnabled,
       'useNewCameraSelector': useNewCameraSelector,
       'shouldConsiderInvertedImages': shouldConsiderInvertedImages,
+      'autoTorch': autoTorch,
       'invertImage': invertImage,
       'autoZoom': autoZoom,
       'initialZoom': initialZoom,
