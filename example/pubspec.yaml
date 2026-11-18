@@ -18,9 +18,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+    
+    
   image_picker:
     git: https://github.com/kumsumit/image_picker.git
+    
+  material_ui: ^1.11.1
   mobile_scanner:
     # When depending on this package from a real application you should use:
     #   mobile_scanner: ^x.y.z
@@ -28,8 +31,8 @@ dependencies:
     # The example app is bundled with the plugin so we use a path dependency on
     # the parent directory to use the current plugin's version.
     path: ../
-
-  material_ui: ^1.11.1
+    
+    
 dev_dependencies:
   flutter_test:
     sdk: flutter
