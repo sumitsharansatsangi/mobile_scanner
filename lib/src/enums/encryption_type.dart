@@ -12,9 +12,9 @@ enum EncryptionType {
   /// WEP level encryption.
   wep(3);
 
-  const EncryptionType(this.rawValue);
+  new(this.rawValue);
 
-  factory EncryptionType.fromRawValue(int value) {
+  factory fromRawValue(int value) {
     switch (value) {
       case 0:
         return EncryptionType.unknown;

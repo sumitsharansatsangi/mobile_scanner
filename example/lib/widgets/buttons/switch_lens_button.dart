@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// Button widget for switching between camera lens types
 class SwitchLensButton extends StatefulWidget {
   /// Construct a new [SwitchLensButton] instance.
-  const SwitchLensButton({
+  const new({
     required this.controller,
     required this.currentLensType,
     required this.onLensTypeChanged,

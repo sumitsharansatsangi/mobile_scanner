@@ -8,7 +8,7 @@ import 'package:web/web.dart';
 /// [MediaStreamTrack].
 final class MediaTrackConstraintsDelegate {
   /// Constructs a [MediaTrackConstraintsDelegate] instance.
-  const MediaTrackConstraintsDelegate();
+  const new();
 
   /// Get the camera direction from the given [videoStream].
   CameraFacing getCameraDirection(MediaStream? videoStream) {

@@ -21,10 +21,10 @@ Future<bool> isBarcodeDetectorSupported() async {
 @JS('BarcodeDetector')
 extension type NativeBarcodeDetector._(JSObject _) implements JSObject {
   /// Constructs a detector that recognises all supported formats.
-  external factory NativeBarcodeDetector();
+  external factory();
 
   /// Constructs a detector restricted to the given [options].
-  external factory NativeBarcodeDetector.withOptions(
+  external factory withOptions(
     BarcodeDetectorInit options,
   );
 
@@ -45,7 +45,7 @@ extension type NativeBarcodeDetector._(JSObject _) implements JSObject {
 @JS()
 extension type BarcodeDetectorInit._(JSObject _) implements JSObject {
   /// Creates an init object restricting detection to the given [formats].
-  external factory BarcodeDetectorInit({required JSArray<JSString> formats});
+  external factory({required JSArray<JSString> formats});
 }
 
 /// A single barcode result from [NativeBarcodeDetector.detect].

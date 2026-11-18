@@ -18,7 +18,7 @@ import 'package:web/web.dart' as web;
 /// fallback.
 final class BarcodeDetectorReader extends PollingBarcodeReader {
   /// Construct a new [BarcodeDetectorReader] instance.
-  BarcodeDetectorReader();
+  new();
 
   /// Returns `true` when the BarcodeDetector API is available and reports at
   /// least one supported format.

@@ -27,7 +27,7 @@ import 'package:web/web.dart';
 /// plugin.
 class MobileScannerWeb extends MobileScannerPlatform {
   /// Constructs a [MobileScannerWeb] instance.
-  MobileScannerWeb();
+  new();
 
   static const String _kModeContinuous = 'continuous';
   static const String _kModeSingleShot = 'single-shot';

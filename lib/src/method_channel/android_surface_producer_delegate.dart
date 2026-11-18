@@ -8,7 +8,7 @@ import 'package:mobile_scanner/src/utils/parse_device_orientation_extension.dart
 /// that are provided by the SurfaceProducer API on Android.
 class AndroidSurfaceProducerDelegate {
   /// Construct a new [AndroidSurfaceProducerDelegate].
-  AndroidSurfaceProducerDelegate({
+  new({
     required this.cameraFacingDirection,
     required this.handlesCropAndRotation,
     required this.initialDeviceOrientation,
@@ -19,7 +19,7 @@ class AndroidSurfaceProducerDelegate {
   /// from the given [config] and [cameraDirection].
   ///
   /// Throws a [MobileScannerException] if the configuration is invalid.
-  factory AndroidSurfaceProducerDelegate.fromConfiguration(
+  factory fromConfiguration(
     Map<String, Object?> config,
     CameraFacing cameraDirection,
   ) {

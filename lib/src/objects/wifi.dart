@@ -4,14 +4,14 @@ import 'package:mobile_scanner/src/enums/encryption_type.dart';
 /// Wireless network information from [BarcodeType.wifi] barcodes.
 class WiFi {
   /// Construct a new [WiFi] instance.
-  const WiFi({
+  const new({
     this.encryptionType = EncryptionType.unknown,
     this.ssid,
     this.password,
   });
 
   /// Construct a new [WiFi] instance from the given [data].
-  factory WiFi.fromNative(Map<Object?, Object?> data) {
+  factory fromNative(Map<Object?, Object?> data) {
     return WiFi(
       encryptionType: EncryptionType.fromRawValue(
         data['encryptionType'] as int? ?? 0,

@@ -147,7 +147,7 @@ typedef MsZxingVersionDart = ffi.Pointer<ffi.Char> Function();
 /// Resolves and holds the native `ms_zxing` symbols from the given library.
 final class MsZxingBindings {
   /// Looks up the `ms_zxing_*` symbols in [library].
-  MsZxingBindings(ffi.DynamicLibrary library)
+  new(ffi.DynamicLibrary library)
     : metadata = library.providesSymbol('ms_zxing_result_metadata')
           ? library.lookupFunction<MsZxingMetadataNative, MsZxingMetadataDart>(
               'ms_zxing_result_metadata',

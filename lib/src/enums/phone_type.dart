@@ -15,9 +15,9 @@ enum PhoneType {
   /// Mobile phone.
   mobile(4);
 
-  const PhoneType(this.rawValue);
+  new(this.rawValue);
 
-  factory PhoneType.fromRawValue(int value) {
+  factory fromRawValue(int value) {
     switch (value) {
       case 0:
         return PhoneType.unknown;

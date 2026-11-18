@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// Button widget for switch camera function
 class SwitchCameraButton extends StatelessWidget {
   /// Construct a new [SwitchCameraButton] instance.
-  const SwitchCameraButton({required this.controller, super.key});
+  const new({required this.controller, super.key});
 
   /// Controller which is used to call switchCamera
   final MobileScannerController controller;

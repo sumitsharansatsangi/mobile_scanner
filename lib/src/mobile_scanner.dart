@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/src/method_channel/mobile_scanner_method_channel.dart';
 import 'package:mobile_scanner/src/mobile_scanner_controller.dart';
 import 'package:mobile_scanner/src/mobile_scanner_exception.dart';
@@ -15,7 +15,7 @@ import 'package:mobile_scanner/src/utils/scan_window_utils.dart';
 /// This widget displays a live camera preview for the barcode scanner.
 class MobileScanner extends StatefulWidget {
   /// Create a new [MobileScanner] using the provided [controller].
-  const MobileScanner({
+  const new({
     this.controller,
     this.onDetect,
     this.onDetectError = _onDetectErrorHandler,

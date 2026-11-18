@@ -26,7 +26,7 @@ import 'package:mobile_scanner/src/utils/barcode_capture_filter.dart';
 /// The controller for the [MobileScanner] widget.
 class MobileScannerController extends ValueNotifier<MobileScannerState> {
   /// Construct a new [MobileScannerController] instance.
-  MobileScannerController({
+  new({
     this.autoStart = true,
     this.cameraResolution,
     this.lensType = CameraLensType.any,

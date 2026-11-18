@@ -9,9 +9,9 @@ enum AddressType {
   /// Home address.
   home(2);
 
-  const AddressType(this.rawValue);
+  new(this.rawValue);
 
-  factory AddressType.fromRawValue(int value) {
+  factory fromRawValue(int value) {
     switch (value) {
       case 0:
         return AddressType.unknown;

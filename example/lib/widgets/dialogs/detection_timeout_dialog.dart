@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// A dialog widget that allows users to set a detection timeout value in
 /// milliseconds.
@@ -10,7 +10,7 @@ class DetectionTimeoutDialog extends StatefulWidget {
   ///
   /// Requires an [initialTimeoutMs] which is displayed as the default timeout
   /// value.
-  const DetectionTimeoutDialog({required this.initialTimeoutMs, super.key});
+  const new({required this.initialTimeoutMs, super.key});
 
   /// The initial timeout value in milliseconds.
   final int initialTimeoutMs;

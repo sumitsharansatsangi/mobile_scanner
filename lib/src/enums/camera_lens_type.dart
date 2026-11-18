@@ -21,9 +21,9 @@ enum CameraLensType {
   /// facing direction will be used, regardless of lens type.
   any(-1);
 
-  const CameraLensType(this.rawValue);
+  new(this.rawValue);
 
-  factory CameraLensType.fromRawValue(int? value) {
+  factory fromRawValue(int? value) {
     return switch (value) {
       0 => normal,
       1 => wide,

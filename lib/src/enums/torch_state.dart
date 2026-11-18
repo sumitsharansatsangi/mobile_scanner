@@ -14,9 +14,9 @@ enum TorchState {
   /// The flashlight is unavailable.
   unavailable(-1);
 
-  const TorchState(this.rawValue);
+  new(this.rawValue);
 
-  factory TorchState.fromRawValue(int value) {
+  factory fromRawValue(int value) {
     switch (value) {
       case -1:
         return TorchState.unavailable;

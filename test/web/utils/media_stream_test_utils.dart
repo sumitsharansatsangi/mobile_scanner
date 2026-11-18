@@ -78,7 +78,7 @@ extension type _StubbableMediaDevices(JSObject _) implements JSObject {
 /// Call [restore] in `tearDown`.
 class GetUserMediaStub {
   /// Install the stub.
-  GetUserMediaStub() {
+  new() {
     _mediaDevices.getUserMedia = ((JSAny? constraints) {
       callCount++;
       if (!_called.isCompleted) {
@@ -148,7 +148,7 @@ void _restoreBarcodeDetector(JSFunction? original) {
 /// Call [restore] in `tearDown`.
 class FailingBarcodeDetectorStub {
   /// Install the stub.
-  FailingBarcodeDetectorStub() : _original = _global.barcodeDetector {
+  new() : _original = _global.barcodeDetector {
     _global.barcodeDetector = _throwingConstructor.toJS;
   }
 
@@ -169,7 +169,7 @@ class FailingBarcodeDetectorStub {
 /// Call [restore] in `tearDown`.
 class DetectingBarcodeDetectorStub {
   /// Install the stub.
-  DetectingBarcodeDetectorStub() : _original = _global.barcodeDetector {
+  new() : _original = _global.barcodeDetector {
     // `new` needs a real JS class, which a Dart function converted with `toJS`
     // is not.
     final functionConstructor = globalContext['Function']! as JSFunction;
@@ -208,7 +208,7 @@ class DetectingBarcodeDetectorStub {
 /// Call [restore] in `tearDown`.
 class PlayRecorder {
   /// Install the recorder.
-  PlayRecorder() : _original = _prototype['play']! as JSFunction {
+  new() : _original = _prototype['play']! as JSFunction {
     _prototype['play'] = ((JSObject element) {
       played.add(element as web.HTMLVideoElement);
       return _original.callAsFunction(element);

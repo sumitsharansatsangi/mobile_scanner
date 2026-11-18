@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:mobile_scanner_example/screens/mobile_scanner_advanced.dart';
 import 'package:mobile_scanner_example/widgets/scanned_barcode_dialog.dart';
@@ -14,7 +14,7 @@ void main() {
 /// Implementation of Mobile Scanner example with simple configuration
 class MobileScannerSimple extends StatefulWidget {
   /// Constructor for simple Mobile Scanner example
-  const MobileScannerSimple({super.key});
+  const new({super.key});
 
   @override
   State<MobileScannerSimple> createState() => _MobileScannerSimpleState();
@@ -107,7 +107,7 @@ class _MobileScannerSimpleState extends State<MobileScannerSimple> {
 
 /// Homepage for example app with selection between basic and advanced screen.
 class _ExampleHome extends StatelessWidget {
-  const _ExampleHome();
+  const new();
 
   Widget _buildItem(
     BuildContext context,

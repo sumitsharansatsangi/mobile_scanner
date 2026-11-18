@@ -1,7 +1,7 @@
 /// A person's name, divided into individual components.
 class PersonName {
   /// Create a new [PersonName] instance.
-  const PersonName({
+  const new({
     this.first,
     this.middle,
     this.last,
@@ -12,7 +12,7 @@ class PersonName {
   });
 
   /// Create a [PersonName] from a map.
-  factory PersonName.fromNative(Map<Object?, Object?> data) {
+  factory fromNative(Map<Object?, Object?> data) {
     return PersonName(
       first: data['first'] as String?,
       middle: data['middle'] as String?,

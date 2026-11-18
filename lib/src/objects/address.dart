@@ -3,13 +3,13 @@ import 'package:mobile_scanner/src/enums/address_type.dart';
 /// An address.
 class Address {
   /// Creates a new [Address] instance.
-  const Address({
+  const new({
     this.addressLines = const <String>[],
     this.type = AddressType.unknown,
   });
 
   /// Creates a new [Address] instance from a map.
-  factory Address.fromNative(Map<Object?, Object?> data) {
+  factory fromNative(Map<Object?, Object?> data) {
     final addressLines = data['addressLines'] as List<Object?>?;
     final type = AddressType.fromRawValue(data['type'] as int? ?? 0);
 

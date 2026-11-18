@@ -22,7 +22,7 @@ import 'package:mobile_scanner/src/utils/barcode_payload_parser.dart';
 /// Represents a single recognized barcode and its value.
 class Barcode {
   /// Creates a new [Barcode] instance.
-  const Barcode({
+  const new({
     this.calendarEvent,
     this.contactInfo,
     this.corners = const <Offset>[],
@@ -43,7 +43,7 @@ class Barcode {
   });
 
   /// Creates a new [Barcode] instance from the given native data.
-  factory Barcode.fromNative(Map<Object?, Object?> nativeData) {
+  factory fromNative(Map<Object?, Object?> nativeData) {
     var data = nativeData;
     // Keep structured values supplied by native SDKs; enrich plain results.
     if (data['type'] == null || data['type'] == 0 || data['type'] == 7) {

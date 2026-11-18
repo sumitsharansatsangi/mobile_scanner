@@ -8,7 +8,7 @@ import 'package:mobile_scanner/src/enums/detection_speed.dart';
 /// This class defines the different start options for the mobile scanner.
 class StartOptions {
   /// Construct a new [StartOptions] instance.
-  const StartOptions({
+  const new({
     required this.cameraDirection,
     required this.cameraLensType,
     required this.cameraResolution,

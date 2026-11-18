@@ -2,13 +2,13 @@ import 'dart:typed_data';
 
 /// Represents the raw bytes of a barcode.
 sealed class BarcodeBytes {
-  const BarcodeBytes();
+  const new();
 }
 
 /// Decoded barcode bytes, available on Android and web.
 final class DecodedBarcodeBytes extends BarcodeBytes {
   /// Creates a new [DecodedBarcodeBytes] instance.
-  const DecodedBarcodeBytes({required this.bytes});
+  const new({required this.bytes});
 
   /// The decoded raw bytes of the barcode value,
   /// without header or padding bytes.
@@ -22,7 +22,7 @@ final class DecodedBarcodeBytes extends BarcodeBytes {
 /// (including header and padding).
 final class DecodedVisionBarcodeBytes extends BarcodeBytes {
   /// Creates a new [DecodedVisionBarcodeBytes] instance.
-  const DecodedVisionBarcodeBytes({required this.rawBytes, this.bytes});
+  const new({required this.rawBytes, this.bytes});
 
   /// The decoded raw bytes of the barcode value,
   /// without header or padding bytes.

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// Dialog for selecting the web barcode reader backend.
@@ -6,7 +6,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 /// Only intended to be shown on the web platform.
 class WebBarcodeReaderDialog extends StatelessWidget {
   /// Creates a [WebBarcodeReaderDialog].
-  const WebBarcodeReaderDialog({
+  const new({
     required this.selectedReader,
     super.key,
   });

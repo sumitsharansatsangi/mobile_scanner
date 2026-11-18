@@ -8,7 +8,7 @@ import 'package:mobile_scanner/src/enums/camera_facing.dart';
 /// based on changes in the device orientation.
 final class RotatedPreview extends StatefulWidget {
   /// Construct a new [RotatedPreview] instance.
-  const RotatedPreview({
+  const new({
     required this.child,
     required this.deviceOrientationStream,
     required this.facingSign,
@@ -19,7 +19,7 @@ final class RotatedPreview extends StatefulWidget {
 
   /// Construct a new [RotatedPreview] instance, from the given
   /// [cameraFacingDirection].
-  factory RotatedPreview.fromCameraDirection(
+  factory fromCameraDirection(
     CameraFacing cameraFacingDirection, {
     required Widget child,
     required Stream<DeviceOrientation> deviceOrientationStream,

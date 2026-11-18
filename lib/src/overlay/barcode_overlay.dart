@@ -1,12 +1,12 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// This widget represents an overlay that paints the bounding boxes of detected
 /// barcodes.
 class BarcodeOverlay extends StatefulWidget {
   /// Construct a new [BarcodeOverlay] instance.
-  const BarcodeOverlay({
+  const new({
     required this.boxFit,
     required this.controller,
     super.key,

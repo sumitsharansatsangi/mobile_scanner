@@ -7,7 +7,7 @@ import 'package:mobile_scanner/src/objects/phone.dart';
 /// For example a VCARD.
 class ContactInfo {
   /// Create a new [ContactInfo] instance.
-  const ContactInfo({
+  const new({
     this.addresses = const <Address>[],
     this.emails = const <Email>[],
     this.name,
@@ -18,7 +18,7 @@ class ContactInfo {
   });
 
   /// Create a new [ContactInfo] instance from a map.
-  factory ContactInfo.fromNative(Map<Object?, Object?> data) {
+  factory fromNative(Map<Object?, Object?> data) {
     final addresses = data['addresses'] as List<Object?>?;
     final emails = data['emails'] as List<Object?>?;
     final phones = data['phones'] as List<Object?>?;

@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// Button widget for analyze image function
 class ScannerErrorWidget extends StatelessWidget {
   /// Construct a new [ScannerErrorWidget] instance.
-  const ScannerErrorWidget({required this.error, super.key});
+  const new({required this.error, super.key});
 
   /// Error to display
   final MobileScannerException error;

@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// This class represents a [CustomPainter] that draws a [scanWindow] rectangle.
 class ScanWindowPainter extends CustomPainter {
   /// Construct a new [ScanWindowPainter] instance.
-  const ScanWindowPainter({
+  const new({
     required this.borderColor,
     required this.borderRadius,
     required this.borderStrokeCap,

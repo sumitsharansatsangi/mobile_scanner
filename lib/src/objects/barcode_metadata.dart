@@ -4,7 +4,7 @@
 /// or MicroPDF417 from PDF417, when the selected engine identifies them.
 class BarcodeMetadata {
   /// Creates optional decoder metadata.
-  const BarcodeMetadata({
+  const new({
     this.formatName,
     this.symbologyIdentifier,
     this.version,
@@ -17,7 +17,7 @@ class BarcodeMetadata {
   });
 
   /// Creates metadata from a platform decoder result.
-  factory BarcodeMetadata.fromNative(Map<Object?, Object?> data) {
+  factory fromNative(Map<Object?, Object?> data) {
     String? string(String key) {
       final value = data[key] as String?;
       return value == null || value.isEmpty ? null : value;

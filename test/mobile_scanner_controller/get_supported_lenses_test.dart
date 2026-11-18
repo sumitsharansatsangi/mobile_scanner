@@ -60,7 +60,7 @@ void main() {
 }
 
 class FakeMobileScannerPlatform extends MobileScannerPlatform {
-  FakeMobileScannerPlatform(Set<CameraLensType> supportedLenses)
+  new(Set<CameraLensType> supportedLenses)
     : _supportedLenses = supportedLenses;
 
   final Set<CameraLensType> _supportedLenses;
@@ -78,7 +78,7 @@ class FakeMobileScannerPlatform extends MobileScannerPlatform {
 }
 
 class FakeMobileScannerPlatformWithFacingCapture extends MobileScannerPlatform {
-  FakeMobileScannerPlatformWithFacingCapture(
+  new(
     Set<CameraLensType> supportedLenses,
   ) : _supportedLenses = supportedLenses;
 

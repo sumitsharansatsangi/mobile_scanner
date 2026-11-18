@@ -13,7 +13,7 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 /// The platform interface for the `mobile_scanner` plugin.
 abstract class MobileScannerPlatform extends PlatformInterface {
   /// Constructs a MobileScannerPlatform.
-  MobileScannerPlatform() : super(token: _token);
+  new() : super(token: _token);
 
   static final Object _token = Object();
 
@@ -181,7 +181,6 @@ abstract class MobileScannerPlatform extends PlatformInterface {
   /// Set inverting image colors in intervals (for negative Data Matrices).
   Future<void> setShouldConsiderInvertedImages(
     // Keep the existing public positional argument for fork consumers.
-    // ignore: avoid_positional_boolean_parameters
     bool shouldConsiderInvertedImages,
   ) {
     throw UnimplementedError('setInvertImage() has not been implemented.');

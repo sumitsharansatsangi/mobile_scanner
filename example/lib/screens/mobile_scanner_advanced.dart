@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:mobile_scanner_example/widgets/buttons/analyze_image_button.dart';
 import 'package:mobile_scanner_example/widgets/buttons/pause_button.dart';
@@ -40,7 +40,7 @@ enum _PopupMenuItems {
 /// Implementation of Mobile Scanner example with advanced configuration
 class MobileScannerAdvanced extends StatefulWidget {
   /// Constructor for advanced Mobile Scanner example
-  const MobileScannerAdvanced({super.key});
+  const new({super.key});
 
   @override
   State<MobileScannerAdvanced> createState() => _MobileScannerAdvancedState();
@@ -303,7 +303,7 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
           })
           .join('\n');
 
-      unawaited(
+      
         showDialog<void>(
           context: context,
           builder: (context) => AlertDialog(
@@ -318,12 +318,11 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
               ),
             ],
           ),
-        ),
-      );
+        );
     } on Exception catch (e) {
       if (!mounted) return;
 
-      unawaited(
+      
         showDialog<void>(
           context: context,
           builder: (context) => AlertDialog(
@@ -336,8 +335,7 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
               ),
             ],
           ),
-        ),
-      );
+        );
     }
   }
 
@@ -601,7 +599,7 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
 /// Reads `MobileScannerPlatform.instance.activeWebReader` on every build.
 /// The displayed name updates after the scanner is (re)started.
 class _WebReaderBadge extends StatelessWidget {
-  const _WebReaderBadge({required this.preferredReader});
+  const new({required this.preferredReader});
 
   final WebBarcodeReader preferredReader;
 

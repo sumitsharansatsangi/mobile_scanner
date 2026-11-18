@@ -32,7 +32,7 @@ extension type ZXingWasmModule(JSObject _) implements JSObject {
 @JS()
 extension type ZXingWasmReaderOptions._(JSObject _) implements JSObject {
   /// Creates reader options that detect all supported barcode formats.
-  external factory ZXingWasmReaderOptions({
+  external factory({
     /// Spend more time to improve detection accuracy. Defaults to `true`.
     bool tryHarder,
 
@@ -50,7 +50,7 @@ extension type ZXingWasmReaderOptions._(JSObject _) implements JSObject {
   ///
   /// Pass a non-empty list of format strings (e.g. `['QRCode', 'EAN13']`).
   /// Passing an empty list or omitting formats detects all supported formats.
-  external factory ZXingWasmReaderOptions.withFormats({
+  external factory withFormats({
     /// Barcode format filter.
     JSArray<JSString> formats,
 

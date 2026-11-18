@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// Button widget for stop or start function
 class StartStopButton extends StatelessWidget {
   /// Construct a new [StartStopButton] instance.
-  const StartStopButton({required this.controller, super.key});
+  const new({required this.controller, super.key});
 
   /// Controller which is used to call stop or start
   final MobileScannerController controller;

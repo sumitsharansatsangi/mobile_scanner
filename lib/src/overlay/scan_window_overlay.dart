@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/src/mobile_scanner_controller.dart';
 import 'package:mobile_scanner/src/overlay/scan_window_painter.dart';
 
 /// This widget represents an overlay that paints a scan window cutout.
 class ScanWindowOverlay extends StatelessWidget {
   /// Construct a new [ScanWindowOverlay] instance.
-  const ScanWindowOverlay({
+  const new({
     required this.controller,
     required this.scanWindow,
     super.key,

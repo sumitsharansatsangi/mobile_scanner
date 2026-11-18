@@ -22,7 +22,7 @@ import 'package:web/web.dart' as web;
 /// handled by this class.
 abstract base class PollingBarcodeReader extends BarcodeReader {
   /// Construct a new [PollingBarcodeReader] instance.
-  PollingBarcodeReader();
+  new();
 
   web.HTMLVideoElement? _videoElement;
   web.MediaStream? _videoStream;

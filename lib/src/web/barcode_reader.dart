@@ -15,7 +15,7 @@ abstract class BarcodeReader {
   /// Construct a new [BarcodeReader] instance.
   ///
   /// This constructor is const, for subclasses.
-  const BarcodeReader();
+  const new();
 
   /// Whether the video feed is paused.
   bool? get paused {

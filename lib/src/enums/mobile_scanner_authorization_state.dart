@@ -9,9 +9,9 @@ enum MobileScannerAuthorizationState {
   /// The user denied the required permissions.
   denied(2);
 
-  const MobileScannerAuthorizationState(this.rawValue);
+  new(this.rawValue);
 
-  factory MobileScannerAuthorizationState.fromRawValue(int value) {
+  factory fromRawValue(int value) {
     switch (value) {
       case 0:
         return MobileScannerAuthorizationState.undetermined;
