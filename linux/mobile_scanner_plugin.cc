@@ -17,6 +17,7 @@ struct _CameraTexture {
   FlPixelBufferTexture parent_instance;
   std::mutex* mutex;
   std::vector<uint8_t>* pixels;
+  std::vector<uint8_t>* front;
   uint32_t width, height;
 };
 struct _CameraTextureClass {
@@ -29,8 +30,14 @@ static gboolean camera_texture_copy(FlPixelBufferTexture* base,
                                     uint32_t* height, GError**) {
   auto* self = reinterpret_cast<CameraTexture*>(base);
   std::lock_guard<std::mutex> lock(*self->mutex);
-  if (self->pixels->empty()) return FALSE;
-  *buffer = self->pixels->data(); *width = self->width; *height = self->height;
+  if (self->pixels->empty() || !self->width || !self->height) {
+    // Camera still warming up: hand the engine a 1x1 black pixel.
+    static const uint8_t black[4] = {0, 0, 0, 255};
+    *buffer = black; *width = 1; *height = 1;
+    return TRUE;
+  }
+  *self->front = *self->pixels;  // stable copy; decoder thread may replace pixels
+  *buffer = self->front->data(); *width = self->width; *height = self->height;
   return TRUE;
 }
 static void camera_texture_finalize(GObject* object);
@@ -41,12 +48,14 @@ static void camera_texture_class_init(CameraTextureClass* klass) {
 static void camera_texture_finalize(GObject* object) {
   auto* self = reinterpret_cast<CameraTexture*>(object);
   delete self->pixels;
+  delete self->front;
   delete self->mutex;
   G_OBJECT_CLASS(camera_texture_parent_class)->finalize(object);
 }
 static void camera_texture_init(CameraTexture* self) {
   self->mutex = new std::mutex();
   self->pixels = new std::vector<uint8_t>();
+  self->front = new std::vector<uint8_t>();
   self->width = self->height = 0;
 }
 
@@ -60,6 +69,7 @@ struct _MobileScannerPlugin {
   GstElement* pipeline;
   int64_t texture_id;
   gint active;
+  gint frames_seen;
   uint64_t format_mask;
 };
 G_DEFINE_TYPE(MobileScannerPlugin, mobile_scanner_plugin, G_TYPE_OBJECT)
@@ -76,6 +86,17 @@ static void stop_camera(MobileScannerPlugin* self) {
   }
 }
 
+struct SendEventData { MobileScannerPlugin* self; FlValue* event; };
+static gboolean send_event_main(gpointer data) {
+  auto* d = static_cast<SendEventData*>(data);
+  if (d->self->events && g_atomic_int_get(&d->self->active))
+    fl_event_channel_send(d->self->events, d->event, nullptr, nullptr);
+  fl_value_unref(d->event);
+  g_object_unref(d->self);
+  delete d;
+  return G_SOURCE_REMOVE;
+}
+
 static GstFlowReturn on_frame(GstAppSink* sink, gpointer data) {
   auto* self = MOBILE_SCANNER_PLUGIN(data);
   GstSample* sample = gst_app_sink_pull_sample(sink);
@@ -83,6 +104,11 @@ static GstFlowReturn on_frame(GstAppSink* sink, gpointer data) {
   GstCaps* caps = gst_sample_get_caps(sample);
   GstVideoInfo info;
   GstBuffer* gst_buffer = gst_sample_get_buffer(sample);
+  // Webcams emit corrupt/half-exposed frames while warming up: skip those.
+  if (g_atomic_int_add(&self->frames_seen, 1) < 15 ||
+      GST_BUFFER_FLAG_IS_SET(gst_buffer, GST_BUFFER_FLAG_CORRUPTED)) {
+    gst_sample_unref(sample); return GST_FLOW_OK;
+  }
   GstMapInfo map;
   if (!gst_video_info_from_caps(&info, caps) || !gst_buffer_map(gst_buffer, &map, GST_MAP_READ)) {
     gst_sample_unref(sample); return GST_FLOW_OK;
@@ -100,7 +126,10 @@ static GstFlowReturn on_frame(GstAppSink* sink, gpointer data) {
     *self->texture->pixels = frame; self->texture->width = width; self->texture->height = height;
     fl_texture_registrar_mark_texture_frame_available(self->textures, FL_TEXTURE(self->texture));
   }
-  if (g_atomic_int_get(&self->active) && self->events) {
+  static gint64 last_decode = 0;
+  const gint64 now = g_get_monotonic_time();
+  if (g_atomic_int_get(&self->active) && self->events && now - last_decode > 100000) {
+    last_decode = now;
     MsZxingDecodeParams params{};
     params.data = frame.data(); params.width = width; params.height = height;
     params.row_stride = width * 4; params.pixel_format = MS_ZXING_PIXEL_RGBA;
@@ -142,9 +171,9 @@ static GstFlowReturn on_frame(GstAppSink* sink, gpointer data) {
       fl_value_set_string_take(image, "width", fl_value_new_float(width));
       fl_value_set_string_take(image, "height", fl_value_new_float(height));
       fl_value_set_string_take(event, "image", image);
-      fl_event_channel_send(self->events, event, nullptr, nullptr);
-      ms_zxing_free_results(result);
+      g_idle_add(send_event_main, new SendEventData{MOBILE_SCANNER_PLUGIN(g_object_ref(self)), event});
     }
+    if (result) ms_zxing_free_results(result);
   }
   return GST_FLOW_OK;
 }
@@ -157,13 +186,13 @@ static void on_method_call(FlMethodChannel*, FlMethodCall* call, gpointer data) 
   else if (strcmp(method, "request") == 0) { fl_method_call_respond_success(call, fl_value_new_bool(TRUE), nullptr); }
   else if (strcmp(method, "start") == 0) {
     stop_camera(self);
-    GstElement* pipeline = gst_parse_launch("v4l2src ! videoconvert ! video/x-raw,format=RGBA,width=1280,height=720 ! appsink name=scanner_sink emit-signals=true max-buffers=1 drop=true", nullptr);
+    GstElement* pipeline = gst_parse_launch("v4l2src device=/dev/video0 ! decodebin ! videoconvert ! videoscale ! video/x-raw,format=RGBA ! appsink name=scanner_sink emit-signals=true max-buffers=1 drop=true", nullptr);
     if (!pipeline) { fl_method_call_respond_error(call, "camera_unavailable", "Could not create GStreamer camera pipeline", nullptr, nullptr); return; }
     auto* sink = gst_bin_get_by_name(GST_BIN(pipeline), "scanner_sink");
     g_signal_connect(sink, "new-sample", G_CALLBACK(on_frame), self);
     gst_object_unref(sink);
     self->texture = reinterpret_cast<CameraTexture*>(g_object_new(camera_texture_get_type(), nullptr));
-    self->pipeline = pipeline; g_atomic_int_set(&self->active, TRUE);
+    self->pipeline = pipeline; g_atomic_int_set(&self->frames_seen, 0); g_atomic_int_set(&self->active, TRUE);
     fl_texture_registrar_register_texture(self->textures, FL_TEXTURE(self->texture));
     self->texture_id = fl_texture_get_id(FL_TEXTURE(self->texture));
     if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
@@ -176,7 +205,7 @@ static void on_method_call(FlMethodChannel*, FlMethodCall* call, gpointer data) 
     const GstStateChangeReturn state_result = gst_element_set_state(pipeline, GST_STATE_PLAYING);
     GstBus* bus = gst_element_get_bus(pipeline);
     GstMessage* error_message = gst_bus_timed_pop_filtered(
-        bus, 2 * GST_SECOND, static_cast<GstMessageType>(GST_MESSAGE_ERROR));
+        bus, 500 * GST_MSECOND, static_cast<GstMessageType>(GST_MESSAGE_ERROR));
     gst_object_unref(bus);
     if (state_result == GST_STATE_CHANGE_FAILURE || error_message) {
       gchar* message = nullptr;
@@ -209,7 +238,7 @@ static void on_method_call(FlMethodChannel*, FlMethodCall* call, gpointer data) 
 
 static FlMethodErrorResponse* on_event_listen(FlEventChannel*, FlValue*, gpointer) { return nullptr; }
 static FlMethodErrorResponse* on_event_cancel(FlEventChannel*, FlValue*, gpointer) { return nullptr; }
-static FlMethodErrorResponse* on_orientation_listen(FlEventChannel* channel, FlValue*, gpointer) { fl_event_channel_send(channel,fl_value_new_string("portraitUp"),nullptr,nullptr); return nullptr; }
+static FlMethodErrorResponse* on_orientation_listen(FlEventChannel* channel, FlValue*, gpointer) { fl_event_channel_send(channel,fl_value_new_string("PORTRAIT_UP"),nullptr,nullptr); return nullptr; }
 static FlMethodErrorResponse* on_orientation_cancel(FlEventChannel*, FlValue*, gpointer) { return nullptr; }
 static void mobile_scanner_plugin_dispose(GObject* object) { auto* self=MOBILE_SCANNER_PLUGIN(object); stop_camera(self); g_clear_object(&self->methods); g_clear_object(&self->events); g_clear_object(&self->orientation); g_clear_object(&self->textures); G_OBJECT_CLASS(mobile_scanner_plugin_parent_class)->dispose(object); }
 static void mobile_scanner_plugin_class_init(MobileScannerPluginClass* klass) { G_OBJECT_CLASS(klass)->dispose=mobile_scanner_plugin_dispose; }

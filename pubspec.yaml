@@ -53,7 +53,6 @@ flutter:
       # ZXing-C++ engine and expose image/byte decoding via dart:ffi. Live
       # camera capture on desktop is a separate follow-on (no capture backend).
       linux:
-        ffiPlugin: true
         pluginClass: MobileScannerPlugin
       windows:
         ffiPlugin: true
