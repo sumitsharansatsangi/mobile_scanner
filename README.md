@@ -43,6 +43,7 @@ on desktop is not yet available — there is no desktop camera-capture backend.
 | returnImage  | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x: |
 | scanWindow   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | autoZoom     | :heavy_check_mark: | :x:                | :x:                | :x: |
+| autoTorch    | :heavy_check_mark: (requires a light sensor) | :heavy_check_mark: | :heavy_check_mark: | :x: |
 | lensType     | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x: |
 | getSupportedLenses(facing:) | :heavy_check_mark: | :heavy_check_mark: | :x: | :x: |
 | getBestCloseRangeScanningLens | :heavy_check_mark: (always normal) | :heavy_check_mark: (requires iOS 15, falls back to normal) | :x: (always normal) | :x: (always normal) |

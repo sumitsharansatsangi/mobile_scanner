@@ -177,9 +177,9 @@ enum BarcodeFormat {
   /// The validated checksum digit is omitted from the returned text.
   planet(4294967296);
 
-  const BarcodeFormat(this.rawValue);
+  new(this.rawValue);
 
-  factory BarcodeFormat.fromRawValue(int value) {
+  factory fromRawValue(int value) {
     switch (value) {
       case -1:
         return BarcodeFormat.unknown;

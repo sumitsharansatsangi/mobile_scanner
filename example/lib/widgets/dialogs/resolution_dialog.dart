@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// A dialog widget that allows users to input and set a camera resolution.
 ///
@@ -10,7 +10,7 @@ class ResolutionDialog extends StatefulWidget {
   ///
   /// Requires an [initialResolution] which serves as the default width and
   /// height values displayed in the text fields.
-  const ResolutionDialog({required this.initialResolution, super.key});
+  const new({required this.initialResolution, super.key});
 
   /// The initial resolution size (width and height) that appears in the dialog.
   final Size initialResolution;

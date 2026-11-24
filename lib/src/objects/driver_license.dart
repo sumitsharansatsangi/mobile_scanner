@@ -1,7 +1,7 @@
 /// A driver license or ID card.
 class DriverLicense {
   /// Create a new [DriverLicense].
-  const DriverLicense({
+  const new({
     this.addressCity,
     this.addressState,
     this.addressStreet,
@@ -19,7 +19,7 @@ class DriverLicense {
   });
 
   /// Create a [DriverLicense] from a map.
-  factory DriverLicense.fromNative(Map<Object?, Object?> data) {
+  factory fromNative(Map<Object?, Object?> data) {
     return DriverLicense(
       addressCity: data['addressCity'] as String?,
       addressState: data['addressState'] as String?,

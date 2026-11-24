@@ -15,7 +15,7 @@ import 'package:web/web.dart' as web;
 /// backing store for repeated `getImageData` calls, avoiding GPU readback.
 @JS()
 extension type _CanvasContextAttributes._(JSObject _) implements JSObject {
-  external factory _CanvasContextAttributes({bool willReadFrequently});
+  external factory({bool willReadFrequently});
 }
 
 /// A barcode reader that uses zxing-wasm (zxing-cpp compiled to WebAssembly).
@@ -28,7 +28,7 @@ extension type _CanvasContextAttributes._(JSObject _) implements JSObject {
 /// `readBarcodes`.
 final class ZXingWasmBarcodeReader extends PollingBarcodeReader {
   /// Construct a new [ZXingWasmBarcodeReader] instance.
-  ZXingWasmBarcodeReader();
+  new();
 
   @override
   String get scriptId => 'mobile-scanner-zxing-wasm';

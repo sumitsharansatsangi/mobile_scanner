@@ -2,7 +2,7 @@
 enum TorchState {
   /// The flashlight turns on automatically in low light conditions.
   ///
-  /// This is currently only supported on iOS and MacOS.
+  /// This is currently only supported on Android, iOS and MacOS.
   auto(2),
 
   /// The flashlight is off.
@@ -14,9 +14,9 @@ enum TorchState {
   /// The flashlight is unavailable.
   unavailable(-1);
 
-  const TorchState(this.rawValue);
+  new(this.rawValue);
 
-  factory TorchState.fromRawValue(int value) {
+  factory fromRawValue(int value) {
     switch (value) {
       case -1:
         return TorchState.unavailable;

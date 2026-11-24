@@ -164,7 +164,7 @@ enum MobileScannerErrorCode {
   controllerNotAttached;
 
   /// Convert the given [PlatformException.code] to a [MobileScannerErrorCode].
-  factory MobileScannerErrorCode.fromPlatformException(
+  factory fromPlatformException(
     PlatformException exception,
   ) {
     // The following error code mapping should be kept in sync with their native

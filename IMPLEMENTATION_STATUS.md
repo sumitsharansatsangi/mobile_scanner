@@ -12,7 +12,7 @@ implemented code from platform and hardware validation that has not run here.
 | Batch switch does nothing | `analyzeImages` with bounded concurrency, ordered output, empty detections and error propagation; flag selects sequential vs parallel default | Web file-path analysis is unsupported |
 | Apple native build missing | Pinned ZXing 2.3.0 source, shared C ABI wrappers, CocoaPods source/header settings and SwiftPM native target now supplied | Xcode builds and iOS/macOS device tests; CI covers both dependency managers |
 | Unsafe raw-buffer boundary | Dart validation, length-aware C ABI, native bounds checks, JNI buffer slices and CVPixelBuffer length | Further fuzzing and sanitizer coverage |
-| Desktop capture missing | Linux/Windows native image decoding and native ABI CI | Live camera/preview backends remain unimplemented |
+| Desktop capture missing | Linux GStreamer `v4l2src` preview texture, method/event channels and ZXing frame decoding; Windows image decoding and native ABI CI | Physical Linux camera validation and Windows live capture remain |
 | Missing release/browser/desktop checks | Android release build in CI, headless Chrome reader regressions, Linux/Windows CTest jobs, real FFI fixture test | Physical camera E2E and executing remote CI |
 
 ## Validation commands
@@ -40,12 +40,13 @@ check; this does not validate Swift imports, CocoaPods, SwiftPM or Apple runtime
 
 ## Open feature work
 
-DotCode and Linux/Windows live capture have not been marked complete. A DotCode
+DotCode and Windows live capture have not been marked complete. A DotCode
 reader needs symbol sampling, error correction and reference images, or a decoder
 library that actually supports it. ZXing 2.3.0 does not provide that decoder.
-Desktop live capture needs an integrated frame/preview backend, lifecycle and
-permission handling, camera selection, throttling and hardware validation on both
-operating systems. File decoding does not supply those capabilities.
+Windows live capture still needs an integrated frame/preview backend, lifecycle
+and permission handling, camera selection, throttling and hardware validation.
+Linux currently uses the default V4L2 device; camera selection and physical
+hardware validation remain follow-up work.
 
 ## Local verification
 

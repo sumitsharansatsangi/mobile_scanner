@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Displays a crosshair widget in the center of the screen, and reacts to
 /// scanner being enabled or not.
 class CrosshairWidget extends StatelessWidget {
   /// Construct a new [CrosshairWidget] instance.
-  const CrosshairWidget(this.scannerEnabled, {super.key});
+  const new(this.scannerEnabled, {super.key});
 
   /// Listener for if scanner is enabled or not
   final ValueListenable<bool> scannerEnabled;

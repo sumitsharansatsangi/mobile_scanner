@@ -9,7 +9,7 @@ import 'package:mobile_scanner/src/enums/camera_lens_type.dart';
 /// - [SelectCamera], which selects a specific camera direction and/or lens type.
 sealed class SwitchCameraOption {
   /// The default constructor for subclasses of [SwitchCameraOption].
-  const SwitchCameraOption();
+  const new();
 }
 
 /// An implementation of [SwitchCameraOption] that toggles
@@ -22,7 +22,7 @@ sealed class SwitchCameraOption {
 /// without arguments.
 final class ToggleDirection extends SwitchCameraOption {
   /// Creates a toggle camera direction request.
-  const ToggleDirection();
+  const new();
 }
 
 /// An implementation of [SwitchCameraOption] that cycles through
@@ -34,7 +34,7 @@ final class ToggleDirection extends SwitchCameraOption {
 /// If a lens type is not available on the device, it will be skipped.
 final class ToggleLensType extends SwitchCameraOption {
   /// Creates a toggle lens type request.
-  const ToggleLensType();
+  const new();
 }
 
 /// An implementation of [SwitchCameraOption] that selects
@@ -52,7 +52,7 @@ final class SelectCamera extends SwitchCameraOption {
   ///
   /// The [lensType] defaults to [CameraLensType.any], which allows
   /// selecting any available lens for the given facing direction.
-  const SelectCamera({
+  const new({
     this.facingDirection,
     this.lensType = CameraLensType.any,
   });

@@ -3,7 +3,7 @@ import 'package:web/web.dart';
 /// Persists and retrieves the preferred camera device ID using localStorage.
 class PreferredDeviceStorage {
   /// Construct a [PreferredDeviceStorage] instance.
-  const PreferredDeviceStorage();
+  const new();
 
   static const String _kKey = 'mobile_scanner_preferred_device_id';
 

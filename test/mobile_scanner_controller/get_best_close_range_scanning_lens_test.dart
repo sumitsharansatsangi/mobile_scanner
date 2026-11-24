@@ -80,7 +80,7 @@ void main() {
 }
 
 class FakeMobileScannerPlatform extends MobileScannerPlatform {
-  FakeMobileScannerPlatform(CameraLensType? lensType) : _lensType = lensType;
+  new(CameraLensType? lensType) : _lensType = lensType;
 
   final CameraLensType? _lensType;
 
@@ -98,7 +98,7 @@ class FakeMobileScannerPlatform extends MobileScannerPlatform {
 }
 
 class FakeMobileScannerPlatformWithFacingCapture extends MobileScannerPlatform {
-  FakeMobileScannerPlatformWithFacingCapture(CameraLensType lensType)
+  new(CameraLensType lensType)
     : _lensType = lensType;
 
   final CameraLensType _lensType;

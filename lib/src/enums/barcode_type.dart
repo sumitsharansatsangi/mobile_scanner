@@ -39,9 +39,9 @@ enum BarcodeType {
   /// Barcode value type constant for driver license data.
   driverLicense(12);
 
-  const BarcodeType(this.rawValue);
+  new(this.rawValue);
 
-  factory BarcodeType.fromRawValue(int value) {
+  factory fromRawValue(int value) {
     switch (value) {
       case 0:
         return BarcodeType.unknown;

@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// Shows the content of a detected barcode.
 class ScannedBarcodeDialog extends StatelessWidget {
   /// Construct a new [ScannedBarcodeDialog] instance.
-  const ScannedBarcodeDialog({required this.barcode, super.key});
+  const new({required this.barcode, super.key});
 
   /// The barcode to display.
   final Barcode barcode;

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:mobile_scanner_example/widgets/buttons/analyze_image_button.dart';
 import 'package:mobile_scanner_example/widgets/buttons/pause_button.dart';
@@ -12,7 +12,7 @@ import 'package:mobile_scanner_example/widgets/scanner_error_widget.dart';
 /// Scanner example with explicit camera lifecycle controls.
 class BarcodeScannerWithController extends StatefulWidget {
   /// Creates the scanner example.
-  const BarcodeScannerWithController({super.key});
+  const new({super.key});
 
   @override
   State<BarcodeScannerWithController> createState() =>

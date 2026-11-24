@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// A widget showing a live camera preview.
 class CameraPreview extends StatelessWidget {
   /// Creates a preview widget for the given camera controller.
-  const CameraPreview(this.controller, {super.key});
+  const new(this.controller, {super.key});
 
   /// The controller for the camera that the preview is shown for.
   final MobileScannerController controller;

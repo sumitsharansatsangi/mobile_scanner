@@ -9,9 +9,9 @@ enum EmailType {
   /// Home email.
   home(2);
 
-  const EmailType(this.rawValue);
+  new(this.rawValue);
 
-  factory EmailType.fromRawValue(int value) {
+  factory fromRawValue(int value) {
     switch (value) {
       case 0:
         return EmailType.unknown;

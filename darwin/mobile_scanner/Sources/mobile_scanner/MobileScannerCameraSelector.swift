@@ -197,7 +197,7 @@ class MobileScannerCameraSelector {
 #else
         // macOS: ignore the facing filter (only a front camera is used on macOS),
         // consistent with getSupportedLenses.
-        let hasDevice = !AVCaptureDevice.devices(for: .video).isEmpty
+        let hasDevice = AVCaptureDevice.default(for: .video) != nil
         return hasDevice ? LensType.wideAngle.rawValue : nil
 #endif
     }

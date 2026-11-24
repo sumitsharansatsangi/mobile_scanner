@@ -296,7 +296,7 @@ void main() {
 }
 
 class ScanWindowTestContext {
-  ScanWindowTestContext({
+  new({
     required this.textureSize,
     required this.widgetSize,
     required this.scanWindow,

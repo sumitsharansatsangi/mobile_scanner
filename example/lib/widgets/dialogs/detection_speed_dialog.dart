@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// A dialog widget that allows users to select a [DetectionSpeed] value.
@@ -11,7 +11,7 @@ class DetectionSpeedDialog extends StatelessWidget {
   ///
   /// Requires a [selectedSpeed] which represents the currently selected speed
   /// option.
-  const DetectionSpeedDialog({required this.selectedSpeed, super.key});
+  const new({required this.selectedSpeed, super.key});
 
   /// The currently selected [DetectionSpeed] option.
   final DetectionSpeed selectedSpeed;

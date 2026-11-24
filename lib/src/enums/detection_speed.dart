@@ -16,9 +16,9 @@ enum DetectionSpeed {
   /// Bear in mind that this mode can cause memory issues on older devices.
   unrestricted(2);
 
-  const DetectionSpeed(this.rawValue);
+  new(this.rawValue);
 
-  factory DetectionSpeed.fromRawValue(int value) {
+  factory fromRawValue(int value) {
     switch (value) {
       case 0:
         return DetectionSpeed.noDuplicates;

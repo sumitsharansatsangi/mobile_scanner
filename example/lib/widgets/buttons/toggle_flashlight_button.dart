@@ -1,15 +1,15 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// Button widget for toggle torch (flash) function
 class ToggleFlashlightButton extends StatelessWidget {
   /// Construct a new [ToggleFlashlightButton] instance.
-  const ToggleFlashlightButton({required this.controller, super.key});
+  const new({required this.controller, super.key});
 
   /// Controller which is used to call toggleTorch
   final MobileScannerController controller;
 
-  Future<void> _onPressed() async => controller.toggleTorch();
+  Future<void> _onPressed() => controller.toggleTorch();
 
   @override
   Widget build(BuildContext context) {

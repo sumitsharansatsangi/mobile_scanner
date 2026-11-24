@@ -11,7 +11,7 @@ import 'package:mobile_scanner/src/mobile_scanner_exception.dart';
 /// This class represents the current state of a [MobileScannerController].
 class MobileScannerState {
   /// Create a new [MobileScannerState] instance.
-  const MobileScannerState({
+  const new({
     required this.availableCameras,
     required this.cameraDirection,
     required this.cameraLensType,
@@ -26,7 +26,7 @@ class MobileScannerState {
   });
 
   /// Create a new [MobileScannerState] instance that is uninitialized.
-  const MobileScannerState.uninitialized()
+  const new uninitialized()
     : this(
         availableCameras: null,
         cameraDirection: CameraFacing.unknown,

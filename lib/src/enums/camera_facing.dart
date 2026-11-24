@@ -18,9 +18,9 @@ enum CameraFacing {
   /// The camera facing direction is unknown.
   unknown(-1);
 
-  const CameraFacing(this.rawValue);
+  new(this.rawValue);
 
-  factory CameraFacing.fromRawValue(int? value) {
+  factory fromRawValue(int? value) {
     switch (value) {
       case 0:
         return front;

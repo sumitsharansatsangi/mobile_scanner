@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// Button widget for analyze image function
 class AnalyzeImageButton extends StatelessWidget {
   /// Construct a new [AnalyzeImageButton] instance.
-  const AnalyzeImageButton({required this.controller, super.key});
+  const new({required this.controller, super.key});
 
   /// Controller which is used to call analyzeImage
   final MobileScannerController controller;

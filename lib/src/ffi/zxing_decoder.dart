@@ -17,7 +17,7 @@ import 'package:mobile_scanner/src/utils/barcode_format_filter.dart';
 /// Android/iOS calls the same native C ABI directly from Kotlin/Swift instead,
 /// so it does not go through this class.
 final class ZxingDecoder {
-  ZxingDecoder._(this._bindings);
+  new _(this._bindings);
 
   final MsZxingBindings _bindings;
 

@@ -36,6 +36,7 @@ void main() {
         'torch': false,
         'useNewCameraSelector': false,
         'shouldConsiderInvertedImages': false,
+        'autoTorch': false,
         'invertImage': false,
         'autoZoom': false,
         'initialZoom': null,
@@ -356,7 +357,7 @@ void main() {
       }
     });
 
-    test('toMap includes advanced processing options', () {
+    test('toMap includes advanced processing and autoTorch options', () {
       const options = StartOptions(
         cameraDirection: CameraFacing.back,
         cameraLensType: CameraLensType.any,
@@ -371,6 +372,7 @@ void main() {
         invertImage: true,
         autoZoom: true,
         initialZoom: 1.5,
+        autoTorch: true,
         enableAdvancedProcessing: false,
         enableQualityAnalysis: true,
         enableBatchProcessing: true,
@@ -384,6 +386,7 @@ void main() {
       expect(map['invertImage'], true);
       expect(map['autoZoom'], true);
       expect(map['initialZoom'], 1.5);
+      expect(map['autoTorch'], true);
       expect(map['enableAdvancedProcessing'], false);
       expect(map['enableQualityAnalysis'], true);
       expect(map['enableBatchProcessing'], true);

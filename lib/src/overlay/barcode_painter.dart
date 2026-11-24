@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/src/utils/scan_window_utils.dart';
 
 /// Calculate the scaling ratios for width and height to fit the provided
@@ -28,7 +28,7 @@ import 'package:mobile_scanner/src/utils/scan_window_utils.dart';
 /// rounded corners and a displayed value.
 class BarcodePainter extends CustomPainter {
   /// Construct a new [BarcodePainter] instance.
-  const BarcodePainter({
+  const new({
     required this.barcodeCorners,
     required this.barcodeSize,
     required this.barcodeValue,

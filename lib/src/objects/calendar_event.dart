@@ -1,7 +1,7 @@
 /// A calendar event extracted from a QRCode.
 class CalendarEvent {
   /// Create a new [CalendarEvent] instance.
-  const CalendarEvent({
+  const new({
     this.description,
     this.start,
     this.end,
@@ -12,7 +12,7 @@ class CalendarEvent {
   });
 
   /// Create a new [CalendarEvent] instance from a map.
-  factory CalendarEvent.fromNative(Map<Object?, Object?> data) {
+  factory fromNative(Map<Object?, Object?> data) {
     return CalendarEvent(
       description: data['description'] as String?,
       start: DateTime.tryParse(data['start'] as String? ?? ''),

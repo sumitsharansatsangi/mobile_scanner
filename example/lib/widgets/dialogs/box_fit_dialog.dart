@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// A dialog widget that allows users to select a [BoxFit] value.
 ///
@@ -9,7 +9,7 @@ class BoxFitDialog extends StatefulWidget {
   ///
   /// Requires a [selectedBoxFit] which represents the currently selected fit
   /// option.
-  const BoxFitDialog({required this.selectedBoxFit, super.key});
+  const new({required this.selectedBoxFit, super.key});
 
   /// The currently selected [BoxFit] option.
   final BoxFit selectedBoxFit;

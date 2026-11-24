@@ -10,7 +10,7 @@ import 'package:mobile_scanner/src/objects/image_quality.dart';
 /// This class represents a scanned barcode.
 class BarcodeCapture {
   /// Create a new [BarcodeCapture] instance.
-  const BarcodeCapture({
+  const new({
     this.barcodes = const <Barcode>[],
     this.image,
     this.imageQuality,

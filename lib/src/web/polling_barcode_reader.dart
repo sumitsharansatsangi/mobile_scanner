@@ -22,7 +22,7 @@ import 'package:web/web.dart' as web;
 /// handled by this class.
 abstract base class PollingBarcodeReader extends BarcodeReader {
   /// Construct a new [PollingBarcodeReader] instance.
-  PollingBarcodeReader();
+  new();
 
   web.HTMLVideoElement? _videoElement;
   web.MediaStream? _videoStream;
@@ -158,6 +158,9 @@ abstract base class PollingBarcodeReader extends BarcodeReader {
     _isDecoding = false;
     _onMediaTrackSettingsChanged = null;
     _scanWindow = null;
+    // Dropping the references alone would leave the camera on.
+    stopVideoStream(_videoStream);
+    _videoElement?.srcObject = null;
     _videoElement = null;
     _videoStream = null;
     disposeDecoder();

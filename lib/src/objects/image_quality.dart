@@ -4,14 +4,14 @@
 /// Currently supplied by Android when quality analysis is enabled.
 class ImageQuality {
   /// Creates image quality statistics.
-  const ImageQuality({
+  const new({
     required this.brightness,
     required this.contrast,
     required this.sharpness,
   });
 
   /// Creates statistics received from the native frame analyzer.
-  factory ImageQuality.fromNative(Map<Object?, Object?> data) => ImageQuality(
+  factory fromNative(Map<Object?, Object?> data) => ImageQuality(
     brightness: (data['brightness']! as num).toDouble(),
     contrast: (data['contrast']! as num).toDouble(),
     sharpness: (data['sharpness']! as num).toDouble(),
