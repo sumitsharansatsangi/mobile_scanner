@@ -538,7 +538,7 @@ extension String {
             }
 
             let key = field[..<separator].uppercased()
-            let value = String(String(String(String(String(String(String(String(String(field.suffix(from: field.index(after: separator))))))))))).unescapedBarcodeField()
+            let value = String(field.suffix(from: field.index(after: separator))).unescapedBarcodeField()
             fields[key] = value
         }
         return fields
@@ -553,7 +553,7 @@ extension String {
             }
 
             let key = field[..<separator].uppercased()
-            let value = String(String(String(String(String(String(String(String(String(field.suffix(from: field.index(after: separator))))))))))).unescapedBarcodeField()
+            let value = String(field.suffix(from: field.index(after: separator))).unescapedBarcodeField()
             fields[String(key), default: []].append(value)
         }
         return fields
