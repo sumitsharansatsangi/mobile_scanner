@@ -977,8 +977,8 @@ DetectorResult SampleRMQR(const BitMatrix& image, const ConcentricPattern& fp)
 		br = mod2Pix(centered(PointI{dim.x - 1, dim.y - 1}));
 	}
 
-	apP.set(apM.size() - 1, 0, tr);
-	apP.set(apM.size() - 1, 1, br);
+	apP.set(static_cast<int>(apM.size()) - 1, 0, tr);
+	apP.set(static_cast<int>(apM.size()) - 1, 1, br);
 	if (tr && br)
 		mod2Pix = PerspectiveTransform(Rectangle(dim.x, dim.y, 0.5), {*apP(0, 0), *tr, *br, *apP(0, 1)});
 

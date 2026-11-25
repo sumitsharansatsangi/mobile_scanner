@@ -6,7 +6,9 @@
 
 #pragma once
 
-#define ZXING_READERS
+#ifndef ZXING_READERS
+#define ZXING_READERS 1
+#endif
 /* #undef ZXING_WRITERS */
 
 #define ZXING_ENABLE_1D 1

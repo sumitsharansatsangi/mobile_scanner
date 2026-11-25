@@ -81,7 +81,7 @@ public:
 		  _width(width),
 		  _height(height),
 		  _pixStride(pixStride ? pixStride : PixStride(format)),
-		  _rowStride(rowStride ? rowStride : int64_t(width) * _pixStride) // prevent UB sanitizer issues due to integer overflow
+		  _rowStride(rowStride ? rowStride : static_cast<int>(int64_t(width) * _pixStride)) // prevent UB sanitizer issues due to integer overflow
 	{
 		if (_data == nullptr)
 			throw std::invalid_argument("Can not construct an ImageView from a NULL pointer");
