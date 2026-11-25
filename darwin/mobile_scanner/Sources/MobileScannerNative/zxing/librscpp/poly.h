@@ -30,8 +30,8 @@ public:
 
 	void normalize(int start = 0)
 	{
-		auto firstNonZero = std::find_if(begin() + std::min<int>(start, size()), end(), [](T c) { return c != 0; });
-		trimLeft(firstNonZero - begin());
+		auto firstNonZero = std::find_if(begin() + std::min<int>(start, static_cast<int>(size())), end(), [](T c) { return c != 0; });
+		trimLeft(static_cast<int>(firstNonZero - begin()));
 	}
 
 	using Base::at;
@@ -110,8 +110,8 @@ public:
 		assert(this != &rhs); // self-multiplication is not supported
 		assert(&field == &rhs.field);
 
-		int lhsSize = size();
-		int rhsSize = rhs.size();
+		int lhsSize = static_cast<int>(size());
+		int rhsSize = static_cast<int>(rhs.size());
 		int productSize = lhsSize + rhsSize - 1;
 
 		if (trimDeg == 0) {
@@ -172,7 +172,7 @@ public:
 		}
 
 		// extract the normalized remainder from result
-		normalize(quotient.size());
+		normalize(static_cast<int>(quotient.size()));
 	}
 
 	void neg()

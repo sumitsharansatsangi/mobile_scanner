@@ -20,7 +20,7 @@ std::optional<std::tuple<Poly<Field>, Poly<Field>>> sugiyama_algorithm(Poly<Fiel
 {
 	// See https://en.wikipedia.org/wiki/Reed–Solomon_error_correction#Sugiyama_decoder
 	auto& field = syndromes.field;
-	int R = syndromes.size();
+	int R = static_cast<int>(syndromes.size());
 	syndromes.normalize();
 	size_t fullSize = R + 1;
 	size_t halfSize = (R + 1) / 2 + 1; // ceil(R / 2) + 1
@@ -75,7 +75,7 @@ static std::vector<int> find_magnitudes(const Poly<Field>& evaluator, const Poly
 {
 	// This is directly applying Forney's Formula
 	auto& field = evaluator.field;
-	int numErrors = std::ssize(locations);
+	int numErrors = static_cast<int>(std::ssize(locations));
 	std::vector<int> res(numErrors);
 	for (int i = 0; i < numErrors; ++i) {
 		int xiInverse = field.inv(locations[i]);
@@ -160,8 +160,8 @@ template <typename Field, std::integral T>
 	// https://en.wikiversity.org/wiki/Reed%E2%80%93Solomon_codes_for_coders for details on how RS works. See
 	// https://mthsc.clemson.edu/misc/MAM_2014/bmj9b.pdf for details on how to handle erasures and potential optimizations.
 
-	int cwLen = std::ssize(codeword);
-	int numErasures = std::ssize(erasures);
+	int cwLen = static_cast<int>(std::ssize(codeword));
+	int numErasures = static_cast<int>(std::ssize(erasures));
 
 	if (numErasures > numECC)
 		throw std::invalid_argument("Too many erasures to correct");

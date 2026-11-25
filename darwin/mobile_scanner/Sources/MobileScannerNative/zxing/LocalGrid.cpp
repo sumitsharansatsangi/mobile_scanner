@@ -130,7 +130,7 @@ std::optional<double> LocalGrid::estimateModSize(PointF dir, double modSize, int
 			for (auto steps : e2e) {
 				if (steps < estimate)
 					continue;
-				const int mods = std::lround(steps / ms);
+				const int mods = static_cast<int>(std::lround(steps / ms));
 				const double d = steps - mods * ms;
 				const double weight = estimate / steps;
 				err += weight * huberLoss(d);

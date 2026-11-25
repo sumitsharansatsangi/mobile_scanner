@@ -454,7 +454,7 @@ static int DetermineNumCols(BitMatrixModuleCursorF& start, const Cluster& lraps)
 
 	log_r("colHist: ", "%2d ", colHist);
 	log_r("offsets: ", "%2d ", offsets);
-	int nCol = std::ranges::max_element(colHist) - colHist.begin();
+	int nCol = static_cast<int>(std::ranges::max_element(colHist) - colHist.begin());
 
 	if (colHist[nCol]) {
 		auto offset = double(offsets[nCol]) / colHist[nCol];
@@ -521,7 +521,7 @@ static const SymbolInfo& DetermineSymbolInfo(const Matrix<Codeword>& cwMat, cons
 	int rotFam = *rotFamMax && *rotFamMax > Reduce(rotFamHist) / 2 ? static_cast<int>(rotFamMax - rotFamHist.begin()) * 8 : -1;
 	// rotFam = -1; // uncomment to test symbol detection without rotation family filtering
 
-	int numCWs = std::ranges::count_if(cwMat, [](const auto& e) { return e.count > 0; });
+	int numCWs = static_cast<int>(std::ranges::count_if(cwMat, [](const auto& e) { return e.count > 0; }));
 	if (numCWs == 0)
 		return SYMBOLS.front();
 
