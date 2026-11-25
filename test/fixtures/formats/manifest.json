@@ -54,7 +54,7 @@
     "source": "rss14-1/1.png"
   },
   {
-    "native": "DataBarExpanded",
+    "native": "DataBarExp",
     "enum": "dataBarExpanded",
     "raw": 16384,
     "fixture": "test/fixtures/formats/dataBarExpanded.png",
@@ -171,7 +171,7 @@
     "source": "dxfilmedge-1/2.png"
   },
   {
-    "native": "DataBarLimited",
+    "native": "DataBarLtd",
     "enum": "dataBarLimited",
     "raw": 33554432,
     "fixture": "test/fixtures/formats/dataBarLimited.png",

@@ -9,14 +9,14 @@
 #include "ByteArray.h"
 #include "CharacterSet.h"
 #include "DecoderResult.h"
-#include "GenericGF.h"
 #include "MCBitMatrixParser.h"
-#include "ReedSolomonDecoder.h"
+#include "ReedSolomon.h"
 #include "ZXTestSupport.h"
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -41,7 +41,7 @@ static bool CorrectErrors(ByteArray& codewordBytes, int start, int dataCodewords
 			codewordsInts[i / divisor] = codewordBytes[i + start];
 	}
 
-	if (!ReedSolomonDecode(GenericGF::MaxiCodeField64(), codewordsInts, ecCodewords / divisor))
+	if (!ReedSolomonDecode(RSField::MaxiCode, codewordsInts, ecCodewords / divisor))
 		return false;
 
 	// Copy back into array of bytes -- only need to worry about the bytes that were data
@@ -176,19 +176,20 @@ static unsigned int GetServiceClass(const ByteArray& bytes)
  */
 static ZXing::ECI ParseECIValue(const ByteArray& bytes, int& i)
 {
-	int firstByte = bytes[++i];
+	// use at(): the multi-byte lookahead can otherwise read past the end of bytes for a truncated/malicious stream
+	int firstByte = bytes.at(++i);
 	if ((firstByte & 0x20) == 0)
 		return ZXing::ECI(firstByte);
 
-	int secondByte = bytes[++i];
+	int secondByte = bytes.at(++i);
 	if ((firstByte & 0x10) == 0)
 		return ZXing::ECI(((firstByte & 0x0F) << 6) | secondByte);
 
-	int thirdByte = bytes[++i];
+	int thirdByte = bytes.at(++i);
 	if ((firstByte & 0x08) == 0)
 		return ZXing::ECI(((firstByte & 0x07) << 12) | (secondByte << 6) | thirdByte);
 
-	int fourthByte = bytes[++i];
+	int fourthByte = bytes.at(++i);
 	return ZXing::ECI(((firstByte & 0x03) << 18) | (secondByte << 12) | (thirdByte << 6) | fourthByte);
 }
 
@@ -242,8 +243,9 @@ static void GetMessage(const ByteArray& bytes, int start, int len, Content& resu
 			shift   = 3;
 			break;
 		case NS:
+			// use at(): the 5-byte lookahead can otherwise read past the end of bytes for a truncated/malicious stream
 			result.append(
-				ToString((bytes[i + 1] << 24) + (bytes[i + 2] << 18) + (bytes[i + 3] << 12) + (bytes[i + 4] << 6) + bytes[i + 5], 9));
+				ToString((bytes.at(i + 1) << 24) + (bytes.at(i + 2) << 18) + (bytes.at(i + 3) << 12) + (bytes.at(i + 4) << 6) + bytes.at(i + 5), 9));
 			i += 5;
 			break;
 		case LOCK: shift = -1; break;
@@ -269,22 +271,26 @@ DecoderResult Decode(ByteArray&& bytes, const int mode)
 	result.defaultCharset = CharacterSet::ISO8859_1;
 	StructuredAppendInfo sai;
 
-	switch (mode) {
-	case 2:
-	case 3: {
-		auto postcode = mode == 2 ? GetPostCode2(bytes) : GetPostCode3(bytes);
-		auto country  = ToString(GetCountry(bytes), 3);
-		auto service  = ToString(GetServiceClass(bytes), 3);
-		GetMessage(bytes, 10, 84, result, sai);
-		if (result.bytes.asString().compare(0, 7, "[)>\u001E01\u001D") == 0) // "[)>" + RS + "01" + GS
-			result.insert(9, postcode + GS + country + GS + service + GS);
-		else
-			result.insert(0, postcode + GS + country + GS + service + GS);
-		break;
-	}
-	case 4:
-	case 6: GetMessage(bytes, 1, 93, result, sai); break;
-	case 5: GetMessage(bytes, 1, 77, result, sai); break;
+	try {
+		switch (mode) {
+		case 2:
+		case 3: {
+			auto postcode = mode == 2 ? GetPostCode2(bytes) : GetPostCode3(bytes);
+			auto country  = ToString(GetCountry(bytes), 3);
+			auto service  = ToString(GetServiceClass(bytes), 3);
+			GetMessage(bytes, 10, 84, result, sai);
+			result.insert(result.bytes.asString().starts_with("[)>\u001E01\u001D") ? 9 : 0, // "[)>" + RS + "01" + GS
+						  postcode + GS + country + GS + service + GS);
+			break;
+		}
+		case 4:
+		case 6: GetMessage(bytes, 1, 93, result, sai); break;
+		case 5: GetMessage(bytes, 1, 77, result, sai); break;
+		}
+	} catch (std::out_of_range&) { // see GetMessage()/ParseECIValue(): lookahead past a truncated/malicious bit stream
+		return FormatError("Truncated bit stream");
+	} catch (const Error& e) {
+		return e;
 	}
 
 	return DecoderResult(std::move(result))

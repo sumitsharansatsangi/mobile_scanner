@@ -93,49 +93,49 @@ constexpr Code11Symbol kCode11Symbols[] = {
 // BarcodeFormats. An empty/zero mask means "all supported formats".
 BarcodeFormats RawMaskToZxing(uint64_t mask) {
   if (mask == 0) {
-    return BarcodeFormat::Any;
+    return BarcodeFormat::All;
   }
   // ITF aliases are normalized to bit 128 by Dart/Kotlin/Swift before this
   // boundary. Values 126/127 here are valid combinations of other format bits.
-  BarcodeFormats formats = BarcodeFormat::None;
-  if (mask & kRawCode128) formats |= BarcodeFormat::Code128;
-  if (mask & kRawGs1Code128) formats |= BarcodeFormat::Code128;
-  if (mask & kRawCode39) formats |= BarcodeFormat::Code39;
-  if (mask & kRawCode32) formats |= BarcodeFormat::Code39;
-  if (mask & kRawCode93) formats |= BarcodeFormat::Code93;
-  if (mask & kRawCodabar) formats |= BarcodeFormat::Codabar;
-  if (mask & kRawDataMatrix) formats |= BarcodeFormat::DataMatrix;
-  if (mask & kRawEan13) formats |= BarcodeFormat::EAN13;
-  if (mask & kRawEan8) formats |= BarcodeFormat::EAN8;
+  std::vector<BarcodeFormat> formats;
+  if (mask & kRawCode128) formats.push_back(BarcodeFormat::Code128);
+  if (mask & kRawGs1Code128) formats.push_back(BarcodeFormat::Code128);
+  if (mask & kRawCode39) formats.push_back(BarcodeFormat::Code39);
+  if (mask & kRawCode32) formats.push_back(BarcodeFormat::Code39);
+  if (mask & kRawCode93) formats.push_back(BarcodeFormat::Code93);
+  if (mask & kRawCodabar) formats.push_back(BarcodeFormat::Codabar);
+  if (mask & kRawDataMatrix) formats.push_back(BarcodeFormat::DataMatrix);
+  if (mask & kRawEan13) formats.push_back(BarcodeFormat::EAN13);
+  if (mask & kRawEan8) formats.push_back(BarcodeFormat::EAN8);
   // Dedicated ITF bit only. Legacy aliases 126/127 are not bit flags.
-  if (mask & kRawItf) formats |= BarcodeFormat::ITF;
-  if (mask & kRawQr) formats |= BarcodeFormat::QRCode;
-  if (mask & kRawMicroQr) formats |= BarcodeFormat::MicroQRCode;
-  if (mask & kRawRmQr) formats |= BarcodeFormat::RMQRCode;
-  if (mask & (kRawDxFilmEdge | kRawOtherBarcode)) formats |= BarcodeFormat::DXFilmEdge;
-  if (mask & kRawDataBarLimited) formats |= BarcodeFormat::DataBarLimited;
-  if (mask & kRawUpcA) formats |= BarcodeFormat::UPCA;
-  if (mask & kRawUpcE) formats |= BarcodeFormat::UPCE;
+  if (mask & kRawItf) formats.push_back(BarcodeFormat::ITF);
+  if (mask & kRawQr) formats.push_back(BarcodeFormat::QRCode);
+  if (mask & kRawMicroQr) formats.push_back(BarcodeFormat::MicroQRCode);
+  if (mask & kRawRmQr) formats.push_back(BarcodeFormat::RMQRCode);
+  if (mask & (kRawDxFilmEdge | kRawOtherBarcode)) formats.push_back(BarcodeFormat::DXFilmEdge);
+  if (mask & kRawDataBarLimited) formats.push_back(BarcodeFormat::DataBarLtd);
+  if (mask & kRawUpcA) formats.push_back(BarcodeFormat::UPCA);
+  if (mask & kRawUpcE) formats.push_back(BarcodeFormat::UPCE);
   if (mask & kRawUpcEanExtension) {
-    formats |= BarcodeFormat::EAN13;
-    formats |= BarcodeFormat::EAN8;
-    formats |= BarcodeFormat::UPCA;
-    formats |= BarcodeFormat::UPCE;
+    formats.push_back(BarcodeFormat::EAN13);
+    formats.push_back(BarcodeFormat::EAN8);
+    formats.push_back(BarcodeFormat::UPCA);
+    formats.push_back(BarcodeFormat::UPCE);
   }
-  if (mask & kRawPdf417) formats |= BarcodeFormat::PDF417;
-  if (mask & kRawAztec) formats |= BarcodeFormat::Aztec;
-  if (mask & kRawDataBar) formats |= BarcodeFormat::DataBar;
-  if (mask & kRawDataBarExpanded) formats |= BarcodeFormat::DataBarExpanded;
-  if (mask & kRawMaxiCode) formats |= BarcodeFormat::MaxiCode;
+  if (mask & kRawPdf417) formats.push_back(BarcodeFormat::PDF417);
+  if (mask & kRawAztec) formats.push_back(BarcodeFormat::Aztec);
+  if (mask & kRawDataBar) formats.push_back(BarcodeFormat::DataBar);
+  if (mask & kRawDataBarExpanded) formats.push_back(BarcodeFormat::DataBarExp);
+  if (mask & kRawMaxiCode) formats.push_back(BarcodeFormat::MaxiCode);
 #ifdef ZXING_HAS_DOTCODE
-  if (mask & kRawDotCode) formats |= BarcodeFormat::DotCode;
+  if (mask & kRawDotCode) formats.push_back(BarcodeFormat::DotCode);
 #endif
   // If nothing matched (e.g. only unsupported formats requested), keep detection
-  // disabled. Falling back to Any would violate the caller's format filter.
-  if (formats == BarcodeFormat::None) {
+  // disabled. Falling back to All would violate the caller's format filter.
+  if (formats.empty()) {
     return BarcodeFormat::None;
   }
-  return formats;
+  return BarcodeFormats(std::move(formats));
 }
 
 bool Code11Requested(uint64_t mask) {
@@ -218,13 +218,20 @@ int32_t ZxingToRaw(const Barcode& barcode) {
     case BarcodeFormat::MicroQRCode: return kRawMicroQr;
     case BarcodeFormat::RMQRCode: return kRawRmQr;
     case BarcodeFormat::DXFilmEdge: return kRawDxFilmEdge;
-    case BarcodeFormat::DataBarLimited: return kRawDataBarLimited;
+    case BarcodeFormat::DataBarLtd: return kRawDataBarLimited;
+    case BarcodeFormat::Code39Std:
+    case BarcodeFormat::Code39Ext: return kRawCode39;
+    case BarcodeFormat::ITF14: return kRawItf;
+    case BarcodeFormat::DataBarOmni:
+    case BarcodeFormat::DataBarStk:
+    case BarcodeFormat::DataBarStkOmni: return kRawDataBar;
+    case BarcodeFormat::DataBarExpStk: return kRawDataBarExpanded;
     case BarcodeFormat::UPCA: return kRawUpcA;
     case BarcodeFormat::UPCE: return kRawUpcE;
     case BarcodeFormat::PDF417: return kRawPdf417;
     case BarcodeFormat::Aztec: return kRawAztec;
     case BarcodeFormat::DataBar: return kRawDataBar;
-    case BarcodeFormat::DataBarExpanded: return kRawDataBarExpanded;
+    case BarcodeFormat::DataBarExp: return kRawDataBarExpanded;
     case BarcodeFormat::MaxiCode: return kRawMaxiCode;
 #ifdef ZXING_HAS_DOTCODE
     case BarcodeFormat::DotCode: return kRawDotCode;
@@ -1240,8 +1247,113 @@ struct ResultStorage {
   int32_t capacity;
 };
 
+// Format names as reported by zxing-cpp 2.x. zxing-cpp 3.x spells some of them
+// differently ("Code 39", "Micro QR Code"), and the Dart API documents these.
+std::string LegacyFormatName(BarcodeFormat format) {
+  switch (format) {
+    case BarcodeFormat::Aztec: return "Aztec";
+    case BarcodeFormat::Codabar: return "Codabar";
+    case BarcodeFormat::Code39: return "Code39";
+    case BarcodeFormat::Code93: return "Code93";
+    case BarcodeFormat::Code128: return "Code128";
+    case BarcodeFormat::DataBar:
+    case BarcodeFormat::DataBarOmni:
+    case BarcodeFormat::DataBarStk:
+    case BarcodeFormat::DataBarStkOmni: return "DataBar";
+    case BarcodeFormat::DataBarExp:
+    case BarcodeFormat::DataBarExpStk: return "DataBarExpanded";
+    case BarcodeFormat::DataBarLtd: return "DataBarLimited";
+    case BarcodeFormat::DataMatrix: return "DataMatrix";
+    case BarcodeFormat::DXFilmEdge: return "DXFilmEdge";
+    case BarcodeFormat::EAN8: return "EAN-8";
+    case BarcodeFormat::EAN13: return "EAN-13";
+    case BarcodeFormat::ITF: return "ITF";
+    case BarcodeFormat::MaxiCode: return "MaxiCode";
+    case BarcodeFormat::MicroQRCode: return "MicroQRCode";
+    case BarcodeFormat::PDF417: return "PDF417";
+    case BarcodeFormat::RMQRCode: return "rMQRCode";
+    case BarcodeFormat::UPCA: return "UPC-A";
+    case BarcodeFormat::UPCE: return "UPC-E";
+    default: return ToString(format);
+  }
+}
+
+// zxing-cpp 3.x returns UPC-A and UPC-E in their EAN-13 form (with a leading
+// zero), and MaxiCode control characters as raw bytes. zxing-cpp 2.x, which the
+// Dart API was written against, returned the UPC digits and control pictures.
+
+// Compresses a 13-digit expanded UPC-E ("0" + UPC-A) back to its 8-digit
+// form. Returns the text unchanged when it is not in that shape.
+std::string CompressUpce(const std::string& text) {
+  if (text.size() != 13 || text[0] != '0') return text;
+  const std::string upca = text.substr(1);  // s m1..m5 p1..p5 check
+  const char system = upca[0];
+  const std::string m = upca.substr(1, 5);
+  const std::string p = upca.substr(6, 5);
+  const char check = upca[11];
+  std::string x;
+  if (m[3] == '0' && m[4] == '0' && p[0] == '0' && p[1] == '0' &&
+      (m[2] == '0' || m[2] == '1' || m[2] == '2')) {
+    x = m.substr(0, 2) + p.substr(2, 3) + m[2];
+  } else if (m[3] == '0' && m[4] == '0' && p.substr(0, 3) == "000") {
+    x = m.substr(0, 3) + p.substr(3, 2) + "3";
+  } else if (m[4] == '0' && p.substr(0, 4) == "0000") {
+    x = m.substr(0, 4) + p.substr(4, 1) + "4";
+  } else if (p.substr(0, 4) == "0000" && p[4] >= '5' && p[4] <= '9') {
+    x = m + p.substr(4, 1);
+  } else {
+    return text;
+  }
+  return std::string(1, system) + x + check;
+}
+
+// Replaces MaxiCode control characters with the Unicode control pictures that
+// zxing-cpp 2.x returned (SE, GS, RS and EOT).
+std::string MaxiCodeControlPictures(const std::string& text) {
+  std::string out;
+  out.reserve(text.size());
+  for (const char c : text) {
+    switch (c) {
+      case '\x04': out += "\xE2\x90\x84"; break;  // U+2404 SYMBOL FOR EOT
+      case '\x1C': out += "\xE2\x90\x9C"; break;  // U+241C SYMBOL FOR FS
+      case '\x1D': out += "\xE2\x90\x9D"; break;  // U+241D SYMBOL FOR GS
+      case '\x1E': out += "\xE2\x90\x9E"; break;  // U+241E SYMBOL FOR RS
+      default: out += c;
+    }
+  }
+  return out;
+}
+
+// Text of a barcode in the form zxing-cpp 2.x returned it.
+std::string LegacyText(const Barcode& barcode) {
+  const std::string text = barcode.text();
+  switch (barcode.format()) {
+    case BarcodeFormat::UPCA:
+      // Drop the leading zero of the EAN-13 form to get the 12 UPC-A digits.
+      return text.size() == 13 && text[0] == '0' ? text.substr(1) : text;
+    case BarcodeFormat::UPCE:
+      return CompressUpce(text);
+    case BarcodeFormat::MaxiCode:
+      return MaxiCodeControlPictures(text);
+    case BarcodeFormat::DataBar:
+    case BarcodeFormat::DataBarOmni:
+    case BarcodeFormat::DataBarStk:
+    case BarcodeFormat::DataBarStkOmni:
+      // RSS-14 results were the 14-digit GTIN, without the "01" identifier.
+      return text.size() == 16 && text.compare(0, 2, "01") == 0 ? text.substr(2) : text;
+    case BarcodeFormat::DataBarExp:
+    case BarcodeFormat::DataBarExpStk:
+      // Expanded results were written with the identifier in parentheses.
+      return text.size() == 16 && text.compare(0, 2, "01") == 0
+                 ? "(01)" + text.substr(2)
+                 : text;
+    default:
+      return text;
+  }
+}
+
 void AssignMetadata(MsZxingResultMetadata& metadata, const Barcode& barcode) {
-  auto name = ToString(barcode.format());
+  auto name = LegacyFormatName(barcode.format());
   if (barcode.format() == BarcodeFormat::QRCode) {
     name = barcode.symbologyIdentifier() == "]Q0" ? "QRCodeModel1" : "QRCodeModel2";
   }
@@ -1323,6 +1435,7 @@ MsZxingResultList* ms_zxing_decode_v2(const MsZxingDecodeParams* params) {
     options.setTryRotate(params->try_rotate != 0);
     options.setTryInvert(params->try_invert != 0);
     options.setTryDownscale(params->try_downscale != 0);
+    options.setTextMode(TextMode::Plain);
     if (ExplicitFormatRequested(params->format_mask, kRawUpcEanExtension)) {
       options.setEanAddOnSymbol(EanAddOnSymbol::Require);
     } else if (UpcEanRequested(params->format_mask)) {
@@ -1334,7 +1447,7 @@ MsZxingResultList* ms_zxing_decode_v2(const MsZxingDecodeParams* params) {
 
     // ZXing interprets None as its default (all). Skip it when only custom or
     // unavailable formats were requested; custom fallback readers still run.
-    const Barcodes barcodes = RawMaskToZxing(params->format_mask) == BarcodeFormat::None
+    const Barcodes barcodes = RawMaskToZxing(params->format_mask) == BarcodeFormats(BarcodeFormat::None)
         ? Barcodes{} : ReadBarcodes(image, options);
     std::vector<FallbackCandidate> fallbackCandidates;
     if (Code11Requested(params->format_mask)) {
@@ -1396,7 +1509,7 @@ MsZxingResultList* ms_zxing_decode_v2(const MsZxingDecodeParams* params) {
 
       MsZxingResult& r = results[i];
       int32_t rawFormat = ZxingToRaw(barcode);
-      std::string text = barcode.text();
+      std::string text = LegacyText(barcode);
       // A GS1-only request must not produce plain Code 128 results.
       if (params->format_mask != 0 && rawFormat == kRawCode128 &&
           (params->format_mask & kRawGs1Code128) != 0 &&
@@ -1412,6 +1525,14 @@ MsZxingResultList* ms_zxing_decode_v2(const MsZxingDecodeParams* params) {
           continue;
         }
       }
+      // zxing-cpp 3.x decodes rMQR and Micro QR with the QR reader, so a
+      // QR-only request would otherwise return them. Enforce the requested
+      // QR family explicitly.
+      if (params->format_mask != 0 &&
+          (rawFormat == kRawQr || rawFormat == kRawMicroQr || rawFormat == kRawRmQr) &&
+          (params->format_mask & static_cast<uint64_t>(rawFormat)) == 0) {
+        continue;
+      }
 
       r.format = rawFormat;
       AssignMetadata(storage->metadata[i], barcode);
@@ -1421,7 +1542,7 @@ MsZxingResultList* ms_zxing_decode_v2(const MsZxingDecodeParams* params) {
       }
       r.text = DupString(text);
 
-      const ByteArray& bytes = barcode.bytes();
+      const std::vector<uint8_t>& bytes = barcode.bytes();
       if (code32Transformed) {
         auto* buf = static_cast<uint8_t*>(std::malloc(text.size()));
         if (buf != nullptr) {
@@ -1438,7 +1559,7 @@ MsZxingResultList* ms_zxing_decode_v2(const MsZxingDecodeParams* params) {
         }
       }
 
-      const Position pos = barcode.position();
+      const auto& pos = barcode.position();
       const auto assign = [cropOffsetX, cropOffsetY](MsZxingPoint& p,
                                                      const PointI& src) {
         p.x = static_cast<float>(src.x) + cropOffsetX;

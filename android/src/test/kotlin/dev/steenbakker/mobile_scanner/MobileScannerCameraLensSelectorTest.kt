@@ -1,5 +1,6 @@
 package dev.steenbakker.mobile_scanner
 
+import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -290,16 +291,43 @@ internal class MobileScannerCameraLensSelectorTest {
     // getBestCloseRangeScanningLens tests
     // ==========================================================================
     //
-    // LENS_INFO_MINIMUM_FOCUS_DISTANCE is only meaningful on physical sub-cameras,
-    // which (like the rest of getSupportedLenses) are not independently selectable
-    // through CameraX. getBestCloseRangeScanningLens therefore always returns
-    // LENS_TYPE_NORMAL: the main camera has the most capable autofocus on
-    // virtually all Android devices.
+    // The back camera (logical or physical) with the largest minimum focus distance
+    // focuses closest, so its lens type is returned.
+
+    private val mainCamera = MobileScannerCameraLensSelector.LensData(4.3f, 5.6f, 4.2f, 4f)
+    private val telephoto = MobileScannerCameraLensSelector.LensData(8.0f, 5.6f, 4.2f, 12f)
 
     @Test
-    fun getBestCloseRangeScanningLens_returnsNormal_whenDeviceHasACamera() {
+    fun bestCloseRangeLens_returnsLensOfClosestFocusingCamera() {
+        // The telephoto focuses closer (12 diopters) than the main camera (4).
+        assertEquals(
+            MobileScannerCameraLensSelector.LENS_TYPE_ZOOM,
+            MobileScannerCameraLensSelector.bestCloseRangeLens(listOf(mainCamera, telephoto)),
+        )
+    }
+
+    @Test
+    fun bestCloseRangeLens_ignoresCamerasWithoutFocusDistance() {
+        val noFocusInfo = MobileScannerCameraLensSelector.LensData(4.3f, 5.6f, 4.2f, null)
+        assertEquals(
+            MobileScannerCameraLensSelector.LENS_TYPE_NORMAL,
+            MobileScannerCameraLensSelector.bestCloseRangeLens(listOf(noFocusInfo, mainCamera)),
+        )
+        assertNull(MobileScannerCameraLensSelector.bestCloseRangeLens(listOf(noFocusInfo)))
+    }
+
+    @Test
+    fun bestCloseRangeLens_returnsNull_whenNoCameras() {
+        assertNull(MobileScannerCameraLensSelector.bestCloseRangeLens(emptyList()))
+    }
+
+    @Test
+    fun getBestCloseRangeScanningLens_returnsNormal_whenNoBackCameraReportsFocus() {
+        // Characteristics without a back-facing lens facing are skipped, so the
+        // default lens is returned.
         val cameraManager = Mockito.mock(CameraManager::class.java)
         Mockito.`when`(cameraManager.cameraIdList).thenReturn(arrayOf("0"))
+        Mockito.`when`(cameraManager.getCameraCharacteristics("0")).thenReturn(Mockito.mock(CameraCharacteristics::class.java))
 
         assertEquals(
             MobileScannerCameraLensSelector.LENS_TYPE_NORMAL,

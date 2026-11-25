@@ -150,13 +150,13 @@ dependencies {
         implementation("com.google.mlkit:barcode-scanning:17.3.0")
     }
 
-    implementation("androidx.camera:camera-lifecycle:1.6.2")
-    implementation("androidx.camera:camera-camera2:1.6.2")
-    implementation("androidx.camera:camera-view:1.6.2")
-    implementation("androidx.camera:camera-extensions:1.6.2")
-    implementation("androidx.camera:camera-video:1.6.2")
+    implementation("androidx.camera:camera-lifecycle:1.7.0")
+    implementation("androidx.camera:camera-camera2:1.7.0")
+    implementation("androidx.camera:camera-view:1.7.0")
+    implementation("androidx.camera:camera-extensions:1.7.0")
+    implementation("androidx.camera:camera-video:1.7.0")
 
-    implementation("androidx.camera:camera-mlkit-vision:1.6.2")
+    implementation("androidx.camera:camera-mlkit-vision:1.7.0")
 
     implementation("androidx.exifinterface:exifinterface:1.4.2")
 

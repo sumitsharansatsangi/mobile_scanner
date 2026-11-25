@@ -732,6 +732,7 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
           // Provide the current torch state.
           // Updates are provided by the `torchStateStream`.
           torchState: viewAttributes.currentTorchMode,
+          capabilities: viewAttributes.capabilities,
         );
       }
     } on MobileScannerException catch (error) {

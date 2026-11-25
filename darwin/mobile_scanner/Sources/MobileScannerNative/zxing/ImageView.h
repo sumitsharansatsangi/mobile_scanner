@@ -8,11 +8,13 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <memory>
 #include <stdexcept>
 
 namespace ZXing {
 
+/// @brief Supported image formats for ImageView. The format encodes the pixel format and layout information.
 enum class ImageFormat : uint32_t
 {
 	None = 0,
@@ -30,6 +32,7 @@ enum class ImageFormat : uint32_t
 	XBGR [[deprecated("use ABGR")]] = ABGR,
 };
 
+/// @cond INTERNAL
 constexpr inline int PixStride(ImageFormat format) { return (static_cast<uint32_t>(format) >> 3*8) & 0xFF; }
 constexpr inline int RedIndex(ImageFormat format) { return (static_cast<uint32_t>(format) >> 2*8) & 0xFF; }
 constexpr inline int GreenIndex(ImageFormat format) { return (static_cast<uint32_t>(format) >> 1*8) & 0xFF; }
@@ -42,19 +45,23 @@ constexpr inline uint8_t RGBToLum(unsigned r, unsigned g, unsigned b)
 	// 0x200 >> 10 is 0.5, it implements rounding.
 	return static_cast<uint8_t>((306 * r + 601 * g + 117 * b + 0x200) >> 10);
 }
+/// @endcond
 
 /**
- * Simple class that stores a non-owning const pointer to image data plus layout and format information.
+ * @brief Simple class that stores a non-owning const pointer to image data plus layout and format information.
  */
 class ImageView
 {
+/// @cond INTERNAL
 protected:
 	const uint8_t* _data = nullptr;
 	ImageFormat _format = ImageFormat::None;
 	int _width = 0, _height = 0, _pixStride = 0, _rowStride = 0;
+/// @endcond
 
 public:
-	/** ImageView default constructor creates a 'null' image view
+	/**
+	 * ImageView default constructor creates a 'null' image view
 	 */
 	ImageView() = default;
 
@@ -74,28 +81,36 @@ public:
 		  _width(width),
 		  _height(height),
 		  _pixStride(pixStride ? pixStride : PixStride(format)),
-		  _rowStride(rowStride ? rowStride : width * _pixStride)
+		  _rowStride(rowStride ? rowStride : int64_t(width) * _pixStride) // prevent UB sanitizer issues due to integer overflow
 	{
-		// TODO: [[deprecated]] this check is to prevent exising code from suddenly throwing, remove in 3.0
-		if (_data == nullptr && _width == 0 && _height == 0 && rowStride == 0 && pixStride == 0) {
-			fprintf(stderr, "zxing-cpp deprecation warning: ImageView(nullptr, ...) will throw in the future, use ImageView()\n");
-			return;
-		}
-
 		if (_data == nullptr)
 			throw std::invalid_argument("Can not construct an ImageView from a NULL pointer");
 
 		if (_width <= 0 || _height <= 0)
 			throw std::invalid_argument("Neither width nor height of ImageView can be less or equal to 0");
+
+		if (std::abs(_pixStride) < PixStride(format))
+			throw std::invalid_argument("Pixel stride can not be smaller than required by the format");
 	}
 
 	/**
-	 * ImageView constructor with bounds checking
+	 * ImageView constructor with bounds checking.
+	 *
+	 * This constructor checks if the provided size is consistent with the width, height, row stride and pixel stride
+	 * parameters to prevent out of bounds access when using the ImageView.
+	 *
+	 * @param data  pointer to image buffer
+	 * @param size  size of the image buffer in bytes
+	 * @param width  image width in pixels
+	 * @param height  image height in pixels
+	 * @param format  image/pixel format
+	 * @param rowStride  optional row stride in bytes, default is width * pixStride
+	 * @param pixStride  optional pixel stride in bytes, default is calculated from format
 	 */
 	ImageView(const uint8_t* data, int size, int width, int height, ImageFormat format, int rowStride = 0, int pixStride = 0)
 		: ImageView(data, width, height, format, rowStride, pixStride)
 	{
-		if (_rowStride < 0 || _pixStride < 0 || size < _height * _rowStride)
+		if (_rowStride < 0 || _pixStride < 0 || size < int64_t(_height) * _rowStride || _rowStride < int64_t(_width) * _pixStride)
 			throw std::invalid_argument("ImageView parameters are inconsistent (out of bounds)");
 	}
 
@@ -108,6 +123,8 @@ public:
 	const uint8_t* data() const { return _data; }
 	const uint8_t* data(int x, int y) const { return _data + y * _rowStride + x * _pixStride; }
 
+	/// Create a new ImageView that is a cropped version of this one.
+	/// Negative width/height will be interpreted as "until the end of the line/image".
 	ImageView cropped(int left, int top, int width, int height) const
 	{
 		left   = std::clamp(left, 0, _width - 1);
@@ -117,16 +134,20 @@ public:
 		return {data(left, top), width, height, _format, _rowStride, _pixStride};
 	}
 
+	/// Create a new ImageView that is a rotated version of this one.
+	/// Rotation is clockwise and only supports 90 degree steps.
 	ImageView rotated(int degree) const
 	{
 		switch ((degree + 360) % 360) {
 		case 90:  return {data(0, _height - 1), _height, _width, _format, _pixStride, -_rowStride};
 		case 180: return {data(_width - 1, _height - 1), _width, _height, _format, -_rowStride, -_pixStride};
 		case 270: return {data(_width - 1, 0), _height, _width, _format, -_pixStride, _rowStride};
+		default:  return *this;
 		}
-		return *this;
 	}
 
+	/// Create a new ImageView that is a subsampled version of this one.
+	/// The subsampled image will have width/height of original divided by scale.
 	ImageView subsampled(int scale) const
 	{
 		return {_data, _width / scale, _height / scale, _format, _rowStride * scale, _pixStride * scale};
@@ -134,6 +155,9 @@ public:
 
 };
 
+/**
+ * @brief Simple class that inherits ImageView but owns the image data and frees it on destruction.
+ */
 class Image : public ImageView
 {
 	std::unique_ptr<uint8_t[]> _memory;

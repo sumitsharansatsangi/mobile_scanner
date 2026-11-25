@@ -7,6 +7,7 @@ import 'package:mobile_scanner/src/enums/camera_lens_type.dart';
 import 'package:mobile_scanner/src/enums/mobile_scanner_error_code.dart';
 import 'package:mobile_scanner/src/enums/torch_state.dart';
 import 'package:mobile_scanner/src/mobile_scanner_exception.dart';
+import 'package:mobile_scanner/src/objects/mobile_scanner_capabilities.dart';
 
 /// This class represents the current state of a [MobileScannerController].
 class MobileScannerState {
@@ -22,6 +23,7 @@ class MobileScannerState {
     required this.torchState,
     required this.zoomScale,
     required this.deviceOrientation,
+    this.capabilities = const MobileScannerCapabilities.none(),
     this.error,
   });
 
@@ -38,6 +40,7 @@ class MobileScannerState {
         torchState: TorchState.unavailable,
         deviceOrientation: DeviceOrientation.portraitUp,
         zoomScale: 1,
+        capabilities: const MobileScannerCapabilities.none(),
       );
 
   /// The number of available cameras.
@@ -83,6 +86,11 @@ class MobileScannerState {
   /// The current device UI orientation.
   final DeviceOrientation deviceOrientation;
 
+  /// The optional controls that the active camera supports.
+  ///
+  /// Use this to show or hide torch, zoom and focus controls.
+  final MobileScannerCapabilities capabilities;
+
   /// Whether permission to access the camera was granted.
   bool get hasCameraPermission {
     return isInitialized &&
@@ -102,6 +110,7 @@ class MobileScannerState {
     TorchState? torchState,
     DeviceOrientation? deviceOrientation,
     double? zoomScale,
+    MobileScannerCapabilities? capabilities,
   }) {
     return MobileScannerState(
       availableCameras: availableCameras ?? this.availableCameras,
@@ -115,6 +124,7 @@ class MobileScannerState {
       torchState: torchState ?? this.torchState,
       deviceOrientation: deviceOrientation ?? this.deviceOrientation,
       zoomScale: zoomScale ?? this.zoomScale,
+      capabilities: capabilities ?? this.capabilities,
     );
   }
 }

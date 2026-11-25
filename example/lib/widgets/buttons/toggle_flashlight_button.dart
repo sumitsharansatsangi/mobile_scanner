@@ -16,7 +16,10 @@ class ToggleFlashlightButton extends StatelessWidget {
     return ValueListenableBuilder(
       valueListenable: controller,
       builder: (context, state, child) {
-        if (!state.isInitialized || !state.isRunning) {
+        // Hide the button when the camera has no torch.
+        if (!state.isInitialized ||
+            !state.isRunning ||
+            !state.capabilities.torch) {
           return const SizedBox.shrink();
         }
 
@@ -43,10 +46,7 @@ class ToggleFlashlightButton extends StatelessWidget {
               onPressed: _onPressed,
             );
           case TorchState.unavailable:
-            return const SizedBox.square(
-              dimension: 48,
-              child: Icon(Icons.no_flash, size: 32, color: Colors.grey),
-            );
+            return const SizedBox.shrink();
         }
       },
     );

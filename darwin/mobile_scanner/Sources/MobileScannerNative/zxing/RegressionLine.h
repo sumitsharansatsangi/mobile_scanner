@@ -7,14 +7,11 @@
 
 #include "Point.h"
 #include "ZXAlgorithms.h"
+#include "Log.h"
 
 #include <algorithm>
 #include <cmath>
 #include <vector>
-
-#ifdef PRINT_DEBUG
-#include <cstdio>
-#endif
 
 namespace ZXing {
 
@@ -111,27 +108,16 @@ public:
 			while (true) {
 				auto old_points_size = points.size();
 				// remove points that are further 'inside' than maxSignedDist or further 'outside' than 2 x maxSignedDist
-#ifdef __cpp_lib_erase_if
 				std::erase_if(points, [this, maxSignedDist](auto p) {
 					auto sd = this->signedDistance(p);
 					return sd > maxSignedDist || sd < -2 * maxSignedDist;
 				});
-#else
-				auto end = std::remove_if(points.begin(), points.end(), [this, maxSignedDist](auto p) {
-					auto sd = this->signedDistance(p);
-					return sd > maxSignedDist || sd < -2 * maxSignedDist;
-				});
-				points.erase(end, points.end());
-#endif
 				// if we threw away too many points, something is off with the line to begin with
 				if (points.size() < old_points_size / 2 || points.size() < 2)
 					return false;
 				if (old_points_size == points.size())
 					break;
-#ifdef PRINT_DEBUG
-				printf("removed %zu points -> %zu remaining\n", old_points_size - points.size(), points.size());
-				fflush(stdout);
-#endif
+				log_l("removed %zu points -> %zu remaining", old_points_size - points.size(), points.size());
 				ret = evaluate(points);
 			}
 

@@ -6,6 +6,8 @@
 #pragma once
 
 #include "BitMatrix.h"
+#include "Point.h"
+#include "StdGenerator.h"
 
 #include <climits>
 
@@ -51,7 +53,6 @@ public:
 		operator bool() const noexcept { return isValid(); }
 
 		bool operator==(Value o) const { return v == o.v; }
-		bool operator!=(Value o) const { return v != o.v; }
 	};
 
 	template <typename T>
@@ -69,9 +70,9 @@ public:
 	bool isWhite() const noexcept { return whiteAt(p); }
 
 	POINT front() const noexcept { return d; }
-	POINT back() const noexcept { return {-d.x, -d.y}; }
-	POINT left() const noexcept { return {d.y, -d.x}; }
-	POINT right() const noexcept { return {-d.y, d.x}; }
+	POINT back() const noexcept { return -d; }
+	POINT left() const noexcept { return ZXing::left(d); }
+	POINT right() const noexcept { return ZXing::right(d); }
 	POINT direction(Direction dir) const noexcept { return static_cast<int>(dir) * right(); }
 
 	void turnBack() noexcept { d = back(); }
@@ -104,13 +105,14 @@ public:
 	this_t turnedBack() const noexcept { return {*img, p, back()}; }
 
 	/**
-	 * @brief stepToEdge advances cursor to one step behind the next (or n-th) edge.
+	 * @brief stepToEdge advances cursor to one step behind the next (or n-th) edge or outside the image/range.
 	 * @param nth number of edges to pass
 	 * @param range max number of steps to take
 	 * @param backup whether or not to backup one step so we land in front of the edge
-	 * @return number of steps taken or 0 if moved outside of range/image
+	 * @param acceptImageBorder whether or not to consider the image border as a valid edge
+	 * @return number of steps taken or 0 if moved outside of range
 	 */
-	int stepToEdge(int nth = 1, int range = 0, bool backup = false)
+	int stepToEdge(int nth = 1, int range = 0, bool backup = false, bool acceptImageBorder = true)
 	{
 		int steps = 0;
 		auto lv = testAt(p);
@@ -118,15 +120,13 @@ public:
 		while (nth && (!range || steps < range) && lv.isValid()) {
 			++steps;
 			auto v = testAt(p + steps * d);
-			if (lv != v) {
-				lv = v;
-				--nth;
-			}
+			nth -= lv != v;
+			lv = v;
 		}
-		if (backup)
+		if (backup && nth == 0)
 			--steps;
 		p += steps * d;
-		return steps * (nth == 0);
+		return steps * (nth == 0 && (acceptImageBorder || lv.isValid()));
 	}
 
 	bool stepAlongEdge(Direction dir, bool skipCorner = false)
@@ -165,25 +165,35 @@ public:
 	}
 
 	template<typename ARRAY>
-	ARRAY readPattern(int range = 0)
+	ARRAY readPattern(int max = 0, int min = 0)
 	{
 		ARRAY res = {};
 		for (auto& i : res) {
-			i = stepToEdge(1, range);
+			i = stepToEdge(1, max);
 			if (!i)
 				return res;
-			if (range)
-				range -= i;
+			if (max)
+				max -= i;
+		}
+		if (min && max) {
+			min -= Reduce(res);
+			if (min > 0)
+				res = {};
+			int steps = -1;
+			while (min > 0 && max && (steps = stepToEdge(2, max))) {
+				max -= steps;
+				min -= steps;
+			}
 		}
 		return res;
 	}
 
 	template<typename ARRAY>
-	ARRAY readPatternFromBlack(int maxWhitePrefix, int range = 0)
+	ARRAY readPatternFromBlack(int maxWhitePrefix, int max = 0, int min = 0)
 	{
 		if (maxWhitePrefix && isWhite() && !stepToEdge(1, maxWhitePrefix))
 			return {};
-		return readPattern<ARRAY>(range);
+		return readPattern<ARRAY>(max, min);
 	}
 };
 
@@ -199,6 +209,7 @@ class FastEdgeToEdgeCounter
 public:
 	FastEdgeToEdgeCounter(const BitMatrixCursorI& cur)
 	{
+		assert(cur.isIn());
 		stride = cur.d.y * cur.img->width() + cur.d.x;
 		p = cur.img->row(cur.p.y).begin() + cur.p.x;
 
@@ -211,6 +222,11 @@ public:
 	{
 		int maxSteps = std::min(stepsToBorder, range);
 		int steps = 0;
+
+		if (maxSteps < 0) // already outside the image
+			return 0;
+
+		// Move forward until we a) find a different pixel value or b) step outside the image or c) reach the range limit.
 		do {
 			if (++steps > maxSteps) {
 				if (maxSteps == stepsToBorder)
@@ -226,5 +242,19 @@ public:
 		return steps;
 	}
 };
+
+// Generate points in a spiral pattern around the center
+inline std::generator<PointI> Spiral(int radius)
+{
+	co_yield{0, 0};
+	for (int r = 1; r <= radius; ++r) {
+		// clang-format off
+		for (int k = 0; k < 2 * r; ++k) co_yield{           r, -(r - 1) + k}; // right -> down
+		for (int k = 0; k < 2 * r; ++k)	co_yield{ (r - 1) - k,            r}; // bottom -> left
+		for (int k = 0; k < 2 * r; ++k)	co_yield{          -r,  (r - 1) - k}; // left -> up
+		for (int k = 0; k < 2 * r; ++k)	co_yield{-(r - 1) + k,           -r}; // top -> right
+		// clang-format on
+	}
+}
 
 } // ZXing

@@ -49,10 +49,11 @@ flutter:
       web:
         pluginClass: MobileScannerWeb
         fileName: src/web/mobile_scanner_web.dart
-      # Desktop: FFI-only plugins (no platform channel). They build the native
-      # ZXing-C++ engine and expose image/byte decoding via dart:ffi. Live
-      # camera capture on desktop is a separate follow-on (no capture backend).
+      # Linux: GStreamer (v4l2src) live camera capture exposed over a platform
+      # channel, decoding frames with the shared ZXing-C++ engine.
       linux:
-        ffiPlugin: true
+        pluginClass: MobileScannerPlugin
+      # Windows: Media Foundation camera capture exposed over a platform
+      # channel, decoding frames with the shared ZXing-C++ engine.
       windows:
-        ffiPlugin: true
+        pluginClass: MobileScannerPlugin

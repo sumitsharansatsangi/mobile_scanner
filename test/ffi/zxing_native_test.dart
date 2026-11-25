@@ -16,14 +16,19 @@ void main() {
   final manifest = (jsonDecode(
     File('test/fixtures/formats/manifest.json').readAsStringSync(),
   ) as List).cast<Map<String, dynamic>>();
-  test('every concrete format in the pinned native header has a fixture', () {
-    final header = File(
-      'darwin/mobile_scanner/Sources/MobileScannerNative/zxing/BarcodeFormat.h',
-    ).readAsStringSync();
-    final names = RegExp(
-      r'^\s*(\w+)\s*=\s*\(?1\s*<<',
-      multiLine: true,
-    ).allMatches(header).map((m) => m[1]!).toSet();
+  test('every format the native engine maps has a fixture', () {
+    // DotCode is only compiled when the pinned ZXing provides it, which 3.x
+    // does not, so it is excluded.
+    final engine = File('src/ms_zxing.cpp').readAsStringSync();
+    final mapping = engine.substring(
+      engine.indexOf('BarcodeFormats RawMaskToZxing('),
+      engine.indexOf('bool Code11Requested('),
+    );
+    final names = RegExp(r'BarcodeFormat::(\w+)')
+        .allMatches(mapping)
+        .map((m) => m[1]!)
+        .where((n) => n != 'None' && n != 'All' && n != 'DotCode')
+        .toSet();
     expect(manifest.map((f) => f['native']).toSet(), names);
   });
   for (final fixture in manifest) {

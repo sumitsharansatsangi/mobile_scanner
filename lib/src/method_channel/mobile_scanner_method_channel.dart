@@ -18,6 +18,7 @@ import 'package:mobile_scanner/src/mobile_scanner_view_attributes.dart';
 import 'package:mobile_scanner/src/objects/barcode.dart';
 import 'package:mobile_scanner/src/objects/barcode_capture.dart';
 import 'package:mobile_scanner/src/objects/image_quality.dart';
+import 'package:mobile_scanner/src/objects/mobile_scanner_capabilities.dart';
 import 'package:mobile_scanner/src/objects/start_options.dart';
 import 'package:mobile_scanner/src/utils/parse_device_orientation_extension.dart';
 
@@ -166,7 +167,9 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
 
     if (defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.macOS) {
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.windows) {
       final imageData = event['image'] as Map<Object?, Object?>?;
       final image = imageData?['bytes'] as Uint8List?;
       final width = imageData?['width'] as double?;
@@ -381,7 +384,9 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
   @override
   Future<void> setFocusPoint(Offset position) async {
     if (defaultTargetPlatform != TargetPlatform.iOS &&
-        defaultTargetPlatform != TargetPlatform.android) {
+        defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.linux &&
+        defaultTargetPlatform != TargetPlatform.windows) {
       throw UnimplementedError('setFocusPoint() has not been implemented.');
     }
 
@@ -501,6 +506,10 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
       numberOfCameras: numberOfCameras,
       size: size,
       initialDeviceOrientation: initialDeviceOrientation,
+      capabilities: _capabilitiesFromStart(
+        startResult['capabilities'],
+        currentTorchState,
+      ),
     );
   }
 
@@ -622,4 +631,30 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
       return;
     }
   }
+}
+
+/// Reads the optional controls reported by the native start call.
+///
+/// Platforms that do not report `capabilities` are described from the start
+/// result: torch depends on whether the torch state is available, and focus
+/// is only offered on the mobile platforms that support it.
+MobileScannerCapabilities _capabilitiesFromStart(
+  Object? reported,
+  TorchState torchState,
+) {
+  if (reported case {
+    'torch': final bool torch,
+    'zoom': final bool zoom,
+    'focus': final bool focus,
+  }) {
+    return MobileScannerCapabilities(torch: torch, zoom: zoom, focus: focus);
+  }
+
+  return MobileScannerCapabilities(
+    torch: torchState != TorchState.unavailable,
+    zoom: true,
+    focus:
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android,
+  );
 }

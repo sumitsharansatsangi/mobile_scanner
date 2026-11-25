@@ -2,10 +2,10 @@ package dev.steenbakker.mobile_scanner
 
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
+import android.os.Build
 import android.util.Log
 import android.util.SizeF
-import androidx.camera.camera2.interop.Camera2CameraInfo
-import androidx.camera.camera2.interop.ExperimentalCamera2Interop
+import androidx.camera.camera2.interop.cameraId
 import androidx.camera.core.CameraSelector
 import kotlin.math.sqrt
 
@@ -126,6 +126,12 @@ object MobileScannerCameraLensSelector {
      * @return The lens type: [LENS_TYPE_WIDE], [LENS_TYPE_NORMAL], or [LENS_TYPE_ZOOM],
      *         or null if the sensor size is invalid
      */
+    internal fun classifyLensType(focalLengthMm: Float, sensorWidthMm: Float, sensorHeightMm: Float): Int? {
+        val equivalent = calculate35mmEquivalent(focalLengthMm, sensorWidthMm, sensorHeightMm)
+        if (equivalent < 0) return null
+        return classifyLensType(equivalent)
+    }
+
     fun classifyLensType(focalLengthMm: Float, sensorSize: SizeF): Int? {
         val equivalent = calculate35mmEquivalent(focalLengthMm, sensorSize)
         if (equivalent < 0) return null
@@ -209,9 +215,10 @@ object MobileScannerCameraLensSelector {
     /**
      * Get the list of supported lens types on a device.
      *
-     * Analyzes the available logical cameras and categorizes them by their 35mm equivalent
-     * focal lengths. Physical sub-cameras of logical multi-camera devices are not inspected,
-     * because CameraX can only select cameras at the logical level.
+     * Analyzes the available logical cameras and their physical sub-cameras, and categorizes
+     * them by their 35mm equivalent focal lengths. CameraX 1.7 can bind to physical cameras
+     * with [CameraSelector.Builder.setPhysicalCameraId], so sub-cameras of multi-camera
+     * devices are reported as well.
      *
      * @param cameraManager The CameraManager instance
      * @param facing Optional facing filter: 0 = front, 1 = back. When null, all cameras are included.
@@ -235,12 +242,12 @@ object MobileScannerCameraLensSelector {
                     if (cameraFacing != lensFacing) continue
                 }
 
-                // Only check the logical camera's own characteristics.
-                // CameraX selects cameras at the logical level, so physical sub-cameras
-                // are not independently selectable and must not be reported here.
-                val lensType = getLensTypeFromCharacteristics(characteristics)
-                if (lensType != null) {
-                    supportedLenses.add(lensType)
+                getLensTypeFromCharacteristics(characteristics)?.let { supportedLenses.add(it) }
+
+                for (physicalId in physicalCameraIds(characteristics)) {
+                    val physical = cameraManager.getCameraCharacteristics(physicalId)
+                    if (lensFacing != null && physical.get(CameraCharacteristics.LENS_FACING) != lensFacing) continue
+                    getLensTypeFromCharacteristics(physical)?.let { supportedLenses.add(it) }
                 }
             }
         } catch (e: Exception) {
@@ -253,23 +260,78 @@ object MobileScannerCameraLensSelector {
     /**
      * Determine the lens type best suited for close-range scanning.
      *
-     * Camera2 exposes [CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE] per camera,
-     * but on modern multi-camera devices that value is only meaningful on physical
-     * sub-cameras, which (like the rest of [getSupportedLenses]) are not independently
-     * selectable through CameraX. Since we cannot act on a physical-camera-only signal,
-     * this always returns [LENS_TYPE_NORMAL] when the device has a camera: the main
-     * camera has the most capable autofocus system on virtually all Android devices.
+     * [CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE] is the closest distance a
+     * camera can focus on, in diopters. The back camera (logical or physical) with the
+     * largest value is the one that focuses closest, and its lens type is returned.
+     * Without focus distance information this falls back to [LENS_TYPE_NORMAL].
      *
      * @param cameraManager The CameraManager instance
-     * @return [LENS_TYPE_NORMAL], or null if the device has no camera
+     * @return The lens type with the closest focus, or null if the device has no camera
      */
     fun getBestCloseRangeScanningLens(cameraManager: CameraManager): Int? {
         return try {
-            if (cameraManager.cameraIdList.isEmpty()) null else LENS_TYPE_NORMAL
+            if (cameraManager.cameraIdList.isEmpty()) return null
+            val backCameras = mutableListOf<LensData>()
+            for (cameraId in cameraManager.cameraIdList) {
+                val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+                if (characteristics.get(CameraCharacteristics.LENS_FACING) != CameraCharacteristics.LENS_FACING_BACK) continue
+                backCameras.add(lensDataFrom(characteristics))
+                for (physicalId in physicalCameraIds(characteristics)) {
+                    backCameras.add(lensDataFrom(cameraManager.getCameraCharacteristics(physicalId)))
+                }
+            }
+            bestCloseRangeLens(backCameras) ?: LENS_TYPE_NORMAL
         } catch (e: Exception) {
             Log.e(TAG, "Failed to enumerate cameras", e)
             null
         }
+    }
+
+    /**
+     * The lens data that lens selection needs, read from a camera's characteristics.
+     *
+     * @property focalLengthMm The first available focal length, or null if unknown
+     * @property sensorWidthMm The physical sensor width, or 0 if unknown
+     * @property sensorHeightMm The physical sensor height, or 0 if unknown
+     * @property minFocusDiopters The closest focus distance in diopters, or null if unknown
+     */
+    internal data class LensData(
+        val focalLengthMm: Float?,
+        val sensorWidthMm: Float,
+        val sensorHeightMm: Float,
+        val minFocusDiopters: Float?,
+    )
+
+    internal fun lensDataFrom(characteristics: CameraCharacteristics): LensData {
+        val focalLength = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)?.firstOrNull()
+        val sensorSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
+        return LensData(
+            focalLengthMm = focalLength,
+            sensorWidthMm = sensorSize?.width ?: 0f,
+            sensorHeightMm = sensorSize?.height ?: 0f,
+            minFocusDiopters = characteristics.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE),
+        )
+    }
+
+    /**
+     * The lens type of the camera with the largest minimum focus distance. Cameras
+     * without a focus distance, or without a lens type, are ignored.
+     *
+     * @return The lens type of the closest-focusing camera, or null if none qualifies
+     */
+    internal fun bestCloseRangeLens(cameras: List<LensData>): Int? {
+        var bestLens: Int? = null
+        var bestFocus = 0f
+        for (camera in cameras) {
+            val focus = camera.minFocusDiopters ?: continue
+            val focalLength = camera.focalLengthMm ?: continue
+            val lens = classifyLensType(focalLength, camera.sensorWidthMm, camera.sensorHeightMm) ?: continue
+            if (focus > bestFocus) {
+                bestFocus = focus
+                bestLens = lens
+            }
+        }
+        return bestLens
     }
 
     /**
@@ -282,13 +344,23 @@ object MobileScannerCameraLensSelector {
      * @param lensType [LENS_TYPE_NORMAL], [LENS_TYPE_WIDE], [LENS_TYPE_ZOOM], or [LENS_TYPE_ANY]
      * @return CameraSelector configured for the desired camera
      */
-    @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
     fun selectCamera(cameraManager: CameraManager, facing: Int, lensType: Int): CameraSelector {
         val lensFacing = if (facing == 0) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
 
         // If no specific lens type is requested, return default camera for facing direction
         if (lensType == LENS_TYPE_ANY) {
             return if (facing == 0) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+        }
+
+        // A logical camera that provides the lens is preferred. Only when none does,
+        // bind to a physical sub-camera (for example a telephoto lens behind a
+        // multi-camera device).
+        val physicalId = findPhysicalCameraId(cameraManager, facing, lensType)
+        if (physicalId != null && !hasLogicalLens(cameraManager, facing, lensType)) {
+            return CameraSelector.Builder()
+                .requireLensFacing(lensFacing)
+                .setPhysicalCameraId(physicalId)
+                .build()
         }
 
         // Build a camera selector that filters by both facing and lens characteristics
@@ -298,7 +370,7 @@ object MobileScannerCameraLensSelector {
                 val filteredCameras = cameraInfos.filter { cameraInfo ->
                     try {
                         // Get the camera ID from CameraInfo
-                        val cameraId = Camera2CameraInfo.from(cameraInfo).cameraId
+                        val cameraId = cameraInfo.cameraId
                         val characteristics = cameraManager.getCameraCharacteristics(cameraId)
 
                         // Get focal lengths and sensor size for 35mm equivalent calculation
@@ -333,5 +405,35 @@ object MobileScannerCameraLensSelector {
                 filteredCameras
             }
             .build()
+    }
+
+    /** Physical sub-camera IDs of a logical camera. Empty before API 28. */
+    private fun physicalCameraIds(characteristics: CameraCharacteristics): Set<String> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return emptySet()
+        return characteristics.physicalCameraIds
+    }
+
+    /** Whether a logical camera with the given facing provides the lens type. */
+    private fun hasLogicalLens(cameraManager: CameraManager, facing: Int, lensType: Int): Boolean {
+        val lensFacing = if (facing == 0) CameraCharacteristics.LENS_FACING_FRONT else CameraCharacteristics.LENS_FACING_BACK
+        return cameraManager.cameraIdList.any { cameraId ->
+            val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+            characteristics.get(CameraCharacteristics.LENS_FACING) == lensFacing &&
+                getLensTypeFromCharacteristics(characteristics) == lensType
+        }
+    }
+
+    /** The ID of a physical sub-camera with the given facing and lens type, if any. */
+    private fun findPhysicalCameraId(cameraManager: CameraManager, facing: Int, lensType: Int): String? {
+        val lensFacing = if (facing == 0) CameraCharacteristics.LENS_FACING_FRONT else CameraCharacteristics.LENS_FACING_BACK
+        for (cameraId in cameraManager.cameraIdList) {
+            val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+            if (characteristics.get(CameraCharacteristics.LENS_FACING) != lensFacing) continue
+            for (physicalId in physicalCameraIds(characteristics)) {
+                val physical = cameraManager.getCameraCharacteristics(physicalId)
+                if (getLensTypeFromCharacteristics(physical) == lensType) return physicalId
+            }
+        }
+        return null
     }
 }

@@ -14,7 +14,10 @@ class ZoomScaleSlider extends StatelessWidget {
     return ValueListenableBuilder(
       valueListenable: controller,
       builder: (context, state, child) {
-        if (!state.isInitialized || !state.isRunning) {
+        // Hide the slider when the camera cannot zoom.
+        if (!state.isInitialized ||
+            !state.isRunning ||
+            !state.capabilities.zoom) {
           return const SizedBox.shrink();
         }
 
