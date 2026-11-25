@@ -117,6 +117,7 @@ Apple builds require validation on Xcode; see [implementation status](IMPLEMENTA
 | | returnImage | ✅ | ✅ | ✅ | ❌ |
 | | scanWindow | ✅ | ✅ | ✅ | ❌ |
 | **Camera Control** | autoZoom | ✅ | ❌ | ❌ | ❌ |
+| | manualZoom | ✅ | ✅ | ✅ | ❌ |
 | | lensType | ✅ | ✅ | ❌ | ❌ |
 | | manualFocus | ✅ | ❌ | ❌ | ❌ |
 | | initialZoom | ✅ | ✅ | ✅ | ❌ |
