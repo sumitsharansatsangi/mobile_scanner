@@ -83,7 +83,7 @@ constexpr Code11Symbol kCode11Symbols[] = {
 // BarcodeFormats. An empty/zero mask means "all supported formats".
 BarcodeFormats RawMaskToZxing(uint32_t mask) {
   if (mask == 0) {
-    return BarcodeFormat::Any;
+    return BarcodeFormats(BarcodeFormat::All);
   }
   // BarcodeFormat.itf2of5 (126) and itf2of5WithChecksum (127) are NOT
   // power-of-two flags: 126 == code39|code93|codabar|dataMatrix|ean13|ean8 and
@@ -93,46 +93,47 @@ BarcodeFormats RawMaskToZxing(uint32_t mask) {
   // indistinguishable from a combination of the real bit flags, so it falls
   // through to the bitwise handling below (zxing-cpp has a single ITF format).
   if (mask == 126u || mask == 127u) {
-    return BarcodeFormat::ITF;
+    return BarcodeFormats(BarcodeFormat::ITF);
   }
-  BarcodeFormats formats = BarcodeFormat::None;
-  if (mask & kRawCode128) formats |= BarcodeFormat::Code128;
-  if (mask & kRawGs1Code128) formats |= BarcodeFormat::Code128;
-  if (mask & kRawCode39) formats |= BarcodeFormat::Code39;
-  if (mask & kRawCode32) formats |= BarcodeFormat::Code39;
-  if (mask & kRawCode93) formats |= BarcodeFormat::Code93;
-  if (mask & kRawCodabar) formats |= BarcodeFormat::Codabar;
-  if (mask & kRawDataMatrix) formats |= BarcodeFormat::DataMatrix;
-  if (mask & kRawEan13) formats |= BarcodeFormat::EAN13;
-  if (mask & kRawEan8) formats |= BarcodeFormat::EAN8;
+  // zxing-cpp 3.x: BarcodeFormats is an immutable set built from a vector.
+  std::vector<BarcodeFormat> formats;
+  if (mask & kRawCode128) formats.push_back(BarcodeFormat::Code128);
+  if (mask & kRawGs1Code128) formats.push_back(BarcodeFormat::Code128);
+  if (mask & kRawCode39) formats.push_back(BarcodeFormat::Code39);
+  if (mask & kRawCode32) formats.push_back(BarcodeFormat::Code39);
+  if (mask & kRawCode93) formats.push_back(BarcodeFormat::Code93);
+  if (mask & kRawCodabar) formats.push_back(BarcodeFormat::Codabar);
+  if (mask & kRawDataMatrix) formats.push_back(BarcodeFormat::DataMatrix);
+  if (mask & kRawEan13) formats.push_back(BarcodeFormat::EAN13);
+  if (mask & kRawEan8) formats.push_back(BarcodeFormat::EAN8);
   // Dedicated ITF bit only (itf / itf14 == 128). Do NOT test 126/127 here:
   // those are handled above and their bits otherwise collide with the linear
   // formats, which previously made e.g. a plain EAN-13 request (mask 32) also
   // enable ITF and produce spurious reads.
-  if (mask & kRawItf) formats |= BarcodeFormat::ITF;
-  if (mask & kRawQr) formats |= BarcodeFormat::QRCode;
-  if (mask & kRawUpcA) formats |= BarcodeFormat::UPCA;
-  if (mask & kRawUpcE) formats |= BarcodeFormat::UPCE;
+  if (mask & kRawItf) formats.push_back(BarcodeFormat::ITF);
+  if (mask & kRawQr) formats.push_back(BarcodeFormat::QRCode);
+  if (mask & kRawUpcA) formats.push_back(BarcodeFormat::UPCA);
+  if (mask & kRawUpcE) formats.push_back(BarcodeFormat::UPCE);
   if (mask & kRawUpcEanExtension) {
-    formats |= BarcodeFormat::EAN13;
-    formats |= BarcodeFormat::EAN8;
-    formats |= BarcodeFormat::UPCA;
-    formats |= BarcodeFormat::UPCE;
+    formats.push_back(BarcodeFormat::EAN13);
+    formats.push_back(BarcodeFormat::EAN8);
+    formats.push_back(BarcodeFormat::UPCA);
+    formats.push_back(BarcodeFormat::UPCE);
   }
-  if (mask & kRawPdf417) formats |= BarcodeFormat::PDF417;
-  if (mask & kRawAztec) formats |= BarcodeFormat::Aztec;
-  if (mask & kRawDataBar) formats |= BarcodeFormat::DataBar;
-  if (mask & kRawDataBarExpanded) formats |= BarcodeFormat::DataBarExpanded;
-  if (mask & kRawMaxiCode) formats |= BarcodeFormat::MaxiCode;
+  if (mask & kRawPdf417) formats.push_back(BarcodeFormat::PDF417);
+  if (mask & kRawAztec) formats.push_back(BarcodeFormat::Aztec);
+  if (mask & kRawDataBar) formats.push_back(BarcodeFormat::DataBar);
+  if (mask & kRawDataBarExpanded) formats.push_back(BarcodeFormat::DataBarExp);
+  if (mask & kRawMaxiCode) formats.push_back(BarcodeFormat::MaxiCode);
 #ifdef ZXING_HAS_DOTCODE
-  if (mask & kRawDotCode) formats |= BarcodeFormat::DotCode;
+  if (mask & kRawDotCode) formats.push_back(BarcodeFormat::DotCode);
 #endif
   // If nothing matched (e.g. only unsupported formats requested), keep detection
   // disabled. Falling back to Any would violate the caller's format filter.
-  if (formats == BarcodeFormat::None) {
-    return BarcodeFormat::None;
+  if (formats.empty()) {
+    return BarcodeFormats(BarcodeFormat::None);
   }
-  return formats;
+  return BarcodeFormats(std::move(formats));
 }
 
 bool Code11Requested(uint32_t mask) {
@@ -204,20 +205,29 @@ int32_t ZxingToRaw(const Barcode& barcode) {
 
   switch (format) {
     case BarcodeFormat::Code128: return kRawCode128;
-    case BarcodeFormat::Code39: return kRawCode39;
+    case BarcodeFormat::Code39:
+    case BarcodeFormat::Code39Std:
+    case BarcodeFormat::Code39Ext: return kRawCode39;
+    case BarcodeFormat::Code32: return kRawCode32;
     case BarcodeFormat::Code93: return kRawCode93;
     case BarcodeFormat::Codabar: return kRawCodabar;
     case BarcodeFormat::DataMatrix: return kRawDataMatrix;
     case BarcodeFormat::EAN13: return kRawEan13;
     case BarcodeFormat::EAN8: return kRawEan8;
-    case BarcodeFormat::ITF: return kRawItf;
-    case BarcodeFormat::QRCode: return kRawQr;
+    case BarcodeFormat::ITF:
+    case BarcodeFormat::ITF14: return kRawItf;
+    case BarcodeFormat::QRCode:
+    case BarcodeFormat::QRCodeModel1:
+    case BarcodeFormat::QRCodeModel2: return kRawQr;
     case BarcodeFormat::UPCA: return kRawUpcA;
     case BarcodeFormat::UPCE: return kRawUpcE;
     case BarcodeFormat::PDF417: return kRawPdf417;
-    case BarcodeFormat::Aztec: return kRawAztec;
-    case BarcodeFormat::DataBar: return kRawDataBar;
-    case BarcodeFormat::DataBarExpanded: return kRawDataBarExpanded;
+    case BarcodeFormat::Aztec:
+    case BarcodeFormat::AztecCode:
+    case BarcodeFormat::AztecRune: return kRawAztec;
+    case BarcodeFormat::DataBar:
+    case BarcodeFormat::DataBarOmni: return kRawDataBar;
+    case BarcodeFormat::DataBarExp: return kRawDataBarExpanded;
     case BarcodeFormat::MaxiCode: return kRawMaxiCode;
 #ifdef ZXING_HAS_DOTCODE
     case BarcodeFormat::DotCode: return kRawDotCode;
@@ -1216,7 +1226,7 @@ MsZxingResultList* ms_zxing_decode(const MsZxingDecodeParams* params) {
       r.format = rawFormat;
       r.text = DupString(text);
 
-      const ByteArray& bytes = barcode.bytes();
+      const auto& bytes = barcode.bytes();
       if (code32Transformed) {
         auto* buf = static_cast<uint8_t*>(std::malloc(text.size()));
         if (buf != nullptr) {

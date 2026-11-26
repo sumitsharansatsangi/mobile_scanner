@@ -19,7 +19,7 @@ include(FetchContent)
 
 # Pin a known-good zxing-cpp release. Bump deliberately and re-test all
 # platforms; newer tags may change the ReaderOptions/Barcode API.
-set(ZXING_CPP_TAG "v2.3.0" CACHE STRING "zxing-cpp git tag to build against")
+set(ZXING_CPP_TAG "v3.2.0" CACHE STRING "zxing-cpp git tag to build against")
 
 # Build only the reader; skip writers, tests, examples to keep binaries small.
 set(ZXING_READERS ON CACHE BOOL "" FORCE)
