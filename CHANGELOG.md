@@ -6,6 +6,42 @@
   format selectors, rotation and inversion support.
 * Widened native format masks/results to 64 bits for postal format IDs. The v2
   decode ABI requires rebuilding native binaries with the updated bindings.
+## [1.1.0](https://github.com/sumitsharansatsangi/mobile_scanner/compare/v1.0.0...v1.1.0) (2026-11-26)
+
+
+### Features
+
+* add autoTorch option to turn the torch on in low light ([#1840](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1840)) ([c90745c](https://github.com/sumitsharansatsangi/mobile_scanner/commit/c90745c445f97d7e03060a9233163fd39a1fb467))
+
+
+### Bug Fixes
+
+* always release ImageProxy in the Android analyzer ([997502a](https://github.com/sumitsharansatsangi/mobile_scanner/commit/997502afa588d4ee6a497d4f50919e9a5628707c))
+* always release ImageProxy in the Android analyzer ([fa426c1](https://github.com/sumitsharansatsangi/mobile_scanner/commit/fa426c1d78b2aef001857e856de892a6f650fb4c))
+* Android preview orientation fix ([58c82e8](https://github.com/sumitsharansatsangi/mobile_scanner/commit/58c82e8549de6922f4ac855a6c91099005925428))
+* **android:** defer orientation sensor listener until camera start ([#1803](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1803)) ([f9c81ea](https://github.com/sumitsharansatsangi/mobile_scanner/commit/f9c81ea0b573d9146889fc70b599bf1f3920e35c))
+* **android:** fixed a crash when the scanner was stopped or disposed right after start ([#1817](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1817)) ([e102b51](https://github.com/sumitsharansatsangi/mobile_scanner/commit/e102b518bd326444b26cc068e438dde9ce9aad07))
+* **android:** opt in to experimental CameraX APIs so lintDebug passes ([#1852](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1852)) ([afc29ed](https://github.com/sumitsharansatsangi/mobile_scanner/commit/afc29ed8b6b304e41901abfb55babbb260b62747))
+* **android:** prevent crash when CameraX fails to initialize in start() ([e3afeba](https://github.com/sumitsharansatsangi/mobile_scanner/commit/e3afeba728897b9a508eb9a558b2aa54a8291d1b))
+* **android:** prevent host-app crash when CameraX fails to initialize in start() ([3d1c1f9](https://github.com/sumitsharansatsangi/mobile_scanner/commit/3d1c1f96cd2ab727c50c3f39e9e1ca7df50322d4))
+* **android:** reconcile upstream build and bitmap handling ([c76aeb0](https://github.com/sumitsharansatsangi/mobile_scanner/commit/c76aeb07b202b84738109d85b2722fafd42cfeb3))
+* **android:** remove false-positive KGP warning on AGP 9 ([678fd4a](https://github.com/sumitsharansatsangi/mobile_scanner/commit/678fd4a29fc6d1ee026a0dbb5412b85c32293de0))
+* **android:** remove false-positive KGP warning on AGP 9 ([ecbc7ab](https://github.com/sumitsharansatsangi/mobile_scanner/commit/ecbc7abc05862cd22bee9cb59211b859a6227fd6))
+* **android:** use plain spaces in ProGuard keep rules ([571c80a](https://github.com/sumitsharansatsangi/mobile_scanner/commit/571c80a938f84fcb6aabb5e24f0f8c70c814ce80))
+* **apple:** release the camera when the engine detaches the plugin ([c594d20](https://github.com/sumitsharansatsangi/mobile_scanner/commit/c594d20af00141d2d43267740b939873802d0d76))
+* **apple:** stop the camera before the engine is destroyed ([#1797](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1797)) ([9178d27](https://github.com/sumitsharansatsangi/mobile_scanner/commit/9178d27817c9e3b7a073864023701aaf5956a289))
+* **linux:** port ms_zxing to zxing-cpp 3.2.0 API ([adbe566](https://github.com/sumitsharansatsangi/mobile_scanner/commit/adbe56690b14d9bdb1d7908d0f13fdf160036630))
+* release the camera when a controller is disposed while starting ([#1818](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1818)) ([c04deba](https://github.com/sumitsharansatsangi/mobile_scanner/commit/c04deba311a0de95a292d9bc9957751880474e70))
+* serialize stop and pause with the camera session lock ([#1856](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1856)) ([c6107f7](https://github.com/sumitsharansatsangi/mobile_scanner/commit/c6107f77f4d0a38fb3c71907712a4c707d7898e7))
+* Start the AVCaptureSession on a user-initiated queue and release it when start fails ([#1830](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1830)) ([a549c4e](https://github.com/sumitsharansatsangi/mobile_scanner/commit/a549c4efe900d6c97ad0739a07cbada8e1261b3e))
+* stop barcode errors surfacing as uncaught errors on the torch and zoom streams ([#1833](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1833)) ([fdbde09](https://github.com/sumitsharansatsangi/mobile_scanner/commit/fdbde09df74431956039964017ea9fd8021421ed))
+* **web:** accept sequence&lt;boolean&gt; torch capability in interop bindings ([#1839](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1839)) ([63ec6a5](https://github.com/sumitsharansatsangi/mobile_scanner/commit/63ec6a5ab5bdbde2366bd80736ecad391ae4bda2))
+* **web:** play the camera preview inline and muted ([#1855](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1855)) ([676312e](https://github.com/sumitsharansatsangi/mobile_scanner/commit/676312ed7a89acdbc4d256ec0c198409474fc8c4))
+* **web:** release the camera when the scanner is stopped ([#1843](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1843)) ([0478bff](https://github.com/sumitsharansatsangi/mobile_scanner/commit/0478bffa74a78260f5086c75e4c68febcdb356b2))
+* **web:** remove no-op @JS annotations on extension type constructors ([a82ce11](https://github.com/sumitsharansatsangi/mobile_scanner/commit/a82ce119363be825213da51c58cfc1967bff37a4))
+* **web:** remove no-op @JS annotations on extension type constructors ([5cdeef0](https://github.com/sumitsharansatsangi/mobile_scanner/commit/5cdeef0b06ef0de19843a6e69c1527ebb223c192)), closes [#1773](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1773)
+* **web:** resume barcode detection after pause ([#1851](https://github.com/sumitsharansatsangi/mobile_scanner/issues/1851)) ([9b76ebe](https://github.com/sumitsharansatsangi/mobile_scanner/commit/9b76ebe8089b5fa9e11276527554f4ca134eb0d0))
+
 ## [7.5.0](https://github.com/juliansteenbakker/mobile_scanner/compare/v7.4.4...v7.5.0) (2026-11-01)
 
 
